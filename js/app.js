@@ -1,0 +1,104 @@
+"use strict";
+
+/* Navigation, event wiring and start-up. */
+
+const PAGES = ["builder","estimates","services","crm","settings"];
+
+function showPage(name){
+  if(!PAGES.includes(name)) name="builder";
+  PAGES.forEach(p=>{ $(`page-${p}`).hidden=p!==name; });
+  document.querySelectorAll("#mainNav [data-page]").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.page===name);
+    btn.setAttribute("aria-current",btn.dataset.page===name ? "page" : "false");
+  });
+  if(location.hash!=="#"+name) history.replaceState(null,"","#"+name);
+
+  if(name==="estimates") renderSavedEstimates();
+  else if(name==="services") renderServicesPage();
+  else if(name==="crm") renderCrmBoard();
+  else if(name==="settings") loadSettingsForm();
+  else if(name==="builder") updateBuilderMeta();
+  window.scrollTo(0,0);
+}
+
+function wireEvents(){
+  $("mainNav").addEventListener("click",e=>{
+    const btn=e.target.closest("[data-page]");
+    if(btn) showPage(btn.dataset.page);
+  });
+
+  // Estimate Builder
+  $("builderSections").addEventListener("click",handleBuilderClick);
+  $("builderSections").addEventListener("input",handleBuilderInput);
+  $("builderSections").addEventListener("change",handleBuilderInput);
+  ["estMarkup","estTaxRate"].forEach(id=>$(id).addEventListener("input",updateBuilderTotals));
+  $("builderMeta").addEventListener("click",e=>{
+    const btn=e.target.closest("[data-action]");
+    if(!btn) return;
+    if(btn.dataset.action==="open-crm" && BUILDER.crmProjectId){ showPage("crm"); openProjectModal(BUILDER.crmProjectId); }
+    if(btn.dataset.action==="create-crm" && BUILDER.id){
+      // The CRM project takes its estimate number and total from the saved estimate.
+      if(hasUnsavedChanges() && !saveEstimate()) return;
+      createOrOpenCrmFromEstimate(BUILDER.id);
+    }
+  });
+  $("btnSaveEstimate").addEventListener("click",saveEstimate);
+  $("btnPrint").addEventListener("click",printEstimate);
+  $("btnEmail").addEventListener("click",emailEstimate);
+  $("btnReset").addEventListener("click",resetBuilder);
+  $("customServiceForm").addEventListener("submit",e=>{ e.preventDefault(); submitCustomService(); });
+
+  // Saved Estimates
+  $("estimateSearch").addEventListener("input",renderSavedEstimates);
+  $("estimateStatusFilter").addEventListener("change",renderSavedEstimates);
+  $("estimatesBody").addEventListener("click",handleEstimatesAction);
+  $("estimatesBody").addEventListener("change",handleEstimatesAction);
+  $("btnNewEstimate").addEventListener("click",()=>{
+    if(!confirmDiscardChanges()) return;
+    newEstimate();
+    showPage("builder");
+  });
+
+  // Services
+  $("serviceSearch").addEventListener("input",renderServicesPage);
+  $("serviceCategoryFilter").addEventListener("change",renderServicesPage);
+  $("servicesBody").addEventListener("click",handleServicesAction);
+  $("btnAddService").addEventListener("click",()=>openServiceForm(null));
+  $("serviceForm").addEventListener("submit",e=>{ e.preventDefault(); submitServiceForm(); });
+
+  // CRM
+  $("crmSearch").addEventListener("input",renderCrmBoard);
+  $("crmBoard").addEventListener("click",handleCrmBoard);
+  $("crmBoard").addEventListener("change",handleCrmBoard);
+  $("btnNewLead").addEventListener("click",()=>openProjectModal(null));
+  $("projectForm").addEventListener("submit",e=>{ e.preventDefault(); saveProjectForm(); });
+  $("projectModal").addEventListener("click",handleProjectModalClick);
+  $("projectModal").addEventListener("change",handleProjectModalChange);
+  $("pmDelete").addEventListener("click",()=>{ if(EDITING_PROJECT_ID) deleteProject(EDITING_PROJECT_ID); });
+
+  // Settings
+  $("settingsForm").addEventListener("submit",e=>{ e.preventDefault(); saveSettings(); });
+  $("btnResetSettings").addEventListener("click",resetSettings);
+
+  // Modals: close buttons and Escape
+  document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("click",()=>closeModal(btn.dataset.close)));
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape") document.querySelectorAll(".modal.open").forEach(m=>closeModal(m.id));
+  });
+
+  window.addEventListener("hashchange",()=>showPage(location.hash.slice(1)));
+  window.addEventListener("beforeunload",e=>{
+    if(hasUnsavedChanges()){ e.preventDefault(); e.returnValue=""; }
+  });
+}
+
+function init(){
+  renderBrand();
+  loadServices(); // creates the default services on first run
+  renderBuilderSections();
+  wireEvents();
+  newEstimate();
+  showPage(location.hash.slice(1) || "builder");
+}
+
+init();
