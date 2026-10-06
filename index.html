@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Construction Estimator</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#6b7280;--line:#e5e7eb;--primary:#2563eb;--dark:#111827;--green:#059669}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Inter,Arial,sans-serif;color:var(--text)}
+.container{max-width:1250px;margin:auto;padding:28px 20px 50px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:24px}
+h1{margin:0 0 6px;font-size:30px}.sub{color:var(--muted)}
+.badge{background:#dbeafe;color:#1d4ed8;padding:8px 12px;border-radius:999px;font-weight:700}
+.grid{display:grid;grid-template-columns:390px 1fr;gap:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 5px 20px rgba(15,23,42,.05)}
+h2{font-size:18px;margin:0 0 16px}h3{font-size:15px;margin:20px 0 10px}
+label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}
+input,select{width:100%;padding:11px 12px;border:1px solid #d1d5db;border-radius:9px;font-size:14px;background:#fff}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:pointer}
+.primary{background:var(--primary);color:white;width:100%;margin-top:18px}.secondary{background:#eef2ff;color:#3730a3}.danger{background:#fee2e2;color:#b91c1c}
+.material{border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:12px}
+.material-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.material-name{font-weight:800}.small{font-size:12px;color:var(--muted)}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.metric{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:15px}
+.metric span{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.metric strong{font-size:20px}
+.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;font-size:13px}.table th,.table td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line)}.table th{color:var(--muted);font-size:12px}
+.total{font-size:28px;font-weight:900;color:var(--green)}
+.actions{display:flex;gap:8px;margin-top:15px}.actions button{flex:1}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}}
+@media(max-width:550px){.summary,.row{grid-template-columns:1fr}.header{display:block}.badge{display:inline-block;margin-top:12px}}
+@media print{
+  body{background:#fff}
+  .container{max-width:none;padding:0}
+  .card{box-shadow:none;border:0}
+  .grid .card:first-child,.actions,.badge{display:none!important}
+  .grid{display:block}
+  .summary{grid-template-columns:repeat(4,1fr)}
+  .card{padding:10px}
+}
+
+.modal{display:none;position:fixed;z-index:1000;inset:0;background:rgba(15,23,42,.55);padding:30px;overflow:auto}
+.modal-box{max-width:1000px;margin:auto;background:white;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+.settings-tabs{display:flex;gap:8px;margin:20px 0;border-bottom:1px solid var(--line);padding-bottom:10px}
+.tab{background:#f3f4f6;color:#374151}.tab.active{background:#dbeafe;color:#1d4ed8}
+.settings-toolbar{display:flex;gap:10px;margin-bottom:15px}.settings-toolbar select{max-width:220px}
+.setting-material{border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:12px}
+.settings-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+.settings-actions button{width:auto}
+
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div>
+      <h1>Construction Estimator</h1>
+      <div class="sub">Painting • Drywall • Stucco — material, labor, markup & profit</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="secondary" onclick="openSettings()">⚙ Settings</button>
+      <div class="badge">US / sq ft</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Client & Project</h2>
+
+      <div class="row">
+        <div>
+          <label for="clientName">Client Name</label>
+          <input id="clientName" type="text" placeholder="John Smith">
+        </div>
+        <div>
+          <label for="clientEmail">Client Email</label>
+          <input id="clientEmail" type="email" placeholder="client@email.com">
+        </div>
+      </div>
+
+      <label for="projectAddress">Project Address</label>
+      <input id="projectAddress" type="text" placeholder="123 Main St, Los Angeles, CA">
+
+      <div class="row">
+        <div>
+          <label for="estimateNumber">Estimate #</label>
+          <input id="estimateNumber" type="text">
+        </div>
+        <div>
+          <label for="estimateDate">Date</label>
+          <input id="estimateDate" type="date">
+        </div>
+      </div>
+
+      <h2 style="margin-top:24px">Project</h2>
+
+      <label for="projectType">Work type</label>
+      <select id="projectType" onchange="renderMaterials()">
+        <option value="painting">Painting</option>
+        <option value="drywall">Drywall</option>
+        <option value="stucco">Stucco</option>
+      </select>
+
+      <div class="row">
+        <div>
+          <label for="area">Area (sq ft)</label>
+          <input id="area" type="number" value="1000" min="0" step="1" oninput="calculate()">
+        </div>
+        <div>
+          <label for="coats">Coats</label>
+          <input id="coats" type="number" value="2" min="1" step="1" oninput="calculate()">
+        </div>
+      </div>
+
+      <h3>Labor & Pricing</h3>
+      <div class="row">
+        <div>
+          <label for="laborRate">Labor / sq ft ($)</label>
+          <input id="laborRate" type="number" value="1.50" min="0" step="0.01" oninput="calculate()">
+        </div>
+        <div>
+          <label for="markup">Markup (%)</label>
+          <input id="markup" type="number" value="25" min="0" step="1" oninput="calculate()">
+        </div>
+      </div>
+
+      <button class="primary" onclick="calculate()">Calculate Estimate</button>
+      <div class="actions">
+        <button class="secondary" onclick="printEstimate()">Download / Save PDF</button>
+        <button class="secondary" onclick="emailEstimate()">Email Client</button>
+        <button class="danger" onclick="resetProject()">Reset</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Material Database</h2>
+      <div id="materials"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px">
+    <h2>Estimate Summary</h2>
+    <div id="clientPreview" style="padding:12px;background:#f8fafc;border-radius:10px;margin-bottom:16px;color:#4b5563"></div>
+    <div class="summary">
+      <div class="metric"><span>Area</span><strong id="mArea">0 sq ft</strong></div>
+      <div class="metric"><span>Materials</span><strong id="mMaterials">$0.00</strong></div>
+      <div class="metric"><span>Labor</span><strong id="mLabor">$0.00</strong></div>
+      <div class="metric"><span>Customer Price</span><strong class="total" id="mTotal">$0.00</strong></div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Material</th><th>Required</th><th>Unit</th><th>Unit Price</th><th>Total</th></tr></thead>
+        <tbody id="estimateTable"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:20px;max-width:500px;margin-left:auto">
+      <div class="resultLine"><b>Material Cost</b><span id="rMaterial">$0.00</span></div>
+      <div class="resultLine"><b>Labor Cost</b><span id="rLabor">$0.00</span></div>
+      <div class="resultLine"><b>Direct Cost</b><span id="rDirect">$0.00</span></div>
+      <div class="resultLine"><b>Markup</b><span id="rMarkup">$0.00</span></div>
+      <div class="resultLine"><b>Sales Tax</b><span id="rTax">$0.00</span></div>
+      <div class="resultLine" style="font-size:20px"><b>Customer Price</b><span class="total" id="rTotal">$0.00</span></div>
+    </div>
+  </div>
+</div>
+
+<style>
+.resultLine{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
+</style>
+
+<script>
+const DEFAULT_DB = {
+  painting: [
+    {name:"Primer",unit:"gallon",coverage:300,price:35,waste:10,ignoreCoats:false},
+    {name:"Paint",unit:"gallon",coverage:350,price:45,waste:10,ignoreCoats:false},
+    {name:"Caulk",unit:"tube",coverage:100,price:8,waste:5,ignoreCoats:true},
+    {name:"Masking Tape",unit:"roll",coverage:400,price:9,waste:5,ignoreCoats:true}
+  ],
+  drywall: [
+    {name:"Drywall 4x8",unit:"sheet",coverage:32,price:16,waste:10,ignoreCoats:true},
+    {name:"Joint Compound",unit:"bucket",coverage:400,price:25,waste:10,ignoreCoats:true},
+    {name:"Drywall Tape",unit:"roll",coverage:500,price:7,waste:5,ignoreCoats:true},
+    {name:"Drywall Screws",unit:"box",coverage:500,price:12,waste:5,ignoreCoats:true}
+  ],
+  stucco: [
+    {name:"Stucco Base Coat",unit:"bag",coverage:100,price:25,waste:10,ignoreCoats:true},
+    {name:"Stucco Finish",unit:"bag",coverage:120,price:30,waste:10,ignoreCoats:true},
+    {name:"Lath",unit:"sheet",coverage:25,price:12,waste:10,ignoreCoats:true},
+    {name:"Primer",unit:"gallon",coverage:300,price:35,waste:10,ignoreCoats:false}
+  ]
+};
+
+const DEFAULT_SETTINGS = {
+  db: DEFAULT_DB,
+  laborRate: 1.50,
+  markup: 25,
+  salesTax: 0,
+  coats: 2,
+  companyName: "EverCraft Home Improvement",
+  companyEmail: "",
+  companyPhone: "",
+  companyAddress: "",
+  estimateFooter: "Thank you for choosing us."
+};
+
+let SETTINGS = loadSettings();
+let DB = SETTINGS.db;
+
+function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+function loadSettings(){
+  try{
+    const saved=localStorage.getItem("constructionEstimatorSettings");
+    if(saved){
+      const parsed=JSON.parse(saved);
+      return {
+        ...clone(DEFAULT_SETTINGS),
+        ...parsed,
+        db: parsed.db || clone(DEFAULT_DB)
+      };
+    }
+  }catch(e){}
+  return clone(DEFAULT_SETTINGS);
+}
+
+function persistSettings(){
+  SETTINGS.db=DB;
+  localStorage.setItem("constructionEstimatorSettings", JSON.stringify(SETTINGS));
+}
+
+
+
+function money(n){return "$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function renderMaterials(){
+  const type=document.getElementById("projectType").value;
+  document.getElementById("materials").innerHTML=DB[type].map((m,i)=>`
+    <div class="material">
+      <div class="material-head">
+        <div class="material-name">${m.name}</div>
+        <div class="small">${m.unit}</div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Coverage (sq ft / ${m.unit})</label>
+          <input id="coverage-${i}" type="number" value="${m.coverage}" min="1" oninput="calculate()">
+        </div>
+        <div>
+          <label>Price ($ / ${m.unit})</label>
+          <input id="price-${i}" type="number" value="${m.price}" min="0" step="0.01" oninput="calculate()">
+        </div>
+      </div>
+      <label>Waste (%)</label>
+      <input id="waste-${i}" type="number" value="${m.waste}" min="0" step="1" oninput="calculate()">
+      <div class="small" style="margin-top:10px">Required: <b id="qty-${i}">0</b> ${m.unit}</div>
+    </div>
+  `).join("");
+  calculate();
+}
+
+function calculate(){
+  const type=document.getElementById("projectType").value;
+  const area=Math.max(0,Number(document.getElementById("area").value)||0);
+  const coats=Math.max(1,Number(document.getElementById("coats").value)||1);
+  const laborRate=Math.max(0,Number(document.getElementById("laborRate").value)||0);
+  const markup=Math.max(0,Number(document.getElementById("markup").value)||0);
+
+  let materialCost=0;
+  const rows=[];
+
+  DB[type].forEach((m,i)=>{
+    const coverage=Number(document.getElementById(`coverage-${i}`).value)||m.coverage;
+    const price=Number(document.getElementById(`price-${i}`).value)||0;
+    const waste=Number(document.getElementById(`waste-${i}`).value)||0;
+    const effectiveArea=area*(m.ignoreCoats?1:coats);
+    const raw=(effectiveArea/coverage)*(1+waste/100);
+    const qty=Math.ceil(raw);
+    const total=qty*price;
+    materialCost+=total;
+    document.getElementById(`qty-${i}`).textContent=qty;
+    rows.push(`<tr><td>${m.name}</td><td>${qty}</td><td>${m.unit}</td><td>${money(price)}</td><td>${money(total)}</td></tr>`);
+  });
+
+  const labor=area*laborRate;
+  const direct=materialCost+labor;
+  const markupAmount=direct*(markup/100);
+  const subtotal=direct+markupAmount;
+  const taxAmount=subtotal*(SETTINGS.salesTax/100);
+  const customer=subtotal+taxAmount;
+
+  document.getElementById("mArea").textContent=area.toLocaleString()+" sq ft";
+  document.getElementById("mMaterials").textContent=money(materialCost);
+  document.getElementById("mLabor").textContent=money(labor);
+  document.getElementById("mTotal").textContent=money(customer);
+  document.getElementById("estimateTable").innerHTML=rows.join("");
+  document.getElementById("rMaterial").textContent=money(materialCost);
+  document.getElementById("rLabor").textContent=money(labor);
+  document.getElementById("rDirect").textContent=money(direct);
+  document.getElementById("rMarkup").textContent=money(markupAmount);
+  document.getElementById("rTax").textContent=money(taxAmount);
+  document.getElementById("rTotal").textContent=money(customer);
+  updateClientPreview();
+}
+
+function resetProject(){
+  document.getElementById("area").value=1000;
+  document.getElementById("coats").value=2;
+  document.getElementById("laborRate").value=1.50;
+  document.getElementById("markup").value=25;
+  document.getElementById("projectType").value="painting";
+  
+
+function openSettings(){
+  document.getElementById("settingsModal").style.display="block";
+  loadSettingsForm();
+}
+
+function closeSettings(){
+  document.getElementById("settingsModal").style.display="none";
+}
+
+function showSettingsTab(id,btn){
+  document.querySelectorAll(".settings-tab-content").forEach(x=>x.style.display="none");
+  document.getElementById(id).style.display="block";
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+function loadSettingsForm(){
+  document.getElementById("defaultLaborRate").value=SETTINGS.laborRate;
+  document.getElementById("defaultMarkup").value=SETTINGS.markup;
+  document.getElementById("salesTax").value=SETTINGS.salesTax;
+  document.getElementById("defaultCoats").value=SETTINGS.coats;
+  document.getElementById("companyName").value=SETTINGS.companyName;
+  document.getElementById("companyEmail").value=SETTINGS.companyEmail;
+  document.getElementById("companyPhone").value=SETTINGS.companyPhone;
+  document.getElementById("companyAddress").value=SETTINGS.companyAddress;
+  document.getElementById("estimateFooter").value=SETTINGS.estimateFooter;
+  renderSettingsMaterials();
+}
+
+function renderSettingsMaterials(){
+  const type=document.getElementById("settingsType").value;
+  const list=DB[type];
+  document.getElementById("settingsMaterials").innerHTML=list.map((m,i)=>`
+    <div class="setting-material">
+      <div class="row">
+        <div>
+          <label>Material Name</label>
+          <input value="${escapeHtml(m.name)}" onchange="updateMaterial(${i},'name',this.value)">
+        </div>
+        <div>
+          <label>Unit</label>
+          <input value="${escapeHtml(m.unit)}" onchange="updateMaterial(${i},'unit',this.value)">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Coverage (sq ft / unit)</label>
+          <input type="number" min="1" value="${m.coverage}" onchange="updateMaterial(${i},'coverage',this.value)">
+        </div>
+        <div>
+          <label>Price / unit ($)</label>
+          <input type="number" min="0" step="0.01" value="${m.price}" onchange="updateMaterial(${i},'price',this.value)">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Waste (%)</label>
+          <input type="number" min="0" step="1" value="${m.waste}" onchange="updateMaterial(${i},'waste',this.value)">
+        </div>
+        <div style="display:flex;align-items:end;gap:10px">
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <input style="width:auto" type="checkbox" ${m.ignoreCoats?'checked':''} onchange="updateMaterial(${i},'ignoreCoats',this.checked)">
+            Do not multiply by coats
+          </label>
+          <button class="danger" onclick="removeMaterial(${i})">Delete</button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+
+function updateMaterial(i,key,value){
+  const type=document.getElementById("settingsType").value;
+  if(["coverage","price","waste"].includes(key)) value=Number(value)||0;
+  DB[type][i][key]=value;
+  calculate();
+}
+
+function addMaterial(){
+  const type=document.getElementById("settingsType").value;
+  DB[type].push({name:"New Material",unit:"unit",coverage:100,price:0,waste:10,ignoreCoats:false});
+  renderSettingsMaterials();
+}
+
+function removeMaterial(i){
+  const type=document.getElementById("settingsType").value;
+  if(DB[type].length<=1){alert("Each work type needs at least one material.");return;}
+  DB[type].splice(i,1);
+  renderSettingsMaterials();
+  calculate();
+}
+
+function saveSettings(){
+  SETTINGS.laborRate=Number(document.getElementById("defaultLaborRate").value)||0;
+  SETTINGS.markup=Number(document.getElementById("defaultMarkup").value)||0;
+  SETTINGS.salesTax=Number(document.getElementById("salesTax").value)||0;
+  SETTINGS.coats=Math.max(1,Number(document.getElementById("defaultCoats").value)||1);
+  SETTINGS.companyName=document.getElementById("companyName").value.trim();
+  SETTINGS.companyEmail=document.getElementById("companyEmail").value.trim();
+  SETTINGS.companyPhone=document.getElementById("companyPhone").value.trim();
+  SETTINGS.companyAddress=document.getElementById("companyAddress").value.trim();
+  SETTINGS.estimateFooter=document.getElementById("estimateFooter").value.trim();
+  persistSettings();
+
+  document.getElementById("laborRate").value=SETTINGS.laborRate;
+  document.getElementById("markup").value=SETTINGS.markup;
+  document.getElementById("coats").value=SETTINGS.coats;
+
+  renderMaterials();
+  closeSettings();
+  alert("Settings saved.");
+}
+
+function resetSettings(){
+  if(!confirm("Reset all estimator settings and material prices to defaults?")) return;
+  SETTINGS=clone(DEFAULT_SETTINGS);
+  DB=SETTINGS.db;
+  persistSettings();
+  loadSettingsForm();
+  document.getElementById("laborRate").value=SETTINGS.laborRate;
+  document.getElementById("markup").value=SETTINGS.markup;
+  document.getElementById("coats").value=SETTINGS.coats;
+  renderMaterials();
+}
+
+
+function getEstimateData(){
+  const type=document.getElementById("projectType").value;
+  const area=Math.max(0,Number(document.getElementById("area").value)||0);
+  const coats=Math.max(1,Number(document.getElementById("coats").value)||1);
+  const laborRate=Math.max(0,Number(document.getElementById("laborRate").value)||0);
+  const markup=Math.max(0,Number(document.getElementById("markup").value)||0);
+
+  let materialCost=0;
+  const materials=[];
+
+  DB[type].forEach((m,i)=>{
+    const coverage=Number(document.getElementById(`coverage-${i}`).value)||m.coverage;
+    const price=Number(document.getElementById(`price-${i}`).value)||0;
+    const waste=Number(document.getElementById(`waste-${i}`).value)||0;
+    const effectiveArea=area*(m.ignoreCoats?1:coats);
+    const qty=Math.ceil((effectiveArea/coverage)*(1+waste/100));
+    const total=qty*price;
+    materialCost+=total;
+    materials.push({name:m.name,qty,unit:m.unit,price,total});
+  });
+
+  const labor=area*laborRate;
+  const direct=materialCost+labor;
+  const markupAmount=direct*(markup/100);
+  const subtotal=direct+markupAmount;
+  const taxAmount=subtotal*(SETTINGS.salesTax/100);
+  const customer=subtotal+taxAmount;
+
+  return {
+    clientName:document.getElementById("clientName").value.trim(),
+    clientEmail:document.getElementById("clientEmail").value.trim(),
+    address:document.getElementById("projectAddress").value.trim(),
+    estimateNumber:document.getElementById("estimateNumber").value.trim(),
+    date:document.getElementById("estimateDate").value,
+    type,area,coats,laborRate,markup,materials,materialCost,labor,direct,markupAmount,customer
+  };
+}
+
+function emailEstimate(){
+  const d=getEstimateData();
+
+  if(!d.clientEmail){
+    alert("Please enter the client's email address.");
+    document.getElementById("clientEmail").focus();
+    return;
+  }
+
+  const subject=`EverCraft Estimate ${d.estimateNumber || ""} - ${d.address || "Construction Project"}`;
+  const body=
+`Hello ${d.clientName || "there"},
+
+Please find your EverCraft construction estimate below.
+
+Estimate #: ${d.estimateNumber || "N/A"}
+Project: ${d.type.charAt(0).toUpperCase()+d.type.slice(1)}
+Address: ${d.address || "N/A"}
+Area: ${d.area.toLocaleString()} sq ft
+
+Materials: ${money(d.materialCost)}
+Labor: ${money(d.labor)}
+Markup: ${money(d.markupAmount)}
+Sales Tax: ${money(d.taxAmount)}
+
+TOTAL ESTIMATE: ${money(d.customer)}
+
+Please let us know if you have any questions.
+
+Best regards,
+${SETTINGS.companyName || "EverCraft Home Improvement"}
+${SETTINGS.companyPhone || ""}
+${SETTINGS.companyEmail || ""}`;
+
+  window.location.href =
+    "mailto:"+encodeURIComponent(d.clientEmail)+
+    "?subject="+encodeURIComponent(subject)+
+    "&body="+encodeURIComponent(body);
+}
+
+function printEstimate(){
+  const d=getEstimateData();
+  document.title=`EverCraft Estimate ${d.estimateNumber || ""}`;
+  window.print();
+}
+
+function updateClientPreview(){
+  const d=getEstimateData();
+  document.getElementById("clientPreview").innerHTML =
+    `<b>${d.clientName || "Client"}</b> · ${d.clientEmail || "No email"}<br>`+
+    `${d.address || "Project address not entered"} · Estimate #${d.estimateNumber || "N/A"}`;
+}
+
+const today=new Date();
+document.getElementById("estimateDate").value=today.toISOString().slice(0,10);
+document.getElementById("estimateNumber").value="EST-"+today.getFullYear()+"-"+String(Date.now()).slice(-5);
+document.getElementById("laborRate").value=SETTINGS.laborRate;
+document.getElementById("markup").value=SETTINGS.markup;
+document.getElementById("coats").value=SETTINGS.coats;
+renderMaterials();
+updateClientPreview();
+}
+
+renderMaterials();
+</script>
+
+<div id="settingsModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h2 style="margin:0">Estimator Settings</h2>
+        <div class="small">Manage materials, coverage, waste, labor and pricing variables.</div>
+      </div>
+      <button class="danger" onclick="closeSettings()">✕</button>
+    </div>
+
+    <div class="settings-tabs">
+      <button class="tab active" onclick="showSettingsTab('materialsTab',this)">Materials Database</button>
+      <button class="tab" onclick="showSettingsTab('laborTab',this)">Labor & Pricing</button>
+      <button class="tab" onclick="showSettingsTab('companyTab',this)">Company</button>
+    </div>
+
+    <div id="materialsTab" class="settings-tab-content">
+      <div class="settings-toolbar">
+        <select id="settingsType" onchange="renderSettingsMaterials()">
+          <option value="painting">Painting</option>
+          <option value="drywall">Drywall</option>
+          <option value="stucco">Stucco</option>
+        </select>
+        <button class="secondary" onclick="addMaterial()">+ Add Material</button>
+      </div>
+      <div id="settingsMaterials"></div>
+    </div>
+
+    <div id="laborTab" class="settings-tab-content" style="display:none">
+      <div class="row">
+        <div>
+          <label>Default Labor / sq ft ($)</label>
+          <input id="defaultLaborRate" type="number" min="0" step="0.01">
+        </div>
+        <div>
+          <label>Default Markup (%)</label>
+          <input id="defaultMarkup" type="number" min="0" step="1">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Sales Tax (%)</label>
+          <input id="salesTax" type="number" min="0" step="0.01">
+        </div>
+        <div>
+          <label>Default Coats</label>
+          <input id="defaultCoats" type="number" min="1" step="1">
+        </div>
+      </div>
+      <p class="small">These values become the defaults for new estimates. Material-specific coverage, price and waste are stored in the Materials Database.</p>
+    </div>
+
+    <div id="companyTab" class="settings-tab-content" style="display:none">
+      <label>Company Name</label>
+      <input id="companyName" type="text" placeholder="EverCraft Home Improvement">
+
+      <label>Company Email</label>
+      <input id="companyEmail" type="email">
+
+      <label>Company Phone</label>
+      <input id="companyPhone" type="text">
+
+      <label>Company Address</label>
+      <input id="companyAddress" type="text">
+
+      <label>Estimate Footer</label>
+      <input id="estimateFooter" type="text" placeholder="Thank you for choosing us.">
+    </div>
+
+    <div class="settings-actions">
+      <button class="secondary" onclick="resetSettings()">Reset Defaults</button>
+      <button class="primary" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
