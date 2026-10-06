@@ -34,7 +34,7 @@ button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:point
   body{background:#fff}
   .container{max-width:none;padding:0}
   .card{box-shadow:none;border:0}
-  .grid .card:first-child,.actions,.badge{display:none!important}
+  .grid .card:first-child,.actions,.badge,.header button,.status-badge{display:none!important}
   .grid{display:block}
   .summary{grid-template-columns:repeat(4,1fr)}
   .card{padding:10px}
@@ -50,6 +50,23 @@ button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:point
 .settings-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
 .settings-actions button{width:auto}
 
+.save-btn{background:var(--green);margin-top:8px}
+.status-badge{display:inline-block;vertical-align:middle;margin-left:8px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;text-transform:capitalize}
+.status-draft{background:#f3f4f6;color:#374151}
+.status-sent{background:#dbeafe;color:#1d4ed8}
+.status-completed{background:#d1fae5;color:#047857}
+.status-unsaved{background:#fef3c7;color:#92400e}
+.saved-toolbar{display:flex;gap:10px;margin:18px 0 15px;flex-wrap:wrap}
+.saved-toolbar input{flex:1;min-width:200px}.saved-toolbar select{max-width:180px}
+.saved-table td{vertical-align:top}
+.saved-table td:first-child,.saved-table td:nth-child(4){white-space:nowrap}
+button:disabled{opacity:.45;cursor:default}
+.saved-table select{padding:6px 8px;font-size:13px;width:auto}
+.saved-actions{display:flex;flex-wrap:wrap;gap:6px}
+.saved-actions button{padding:6px 9px;font-size:12px}
+.saved-empty{padding:30px;text-align:center;color:var(--muted)}
+.current-row{background:#eff6ff}
+
 </style>
 </head>
 <body>
@@ -60,6 +77,7 @@ button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:point
       <div class="sub">Painting • Drywall • Stucco — material, labor, markup & profit</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
+      <button class="secondary" onclick="openSavedEstimates()">📁 Saved Estimates</button>
       <button class="secondary" onclick="openSettings()">⚙ Settings</button>
       <div class="badge">US / sq ft</div>
     </div>
@@ -97,7 +115,7 @@ button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:point
       <h2 style="margin-top:24px">Project</h2>
 
       <label for="projectType">Work type</label>
-      <select id="projectType" onchange="renderMaterials()">
+      <select id="projectType" onchange="changeProjectType()">
         <option value="painting">Painting</option>
         <option value="drywall">Drywall</option>
         <option value="stucco">Stucco</option>
@@ -127,6 +145,7 @@ button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:point
       </div>
 
       <button class="primary" onclick="calculate()">Calculate Estimate</button>
+      <button class="primary save-btn" onclick="saveEstimate()">💾 Save Estimate</button>
       <div class="actions">
         <button class="secondary" onclick="printEstimate()">Download / Save PDF</button>
         <button class="secondary" onclick="emailEstimate()">Email Client</button>
@@ -136,12 +155,13 @@ button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:point
 
     <div class="card">
       <h2>Material Database</h2>
+      <div id="materialsNote" class="small" style="margin:-8px 0 12px"></div>
       <div id="materials"></div>
     </div>
   </div>
 
   <div class="card" style="margin-top:20px">
-    <h2>Estimate Summary</h2>
+    <h2>Estimate Summary <span id="currentEstimateBadge" class="status-badge status-unsaved">Not saved</span></h2>
     <div id="clientPreview" style="padding:12px;background:#f8fafc;border-radius:10px;margin-bottom:16px;color:#4b5563"></div>
     <div class="summary">
       <div class="metric"><span>Area</span><strong id="mArea">0 sq ft</strong></div>
@@ -172,6 +192,36 @@ button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:point
 .resultLine{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
 </style>
 
+
+<div id="savedModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <h2 style="margin:0">Saved Estimates</h2>
+        <div class="small">Stored in this browser. Open an estimate to edit it, then press Save Estimate.</div>
+      </div>
+      <button class="danger" onclick="closeSavedEstimates()">✕</button>
+    </div>
+
+    <div class="saved-toolbar">
+      <input id="savedSearch" type="search" placeholder="Search client, address or estimate #" oninput="renderSavedEstimates()">
+      <select id="savedStatusFilter" onchange="renderSavedEstimates()">
+        <option value="all">All statuses</option>
+        <option value="draft">Draft</option>
+        <option value="sent">Sent</option>
+        <option value="completed">Completed</option>
+      </select>
+    </div>
+
+    <div class="table-wrap">
+      <table class="table saved-table">
+        <thead><tr><th>Estimate #</th><th>Client</th><th>Address</th><th>Date</th><th>Status</th><th>Total</th><th>Updated</th><th>Actions</th></tr></thead>
+        <tbody id="savedEstimatesBody"></tbody>
+      </table>
+    </div>
+    <div id="savedEmpty" class="saved-empty" style="display:none"></div>
+  </div>
+</div>
 
 <div id="settingsModal" class="modal">
   <div class="modal-box">
@@ -393,7 +443,32 @@ function issueEstimateNumber(){
   }
 }
 
+// Advances the counter past any number already used by a saved estimate.
+function nextAvailableEstimateNumber(){
+  const used=new Set(loadSavedEstimates().map(e=>e.estimateNumber));
+  let changed=false;
+  while(used.has(formatEstimateNumber(SETTINGS.nextEstimateNumber))){
+    SETTINGS.nextEstimateNumber++;
+    changed=true;
+  }
+  if(changed) persistSettings();
+  return formatEstimateNumber(SETTINGS.nextEstimateNumber);
+}
+
 /* ---------- Calculation ---------- */
+
+// Material list used by the current estimate. null = use the Materials Database
+// from Settings. A saved estimate keeps its own list (prices at the time it was saved).
+let CURRENT_MATERIALS = null;
+
+function activeMaterials(type){
+  return CURRENT_MATERIALS || SETTINGS.db[type];
+}
+
+function changeProjectType(){
+  CURRENT_MATERIALS=null;
+  renderMaterials();
+}
 
 function readInputs(){
   const type=$("projectType").value;
@@ -403,7 +478,7 @@ function readInputs(){
     coats:Math.max(1,Math.floor(num($("coats").value,1))),
     laborRate:Math.max(0,num($("laborRate").value)),
     markup:Math.max(0,num($("markup").value)),
-    materials:SETTINGS.db[type].map((m,i)=>({
+    materials:activeMaterials(type).map((m,i)=>({
       name:m.name,
       unit:m.unit,
       ignoreCoats:m.ignoreCoats,
@@ -422,7 +497,7 @@ function computeEstimate(inp, settings){
     const qty=Math.ceil((effectiveArea/m.coverage)*(1+m.waste/100));
     const total=qty*m.price;
     materialCost+=total;
-    return {name:m.name,unit:m.unit,qty,price:m.price,total};
+    return {name:m.name,unit:m.unit,qty,price:m.price,total,coverage:m.coverage,waste:m.waste,ignoreCoats:m.ignoreCoats};
   });
 
   const labor=inp.area*inp.laborRate;
@@ -452,7 +527,10 @@ function getEstimateData(){
 
 function renderMaterials(){
   const type=$("projectType").value;
-  $("materials").innerHTML=SETTINGS.db[type].map((m,i)=>{
+  $("materialsNote").textContent=CURRENT_MATERIALS
+    ? "Using the material prices saved with this estimate."
+    : "";
+  $("materials").innerHTML=activeMaterials(type).map((m,i)=>{
     const unit=escapeHtml(m.unit);
     return `
     <div class="material">
@@ -519,15 +597,22 @@ function applyDefaultsToForm(){
 
 function startNewEstimate(){
   $("estimateDate").value=localISODate();
-  $("estimateNumber").value=formatEstimateNumber(SETTINGS.nextEstimateNumber);
+  $("estimateNumber").value=nextAvailableEstimateNumber();
 }
 
 function resetProject(){
+  window.currentEstimateId=null;
+  CURRENT_MATERIALS=null;
+  // Reset starts a new estimate, so client details must not carry over into it.
+  $("clientName").value="";
+  $("clientEmail").value="";
+  $("projectAddress").value="";
   $("area").value=1000;
   $("projectType").value="painting";
   applyDefaultsToForm();
   startNewEstimate();
   renderMaterials();
+  markClean();
 }
 
 /* ---------- Settings dialog ---------- */
@@ -717,6 +802,318 @@ function printEstimate(){
   document.title=originalTitle;
 }
 
+/* ---------- Saved estimates ---------- */
+
+const SAVED_KEY = "constructionEstimatorSavedEstimates";
+const STATUSES = ["draft","sent","completed"];
+
+window.currentEstimateId = null;
+// Snapshot of the form when it was last saved/opened, to warn about unsaved changes.
+let CLEAN_SNAPSHOT = "";
+
+function loadSavedEstimates(){
+  try{
+    const list=JSON.parse(localStorage.getItem(SAVED_KEY)||"[]");
+    return Array.isArray(list) ? list.filter(e=>e&&e.id) : [];
+  }catch(e){
+    return [];
+  }
+}
+
+function storeSavedEstimates(list){
+  try{
+    localStorage.setItem(SAVED_KEY, JSON.stringify(list));
+    return true;
+  }catch(e){
+    alert("Could not save estimates in this browser (storage may be full or blocked).");
+    return false;
+  }
+}
+
+function findSavedEstimate(id){
+  return loadSavedEstimates().find(e=>e.id===id) || null;
+}
+
+function newEstimateId(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "est-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);
+}
+
+function formSnapshot(){
+  return JSON.stringify(getEstimateData());
+}
+
+function markClean(){
+  CLEAN_SNAPSHOT=formSnapshot();
+  updateCurrentBadge();
+}
+
+function hasUnsavedChanges(){
+  const d=getEstimateData();
+  if(!window.currentEstimateId && !d.clientName && !d.address) return false;
+  return formSnapshot()!==CLEAN_SNAPSHOT;
+}
+
+function updateCurrentBadge(){
+  const badge=$("currentEstimateBadge");
+  const saved=window.currentEstimateId ? findSavedEstimate(window.currentEstimateId) : null;
+  const status=saved ? saved.status : "unsaved";
+  badge.className="status-badge status-"+status;
+  badge.textContent=saved ? status : "Not saved";
+}
+
+// Builds the stored record from getEstimateData() — no separate calculation.
+function buildEstimateRecord(d, existing){
+  const now=new Date().toISOString();
+  return {
+    id: existing ? existing.id : newEstimateId(),
+    estimateNumber: d.estimateNumber,
+    date: d.date,
+    clientName: d.clientName,
+    clientEmail: d.clientEmail,
+    address: d.address,
+    type: d.type,
+    area: d.area,
+    coats: d.coats,
+    laborRate: d.laborRate,
+    laborHours: d.laborHours ?? null, // the estimator prices labor per sq ft; kept for future hourly labor
+    markup: d.markup,
+    materials: d.materials,
+    materialCost: d.materialCost,
+    labor: d.labor,
+    direct: d.direct,
+    markupAmount: d.markupAmount,
+    taxAmount: d.taxAmount,
+    customer: d.customer,
+    status: existing ? existing.status : "draft",
+    createdAt: existing ? existing.createdAt : now,
+    updatedAt: now
+  };
+}
+
+function saveEstimate(){
+  const d=getEstimateData();
+  if(!d.clientName && !d.address){
+    alert("Please enter at least a Client Name or a Project Address before saving.");
+    $("clientName").focus();
+    return;
+  }
+  if(!d.estimateNumber){
+    $("estimateNumber").value=nextAvailableEstimateNumber();
+    return saveEstimate();
+  }
+
+  const list=loadSavedEstimates();
+  const index=window.currentEstimateId ? list.findIndex(e=>e.id===window.currentEstimateId) : -1;
+  const existing=index>=0 ? list[index] : null;
+
+  const duplicateNumber=list.find(e=>e.estimateNumber===d.estimateNumber && (!existing || e.id!==existing.id));
+  if(duplicateNumber && !confirm(`Estimate ${d.estimateNumber} is already used by another saved estimate. Save anyway?`)) return;
+
+  const record=buildEstimateRecord(d,existing);
+  if(existing) list[index]=record; else list.push(record);
+  if(!storeSavedEstimates(list)) return;
+
+  window.currentEstimateId=record.id;
+  // Keep this estimate's material list with it from now on.
+  CURRENT_MATERIALS=materialsForForm(record.materials);
+  issueEstimateNumber();
+  markClean();
+  if($("savedModal").style.display==="block") renderSavedEstimates();
+  alert(existing ? `Estimate ${record.estimateNumber} updated.` : `Estimate ${record.estimateNumber} saved.`);
+}
+
+function materialsForForm(materials){
+  return (materials||[]).map(sanitizeMaterial);
+}
+
+// Restores a saved estimate into the main estimator and makes it the current estimate.
+function loadEstimateIntoForm(est){
+  window.currentEstimateId=est.id;
+  $("clientName").value=est.clientName||"";
+  $("clientEmail").value=est.clientEmail||"";
+  $("projectAddress").value=est.address||"";
+  $("estimateNumber").value=est.estimateNumber||"";
+  $("estimateDate").value=est.date||"";
+  $("projectType").value=SETTINGS.db[est.type] ? est.type : "painting";
+  $("area").value=num(est.area);
+  $("coats").value=Math.max(1,num(est.coats,1));
+  $("laborRate").value=num(est.laborRate);
+  $("markup").value=num(est.markup);
+  CURRENT_MATERIALS=Array.isArray(est.materials)&&est.materials.length ? materialsForForm(est.materials) : null;
+
+  renderMaterials();
+  calculate();
+  updateClientPreview();
+  markClean();
+}
+
+function confirmDiscardChanges(targetId){
+  if(targetId && targetId===window.currentEstimateId && !hasUnsavedChanges()) return true;
+  if(!hasUnsavedChanges()) return true;
+  return confirm("The current estimate has unsaved changes. Discard them?");
+}
+
+function openSavedEstimate(id){
+  const est=findSavedEstimate(id);
+  if(!est) return;
+  if(!confirmDiscardChanges(id)) return;
+  loadEstimateIntoForm(est);
+  closeSavedEstimates();
+}
+
+function duplicateSavedEstimate(id){
+  const list=loadSavedEstimates();
+  const original=list.find(e=>e.id===id);
+  if(!original) return;
+
+  // If the form shows the auto-assigned number for a new estimate, it moves on too.
+  const formHadNextNumber=!window.currentEstimateId && $("estimateNumber").value.trim()===nextAvailableEstimateNumber();
+  const number=nextAvailableEstimateNumber();
+  SETTINGS.nextEstimateNumber++;
+  persistSettings();
+
+  const now=new Date().toISOString();
+  const copy={...clone(original),id:newEstimateId(),estimateNumber:number,status:"draft",createdAt:now,updatedAt:now};
+  list.push(copy);
+  if(!storeSavedEstimates(list)) return;
+
+  if(formHadNextNumber){
+    $("estimateNumber").value=nextAvailableEstimateNumber();
+    CLEAN_SNAPSHOT=formSnapshot();
+    updateClientPreview();
+  }
+  renderSavedEstimates();
+}
+
+function deleteSavedEstimate(id){
+  const est=findSavedEstimate(id);
+  if(!est) return;
+  if(!confirm(`Delete estimate ${est.estimateNumber || ""} for ${est.clientName || est.address || "this client"}? This cannot be undone.`)) return;
+  storeSavedEstimates(loadSavedEstimates().filter(e=>e.id!==id));
+  if(window.currentEstimateId===id){
+    window.currentEstimateId=null;
+    CLEAN_SNAPSHOT="";
+  }
+  updateCurrentBadge();
+  renderSavedEstimates();
+}
+
+function setEstimateStatus(id,status){
+  if(!STATUSES.includes(status)) return;
+  const list=loadSavedEstimates();
+  const est=list.find(e=>e.id===id);
+  if(!est) return;
+  est.status=status;
+  est.updatedAt=new Date().toISOString();
+  storeSavedEstimates(list);
+  updateCurrentBadge();
+  renderSavedEstimates();
+}
+
+// Print and Email reuse the existing printEstimate()/emailEstimate() on the loaded estimate.
+function printSavedEstimate(id){
+  const est=findSavedEstimate(id);
+  if(!est || !confirmDiscardChanges(id)) return;
+  loadEstimateIntoForm(est);
+  closeSavedEstimates();
+  printEstimate();
+}
+
+function emailSavedEstimate(id){
+  const est=findSavedEstimate(id);
+  if(!est || !confirmDiscardChanges(id)) return;
+  loadEstimateIntoForm(est);
+  closeSavedEstimates();
+  emailEstimate();
+}
+
+function openSavedEstimates(){
+  $("savedModal").style.display="block";
+  renderSavedEstimates();
+  $("savedSearch").focus();
+}
+
+function closeSavedEstimates(){
+  $("savedModal").style.display="none";
+}
+
+function formatDateTime(iso){
+  const d=new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});
+}
+
+function renderSavedEstimates(){
+  const all=loadSavedEstimates();
+  const query=$("savedSearch").value.trim().toLowerCase();
+  const status=$("savedStatusFilter").value;
+
+  const list=all
+    .filter(e=>status==="all" || e.status===status)
+    .filter(e=>!query || [e.clientName,e.address,e.estimateNumber].some(v=>String(v||"").toLowerCase().includes(query)))
+    .sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+
+  $("savedEstimatesBody").innerHTML=list.map(e=>{
+    const id=escapeHtml(e.id);
+    const st=STATUSES.includes(e.status) ? e.status : "draft";
+    return `
+    <tr data-id="${id}" class="${e.id===window.currentEstimateId?"current-row":""}">
+      <td><b>${escapeHtml(e.estimateNumber||"—")}</b></td>
+      <td>${escapeHtml(e.clientName||"—")}<div class="small">${escapeHtml(e.clientEmail||"")}</div></td>
+      <td>${escapeHtml(e.address||"—")}<div class="small">${escapeHtml(capitalize(String(e.type||"")))}</div></td>
+      <td>${escapeHtml(e.date||"")}</td>
+      <td>
+        <span class="status-badge status-${st}" style="margin:0 0 6px">${st}</span><br>
+        <select data-action="status" aria-label="Status">
+          ${STATUSES.map(s=>`<option value="${s}" ${s===st?"selected":""}>${capitalize(s)}</option>`).join("")}
+        </select>
+      </td>
+      <td><b>${money(e.customer)}</b></td>
+      <td class="small">${escapeHtml(formatDateTime(e.updatedAt))}</td>
+      <td>
+        <div class="saved-actions">
+          <button class="secondary" data-action="open">Open</button>
+          <button class="secondary" data-action="duplicate">Duplicate</button>
+          <button class="secondary" data-action="print">Print</button>
+          <button class="secondary" data-action="email">Email</button>
+          <button class="secondary" data-action="sent" ${st==="sent"?"disabled":""}>Mark Sent</button>
+          <button class="secondary" data-action="completed" ${st==="completed"?"disabled":""}>Mark Completed</button>
+          <button class="danger" data-action="delete">Delete</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  const empty=$("savedEmpty");
+  empty.style.display=list.length ? "none" : "block";
+  empty.textContent=all.length ? "No estimates match your search." : "No saved estimates yet. Fill in an estimate and press Save Estimate.";
+}
+
+function handleSavedEstimatesAction(event){
+  const el=event.target.closest("[data-action]");
+  if(!el) return;
+  const id=el.closest("tr")?.dataset.id;
+  if(!id) return;
+  const action=el.dataset.action;
+  if(action==="status"){
+    if(event.type==="change") setEstimateStatus(id,el.value);
+    return;
+  }
+  if(event.type!=="click") return;
+  ({
+    open:()=>openSavedEstimate(id),
+    duplicate:()=>duplicateSavedEstimate(id),
+    print:()=>printSavedEstimate(id),
+    email:()=>emailSavedEstimate(id),
+    sent:()=>setEstimateStatus(id,"sent"),
+    completed:()=>setEstimateStatus(id,"completed"),
+    delete:()=>deleteSavedEstimate(id)
+  })[action]?.();
+}
+
+$("savedEstimatesBody").addEventListener("click",handleSavedEstimatesAction);
+$("savedEstimatesBody").addEventListener("change",handleSavedEstimatesAction);
+
 /* ---------- Startup ---------- */
 
 document.querySelectorAll("#clientName,#clientEmail,#projectAddress,#estimateNumber,#estimateDate")
@@ -725,6 +1122,7 @@ document.querySelectorAll("#clientName,#clientEmail,#projectAddress,#estimateNum
 applyDefaultsToForm();
 startNewEstimate();
 renderMaterials();
+markClean();
 </script>
 
 </body>
