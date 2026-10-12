@@ -53,6 +53,13 @@ not duplicated. Imported estimates keep their totals (0% markup and tax). Settin
 saves all data (except photos) as a JSON file; Restore Backup loads it again.
 Excel files are read with SheetJS, loaded from cdnjs only when an .xlsx file is chosen.
 
+**Shared cloud data (Base44)**: when `js/config.js` has a Base44 app id, employees sign in
+with the ☁ button. Estimates, CRM projects, services, categories and company settings are then
+shared, with access enforced by Base44 (owner / admin / member). Changes sync near real time
+(realtime events + every 20 s), and conflicts never overwrite anyone's work. Setup and rules:
+[docs/BASE44_SETUP.md](docs/BASE44_SETUP.md). This branch points to the **development** app
+(fake data).
+
 ## Data
 
 Everything is stored in the browser's `localStorage`:
@@ -88,6 +95,7 @@ js/services.js      services database & Services page
 js/estimates.js     Estimate Builder, Saved Estimates, Print/PDF, Email
 js/crm.js           CRM pipeline and Estimate ↔ CRM links
 js/photos.js        CRM project photos (IndexedDB, resizing, gallery)
+js/cloud.js         shared cloud data: Base44 sign-in and sync (off without an app id)
 js/importer.js      CSV / Excel import, backup export & restore
 js/app.js           navigation and start-up
 ```

@@ -25,6 +25,13 @@ h3{font-size:13px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.04e
 .nav::-webkit-scrollbar{display:none}
 .nav button{background:transparent;color:#d1d5db;border:0;border-radius:8px;padding:9px 13px;font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
 .nav button:hover{background:#1f2937;color:#fff}
+.cloud-bar{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cloud-chip{background:#1f2937;color:#d1d5db;border:1px solid #374151;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.cloud-chip[data-state="synced"]{color:#86efac;border-color:#166534}
+.cloud-chip[data-state="signed_out"],.cloud-chip[data-state="no_access"]{color:#fde68a;border-color:#92400e}
+.cloud-chip[data-state="error"]{color:#fca5a5;border-color:#991b1b}
+.cloud-link{background:transparent;color:#9ca3af;border:0;font-size:12px;cursor:pointer;text-decoration:underline;padding:4px}
+.cloud-link:hover{color:#fff}
 .nav button.active{background:var(--primary);color:#fff}
 
 .container{max-width:1320px;margin:auto;padding:24px 20px 60px}
@@ -252,6 +259,7 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
   .topbar{position:static}
   .nav{flex-wrap:wrap}
   .nav button{padding:7px 10px;font-size:13px}
+  .cloud-bar{margin-left:0}
   .container{padding:18px 16px 50px}
   .page-head{flex-direction:column;align-items:stretch}
   .form-grid,.form-grid.two,.pm-grid,.settings-grid{grid-template-columns:1fr}

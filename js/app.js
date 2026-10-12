@@ -113,9 +113,11 @@ function init(){
   wireEvents();
   wirePhotoEvents();
   wireImportEvents();
+  wireCloudEvents();
   newEstimate();
   showPage(location.hash.slice(1) || "builder");
   cleanupOrphanPhotos();
+  initCloud(); // shared cloud data (only when configured)
 }
 
 init();
