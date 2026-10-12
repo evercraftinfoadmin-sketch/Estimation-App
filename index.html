@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.12">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.12c">
 </head>
 <body>
 
@@ -78,6 +78,7 @@
               </div>
               <button class="btn btn-danger-soft btn-block" id="btnReset">Reset</button>
             </div>
+            <p class="small terms-note">Terms &amp; Conditions are included in every PDF and email. <a href="#settings">Edit</a></p>
           </section>
         </aside>
       </div>
@@ -166,6 +167,7 @@
           <div class="field"><label for="setCompanyEmail">Company Email</label><input id="setCompanyEmail" type="email"></div>
           <div class="field"><label for="setCompanyPhone">Company Phone</label><input id="setCompanyPhone" type="tel"></div>
           <div class="field"><label for="setCompanyAddress">Company Address</label><input id="setCompanyAddress" type="text"></div>
+          <div class="field"><label for="setLicense">License Number</label><input id="setLicense" type="text" placeholder="#1133560"></div>
           <div class="field"><label for="setEstimateFooter">Estimate Footer</label><input id="setEstimateFooter" type="text" placeholder="Thank you for choosing us."></div>
         </section>
         <section class="card">
@@ -185,6 +187,19 @@
           <p class="small">Estimate numbers run EST-YEAR-1001, 1002, … and are never reused.</p>
           <div class="btn-row end">
             <button type="button" class="btn btn-light" id="btnResetSettings">Reset Defaults</button>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </div>
+        </section>
+        <section class="card terms-card">
+          <div class="categories-head">
+            <div>
+              <h2>Terms &amp; Conditions</h2>
+              <div class="small">Added to every estimate sent to a client: Print / PDF and Email.</div>
+            </div>
+            <button type="button" class="btn btn-light" id="btnDefaultTerms">Restore Default</button>
+          </div>
+          <textarea id="setTerms" rows="22" aria-label="Terms and Conditions"></textarea>
+          <div class="btn-row end">
             <button type="submit" class="btn btn-primary">Save Settings</button>
           </div>
         </section>
@@ -327,13 +342,13 @@
 <!-- Printable estimate (only visible when printing) -->
 <div id="printView" class="print-view"></div>
 
-<script src="js/core.js?v=2026.10.12"></script>
-<script src="js/calc.js?v=2026.10.12"></script>
-<script src="js/settings.js?v=2026.10.12"></script>
-<script src="js/categories.js?v=2026.10.12"></script>
-<script src="js/services.js?v=2026.10.12"></script>
-<script src="js/estimates.js?v=2026.10.12"></script>
-<script src="js/crm.js?v=2026.10.12"></script>
-<script src="js/app.js?v=2026.10.12"></script>
+<script src="js/core.js?v=2026.10.12c"></script>
+<script src="js/calc.js?v=2026.10.12c"></script>
+<script src="js/settings.js?v=2026.10.12c"></script>
+<script src="js/categories.js?v=2026.10.12c"></script>
+<script src="js/services.js?v=2026.10.12c"></script>
+<script src="js/estimates.js?v=2026.10.12c"></script>
+<script src="js/crm.js?v=2026.10.12c"></script>
+<script src="js/app.js?v=2026.10.12c"></script>
 </body>
 </html>

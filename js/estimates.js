@@ -681,7 +681,7 @@ function estimateCategories(d){
 }
 
 function renderPrintView(d){
-  const companyLine=[SETTINGS.companyAddress,SETTINGS.companyPhone,SETTINGS.companyEmail].filter(Boolean).map(escapeHtml).join(" · ");
+  const companyLine=companyContactParts().map(escapeHtml).join(" · ");
   const sections=estimateCategories(d).map(c=>{
     const lines=d.items.filter(it=>it.category===c.key);
     if(!lines.length) return "";
@@ -733,8 +733,22 @@ function renderPrintView(d){
         <tr><td>Sales Tax (${formatQty(d.taxRate)}%)</td><td class="num">${money(d.taxAmount)}</td></tr>
         <tr class="pv-grand"><td>TOTAL</td><td class="num">${money(d.grandTotal)}</td></tr>
       </table>
+      ${SETTINGS.terms.trim()?`
+      <section class="pv-terms">
+        <h3>TERMS AND CONDITIONS</h3>
+        <div class="pv-terms-text">${formatTermsHtml(SETTINGS.terms.trim())}</div>
+      </section>`:""}
       ${SETTINGS.estimateFooter?`<footer class="pv-footer">${escapeHtml(SETTINGS.estimateFooter)}</footer>`:""}
     </div>`;
+}
+
+// Terms are plain text. Headings ("PAYMENT SCHEDULE", "1. Deposit") are shown in bold.
+function formatTermsHtml(text){
+  return text.split("\n").map(line=>{
+    const t=line.trim();
+    const heading=/^\d+\.\s+\S.{0,48}$/.test(t) && !/[.:]$/.test(t) || (/^[A-Z][A-Z &/-]{3,}$/.test(t));
+    return heading ? `<b>${escapeHtml(line)}</b>` : escapeHtml(line);
+  }).join("\n");
 }
 
 function printEstimate(){
@@ -772,9 +786,10 @@ function buildEmailBody(d){
   lines.push(`Markup (${formatQty(d.markup)}%): ${money(d.markupAmount)}`);
   lines.push(`Sales Tax (${formatQty(d.taxRate)}%): ${money(d.taxAmount)}`);
   lines.push(`TOTAL: ${money(d.grandTotal)}`,"");
+  if(SETTINGS.terms.trim()) lines.push("TERMS AND CONDITIONS","",SETTINGS.terms.trim(),"");
   if(SETTINGS.estimateFooter) lines.push(SETTINGS.estimateFooter,"");
   lines.push("Please let us know if you have any questions.","","Best regards,");
-  lines.push(...[SETTINGS.companyName,SETTINGS.companyPhone,SETTINGS.companyEmail,SETTINGS.companyAddress].filter(Boolean));
+  lines.push(...[SETTINGS.companyName,...companyContactParts()]);
   return lines.join("\n");
 }
 

@@ -29,7 +29,8 @@ checklists (X / Y completed), and follow-ups. A project can create an estimate p
 client, and a saved estimate can create (or open) its single CRM project. The estimate stays the
 source of truth for pricing.
 
-**Settings**: company details, default markup, sales tax, what the tax applies to, and the next estimate #.
+**Settings**: company details (phone, email, license #), default markup, sales tax, what the tax applies to,
+the next estimate #, and the **Terms & Conditions** that are added to every estimate PDF and email.
 
 ## Data
 

@@ -83,6 +83,7 @@ function wireEvents(){
   // Settings
   $("settingsForm").addEventListener("submit",e=>{ e.preventDefault(); saveSettings(); });
   $("btnResetSettings").addEventListener("click",resetSettings);
+  $("btnDefaultTerms").addEventListener("click",restoreDefaultTerms);
 
   // Modals: close buttons and Escape
   document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("click",()=>closeModal(btn.dataset.close)));
