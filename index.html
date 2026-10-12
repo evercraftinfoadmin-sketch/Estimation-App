@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.13a">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.14a">
 </head>
 <body>
 
@@ -105,6 +105,7 @@
             <option value="rejected">Rejected</option>
             <option value="completed">Completed</option>
           </select>
+          <select id="estimateAddressFilter" aria-label="Address filter"><option value="all">All addresses</option></select>
         </div>
         <div class="table-wrap">
           <table class="table responsive-table">
@@ -160,6 +161,7 @@
       </div>
       <div class="toolbar">
         <input id="crmSearch" type="search" placeholder="Search client, phone, address or estimate #" aria-label="Search CRM">
+        <select id="crmAddressFilter" aria-label="Address filter"><option value="all">All addresses</option></select>
       </div>
       <div class="kanban" id="crmBoard"></div>
     </section>
@@ -196,6 +198,13 @@
             <button type="button" class="btn btn-light" id="btnResetSettings">Reset Defaults</button>
             <button type="submit" class="btn btn-primary">Save Settings</button>
           </div>
+        </section>
+        <section class="card terms-card">
+          <h2>Address Verification (Google Places)</h2>
+          <p class="small" style="margin-top:-8px">Client addresses are checked with Google Places suggestions. Use a <b>restricted browser key</b> (HTTP referrers + "Maps JavaScript API" and "Places API (New)" only). The key is stored only in this browser. Setup steps: docs/GOOGLE_MAPS_SETUP.md.</p>
+          <div class="field"><label for="setMapsKey">Google Maps API key</label><input id="setMapsKey" type="text" autocomplete="off" spellcheck="false" placeholder="YOUR_RESTRICTED_API_KEY"></div>
+          <p class="small" id="mapsKeyStatus"></p>
+          <div class="btn-row end"><button type="submit" class="btn btn-primary">Save Settings</button></div>
         </section>
         <section class="card terms-card">
           <h2>Import &amp; Backup</h2>
@@ -412,15 +421,17 @@
 <!-- Printable estimate (only visible when printing) -->
 <div id="printView" class="print-view"></div>
 
-<script src="js/core.js?v=2026.10.13a"></script>
-<script src="js/calc.js?v=2026.10.13a"></script>
-<script src="js/settings.js?v=2026.10.13a"></script>
-<script src="js/categories.js?v=2026.10.13a"></script>
-<script src="js/services.js?v=2026.10.13a"></script>
-<script src="js/photos.js?v=2026.10.13a"></script>
-<script src="js/estimates.js?v=2026.10.13a"></script>
-<script src="js/crm.js?v=2026.10.13a"></script>
-<script src="js/importer.js?v=2026.10.13a"></script>
-<script src="js/app.js?v=2026.10.13a"></script>
+<script src="js/config.js?v=2026.10.14a"></script>
+<script src="js/core.js?v=2026.10.14a"></script>
+<script src="js/calc.js?v=2026.10.14a"></script>
+<script src="js/settings.js?v=2026.10.14a"></script>
+<script src="js/address.js?v=2026.10.14a"></script>
+<script src="js/categories.js?v=2026.10.14a"></script>
+<script src="js/services.js?v=2026.10.14a"></script>
+<script src="js/photos.js?v=2026.10.14a"></script>
+<script src="js/estimates.js?v=2026.10.14a"></script>
+<script src="js/crm.js?v=2026.10.14a"></script>
+<script src="js/importer.js?v=2026.10.14a"></script>
+<script src="js/app.js?v=2026.10.14a"></script>
 </body>
 </html>

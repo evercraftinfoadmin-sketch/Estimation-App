@@ -21,7 +21,8 @@ function readBuilderInput(){
     clientName:$("clientName").value.trim(),
     clientEmail:$("clientEmail").value.trim(),
     clientPhone:$("clientPhone").value.trim(),
-    address:$("projectAddress").value.trim(),
+    address:BUILDER_ADDRESS.getData().address,
+    addressData:BUILDER_ADDRESS.getData(),
     items:BUILDER.items,
     markup:$("estMarkup").value,
     taxRate:$("estTaxRate").value,
@@ -329,7 +330,7 @@ function newEstimate(prefill={}){
   $("clientName").value=prefill.clientName||"";
   $("clientEmail").value=prefill.clientEmail||"";
   $("clientPhone").value=prefill.clientPhone||"";
-  $("projectAddress").value=prefill.address||"";
+  BUILDER_ADDRESS.setData(prefill.addressFields || {address:prefill.address||""});
   $("estimateNumber").value=nextAvailableEstimateNumber();
   $("estimateDate").value=localISODate();
   $("estMarkup").value=SETTINGS.markup;
@@ -363,7 +364,7 @@ function loadEstimateIntoBuilder(est){
   $("clientName").value=est.clientName;
   $("clientEmail").value=est.clientEmail;
   $("clientPhone").value=est.clientPhone;
-  $("projectAddress").value=est.address;
+  BUILDER_ADDRESS.setData(est);
   $("estimateNumber").value=est.estimateNumber;
   $("estimateDate").value=est.date;
   $("estMarkup").value=est.markup;
@@ -408,6 +409,7 @@ function normalizeEstimate(e){
     clientEmail:String(e.clientEmail ?? ""),
     clientPhone:String(e.clientPhone ?? ""),
     address:String(e.address ?? ""),
+    ...normalizeAddressFields(e),
     items,
     drywallTotal:round2(amount(e.drywallTotal)),
     stuccoTotal:round2(amount(e.stuccoTotal)),
@@ -462,6 +464,7 @@ function buildEstimateRecord(d, existing){
     clientName:d.clientName,
     clientEmail:d.clientEmail,
     clientPhone:d.clientPhone,
+    ...d.addressData,
     address:d.address,
     items:d.items.map(({id,category,serviceId,name,description,quantity,price,total})=>
       ({id,category,categoryName:builderCategoryLabel(category),serviceId,name,description,quantity,price,total})),
@@ -524,7 +527,10 @@ function saveEstimate(){
   BUILDER.taxMode=record.taxMode;
   BUILDER.crmProjectId=record.crmProjectId;
   issueEstimateNumber(record.estimateNumber);
-  if(record.crmProjectId) linkProjectToEstimate(record.crmProjectId,record);
+  if(record.crmProjectId){
+    const link=linkProjectToEstimate(record.crmProjectId,record);
+    if(link && link.addressBlocked) setTimeout(()=>showToast("The CRM project keeps its verified address. Verify this address to update both."),2700);
+  }
 
   markClean();
   renderSavedEstimates();
@@ -610,9 +616,12 @@ function renderSavedEstimates(){
   const query=$("estimateSearch").value.trim().toLowerCase();
   const status=$("estimateStatusFilter").value;
   const projects=loadProjects();
+  const addressFilter=$("estimateAddressFilter").value;
+  $("estimateAddressFilter").innerHTML=addressFilterOptions(all,addressFilter);
 
   const list=all
     .filter(e=>status==="all" || e.status===status)
+    .filter(e=>matchesAddressFilter(e,addressFilter))
     .filter(e=>!query || [e.clientName,e.address,e.estimateNumber,e.clientEmail,e.clientPhone].some(v=>v.toLowerCase().includes(query)))
     .sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
 
@@ -622,7 +631,7 @@ function renderSavedEstimates(){
     <tr data-id="${escapeHtml(e.id)}" class="${e.id===BUILDER.id?"row-current":""}">
       <td data-label="Estimate #" class="nowrap"><b>${escapeHtml(e.estimateNumber)}</b>${e.legacy?`<div class="small">old calculator</div>`:""}</td>
       <td data-label="Client">${escapeHtml(e.clientName||"—")}<div class="small">${escapeHtml([e.clientEmail,e.clientPhone].filter(Boolean).join(" · "))}</div></td>
-      <td data-label="Address">${escapeHtml(e.address||"—")}</td>
+      <td data-label="Address">${escapeHtml(e.address||"—")}<div>${addressBadgeHtml(e)}</div></td>
       <td data-label="Date" class="nowrap">${escapeHtml(formatDate(e.date))}</td>
       <td data-label="Status">
         <select data-action="status" aria-label="Status" class="status-select status-${e.status}">

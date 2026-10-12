@@ -44,6 +44,8 @@ const DEFAULT_SETTINGS = {
   companyPhone: "+1 818 913 4820",
   companyAddress: "",
   licenseNumber: "#1133560",
+  // Browser key for address verification; stored only in this browser (never in the code).
+  googleMapsApiKey: "",
   estimateFooter: "Thank you for choosing us.",
   terms: DEFAULT_TERMS
 };
@@ -65,7 +67,7 @@ function loadSettings(){
       if(!stored[key]) settings[key]=DEFAULT_SETTINGS[key];
     }
   }
-  for(const key of ["companyName","companyEmail","companyPhone","companyAddress","licenseNumber","estimateFooter","terms"]){
+  for(const key of ["companyName","companyEmail","companyPhone","companyAddress","licenseNumber","estimateFooter","terms","googleMapsApiKey"]){
     settings[key]=String(settings[key] ?? "");
   }
   return settings;
@@ -126,6 +128,8 @@ function loadSettingsForm(){
   $("setCompanyPhone").value=SETTINGS.companyPhone;
   $("setCompanyAddress").value=SETTINGS.companyAddress;
   $("setLicense").value=SETTINGS.licenseNumber;
+  $("setMapsKey").value=SETTINGS.googleMapsApiKey;
+  renderMapsKeyStatus();
   $("setEstimateFooter").value=SETTINGS.estimateFooter;
   $("setTerms").value=SETTINGS.terms;
   $("setMarkup").value=SETTINGS.markup;
@@ -140,6 +144,8 @@ function saveSettings(){
   SETTINGS.companyPhone=$("setCompanyPhone").value.trim();
   SETTINGS.companyAddress=$("setCompanyAddress").value.trim();
   SETTINGS.licenseNumber=$("setLicense").value.trim();
+  const oldMapsKey=SETTINGS.googleMapsApiKey;
+  SETTINGS.googleMapsApiKey=$("setMapsKey").value.trim();
   SETTINGS.estimateFooter=$("setEstimateFooter").value.trim();
   SETTINGS.terms=$("setTerms").value.replace(/\s+$/,"");
   SETTINGS.markup=amount($("setMarkup").value);
@@ -152,6 +158,7 @@ function saveSettings(){
 
   loadSettingsForm();
   renderBrand();
+  if(oldMapsKey!==SETTINGS.googleMapsApiKey) resetPlacesLoader();
   if(builderHadAutoNumber) $("estimateNumber").value=nextAvailableEstimateNumber();
   updateBuilderTotals();
   alert("Settings saved.");
@@ -181,6 +188,15 @@ function companyContactParts(){
     SETTINGS.companyEmail,
     SETTINGS.licenseNumber ? `License ${SETTINGS.licenseNumber}` : ""
   ].filter(Boolean);
+}
+
+function renderMapsKeyStatus(){
+  const el=$("mapsKeyStatus");
+  if(!el) return;
+  const loaded=!!(window.google && google.maps && google.maps.importLibrary);
+  el.textContent=configuredMapsKey()
+    ? (PLACES_UNAVAILABLE ? "Google rejected this key. Check the key restrictions, enabled APIs and billing." : "A key is set. Address suggestions are on.")
+    : loaded ? "Google Maps is already loaded on this page." : "No key: addresses can be typed but not verified.";
 }
 
 function renderBrand(){

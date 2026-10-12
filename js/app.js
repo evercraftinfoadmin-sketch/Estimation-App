@@ -54,6 +54,7 @@ function wireEvents(){
   // Saved Estimates
   $("estimateSearch").addEventListener("input",renderSavedEstimates);
   $("estimateStatusFilter").addEventListener("change",renderSavedEstimates);
+  $("estimateAddressFilter").addEventListener("change",renderSavedEstimates);
   $("estimatesBody").addEventListener("click",handleEstimatesAction);
   $("estimatesBody").addEventListener("change",handleEstimatesAction);
   $("btnNewEstimate").addEventListener("click",()=>{
@@ -73,6 +74,7 @@ function wireEvents(){
 
   // CRM
   $("crmSearch").addEventListener("input",renderCrmBoard);
+  $("crmAddressFilter").addEventListener("change",renderCrmBoard);
   $("crmBoard").addEventListener("click",handleCrmBoard);
   $("crmBoard").addEventListener("change",handleCrmBoard);
   $("btnNewLead").addEventListener("click",()=>openProjectModal(null));
@@ -98,7 +100,13 @@ function wireEvents(){
   });
 }
 
+// Address fields with Google Places verification (one controller per field).
+let BUILDER_ADDRESS = null;
+let PROJECT_ADDRESS = null;
+
 function init(){
+  BUILDER_ADDRESS=new AddressField($("projectAddress"));
+  PROJECT_ADDRESS=new AddressField($("pmAddress"));
   renderBrand();
   loadServices(); // creates the default services on first run
   loadCustomCategories(); // migrates the old fixed "Other Services" category if it was used

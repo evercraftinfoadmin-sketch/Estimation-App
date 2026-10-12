@@ -189,6 +189,31 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .photo-viewer-caption{color:#e5e7eb;margin-top:10px;font-size:14px;min-height:20px}
 .photo-viewer-close{position:absolute;top:-8px;right:-8px;background:#fff}
 
+/* ---------- Address verification ---------- */
+.addr-wrap{position:relative}
+.addr-suggestions{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(15,23,42,.15);overflow:hidden;max-height:300px;overflow-y:auto}
+.addr-option{padding:9px 12px;cursor:pointer;display:flex;flex-direction:column;gap:1px;border-bottom:1px solid #f1f5f9}
+.addr-option:last-child{border-bottom:0}
+.addr-option b{font-size:14px;font-weight:600}
+.addr-option span{font-size:12px;color:var(--muted)}
+.addr-option:hover,.addr-option.active{background:#eff6ff}
+.addr-empty{padding:10px 12px;font-size:13px;color:var(--muted)}
+.addr-status{margin-top:6px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.addr-status[data-state="verified"] .addr-message{color:#047857;font-weight:700}
+.addr-status[data-state="warning"] .addr-message{color:#92400e;font-weight:600}
+.addr-status[data-state="unavailable"] .addr-message{color:#6b7280}
+.addr-status[data-state="loading"] .addr-message{color:var(--primary-text)}
+.addr-detail{color:#374151}
+.addr-actions{display:flex;flex-wrap:wrap;gap:6px}
+.addr-actions:not(:has(button:not([hidden]))){display:none}
+.addr-badge{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;margin-top:3px;white-space:nowrap}
+.addr-verified{background:#d1fae5;color:#047857}
+.addr-unverified{background:#f3f4f6;color:#4b5563}
+.addr-needs_review,.addr-incomplete{background:#fef3c7;color:#92400e}
+.addr-missing{background:#fee2e2;color:#b91c1c}
+.kcard-address{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+.kcard-address .btn-link{font-size:12px}
+
 /* ---------- Import ---------- */
 .import-tips{padding-left:18px;margin:0 0 14px}
 .import-tips li{margin-bottom:4px}

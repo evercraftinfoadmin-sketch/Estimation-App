@@ -61,6 +61,7 @@ function normalizeProject(p){
     clientEmail:String(p.clientEmail ?? ""),
     clientPhone:String(p.clientPhone ?? ""),
     address:String(p.address ?? ""),
+    ...normalizeAddressFields(p),
     estimateId:p.estimateId || null,
     estimateNumber:String(p.estimateNumber ?? ""),
     estimateTotal:round2(amount(p.estimateTotal)),
@@ -136,10 +137,35 @@ function linkProjectToEstimate(projectId, est){
     clientName:p.clientName || est.clientName,
     clientEmail:p.clientEmail || est.clientEmail,
     clientPhone:p.clientPhone || est.clientPhone,
-    address:p.address || est.address,
     updatedAt:nowISO()
   });
-  return saveProjects(list);
+  // The address saved last is copied over (see addressSyncUpdate for the rule).
+  const addr=addressSyncUpdate(est,p);
+  const blocked=!!(addr && addr.blocked);
+  if(addr && !addr.blocked) Object.assign(p,addr);
+  return saveProjects(list) ? {saved:true,addressBlocked:blocked} : false;
+}
+
+// After a CRM project is saved: copy its address to the linked estimate (same rule).
+function syncAddressToEstimate(project){
+  if(!project || !project.estimateId) return;
+  const est=getEstimate(project.estimateId);
+  if(!est) return;
+  const addr=addressSyncUpdate(project,est);
+  if(!addr) return;
+  if(addr.blocked){
+    showToast("The linked estimate keeps its verified address. Verify this address to update both.");
+    return;
+  }
+  updateEstimate(est.id,{...addr,updatedAt:nowISO()});
+  if(BUILDER.id===est.id){
+    if(hasUnsavedChanges()){
+      showToast("Address saved. The estimate open in the builder has unsaved changes, so its address was not refreshed there.");
+    }else{
+      BUILDER_ADDRESS.setData(addr);
+      markClean();
+    }
+  }
 }
 
 function unlinkEstimateFromProjects(estimateId){
@@ -175,7 +201,7 @@ function createOrOpenCrmFromEstimate(estimateId){
       clientName:est.clientName,
       clientEmail:est.clientEmail,
       clientPhone:est.clientPhone,
-      address:est.address,
+      ...normalizeAddressFields(est),
       estimateId:est.id,
       estimateNumber:est.estimateNumber,
       estimateTotal:est.customerTotal,
@@ -214,6 +240,7 @@ function createEstimateFromProject(projectId){
     clientEmail:p.clientEmail,
     clientPhone:p.clientPhone,
     address:p.address,
+    addressFields:normalizeAddressFields(p),
     crmProjectId:p.id
   });
   showPage("builder");
@@ -375,6 +402,7 @@ function renderCard(p){
         </button>
       </div>
       ${p.address && p.clientName ? `<div class="kcard-line muted">${escapeHtml(p.address)}</div>` : ""}
+      <div class="kcard-address">${addressBadgeHtml(p)}${hasCoordinates(p)?`<button type="button" class="btn-link" data-action="map">Open in Google Maps</button>`:""}</div>
       ${estimateLine}
       ${photoBadge}
       ${body}
@@ -397,7 +425,11 @@ async function fillCrmPhotoCounts(){
 
 function renderCrmBoard(){
   const query=$("crmSearch").value.trim().toLowerCase();
-  const projects=loadProjects()
+  const all=loadProjects();
+  const addressFilter=$("crmAddressFilter").value;
+  $("crmAddressFilter").innerHTML=addressFilterOptions(all,addressFilter);
+  const projects=all
+    .filter(p=>matchesAddressFilter(p,addressFilter))
     .filter(p=>!query || [p.clientName,p.clientEmail,p.clientPhone,p.address,p.estimateNumber].some(v=>v.toLowerCase().includes(query)))
     .sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
 
@@ -427,6 +459,7 @@ function handleCrmBoard(event){
 
   ({
     open:()=>openProjectModal(id),
+    map:()=>openAddressMap(getProject(id)),
     photos:()=>{ openProjectModal(id); $("pmPhotos").scrollIntoView({block:"center"}); },
     edit:()=>openProjectModal(id,"pmClientName"),
     estimate:()=>createEstimateFromProject(id),
@@ -455,7 +488,7 @@ function openProjectModal(id, focusField){
   $("pmClientName").value=p.clientName;
   $("pmClientEmail").value=p.clientEmail;
   $("pmClientPhone").value=p.clientPhone;
-  $("pmAddress").value=p.address;
+  PROJECT_ADDRESS.setData(p);
   $("pmStage").value=p.stage;
   $("pmProspectStatus").value=p.prospectStatus;
   $("pmScheduledDate").value=p.scheduledDate;
@@ -495,7 +528,7 @@ function saveProjectForm(){
     clientName:$("pmClientName").value.trim(),
     clientEmail:$("pmClientEmail").value.trim(),
     clientPhone:$("pmClientPhone").value.trim(),
-    address:$("pmAddress").value.trim(),
+    ...PROJECT_ADDRESS.getData(),
     stage:$("pmStage").value,
     prospectStatus:$("pmProspectStatus").value,
     scheduledDate:$("pmScheduledDate").value,
@@ -513,13 +546,17 @@ function saveProjectForm(){
     return;
   }
 
+  let saved;
   if(EDITING_PROJECT_ID){
-    if(!updateProject(EDITING_PROJECT_ID,data)) return;
+    saved=updateProject(EDITING_PROJECT_ID,data);
+    if(!saved) return;
   }else{
+    saved=newProjectRecord(data);
     const list=loadProjects();
-    list.push(newProjectRecord(data));
+    list.push(saved);
     if(!saveProjects(list)) return;
   }
+  syncAddressToEstimate(saved);
   closeModal("projectModal");
   renderCrmBoard();
   updateBuilderMeta();

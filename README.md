@@ -33,6 +33,19 @@ source of truth for pricing.
 **Settings**: company details (phone, email, license #), default markup, sales tax, what the tax applies to,
 the next estimate #, and the **Terms & Conditions** that are added to every estimate PDF and email.
 
+**Address verification (Google Places)**: the client address fields in the Estimate Builder and
+the CRM project / new-lead window suggest real addresses as you type. Selecting a suggestion saves
+the standardized address, its parts (number, street, unit, city, state, ZIP, country), coordinates
+and Google place id, and marks it **Verified**. Typing in a verified address removes the verification
+until a suggestion is chosen again. Results without a street number can be confirmed as
+**Needs review**, and "Keep Entered Address" keeps your own text (also *Needs review*).
+Units (Apt 4B, Suite 200, #12) are kept, and nothing is invented. "Open in Google Maps" appears when
+coordinates exist. Address filters on Saved Estimates and CRM (Missing / Unverified / Needs review /
+Incomplete / Verified) find records to fix one by one; old records are never changed automatically.
+Linked estimates and CRM projects share the address saved last, but a verified address is never
+replaced by an unverified one. Setup: [docs/GOOGLE_MAPS_SETUP.md](docs/GOOGLE_MAPS_SETUP.md)
+(no key = addresses are simply typed and stay *Unverified*).
+
 **Import & Backup**: ⬆ Import (CRM, Saved Estimates, Settings) reads leads and estimates from a
 previous system as **Excel (.xlsx) or CSV**: columns are matched automatically and can be changed,
 rows with the same Estimate # become one estimate, and existing estimate numbers / CRM clients are
@@ -52,6 +65,11 @@ Everything is stored in the browser's `localStorage`:
 | `constructionEstimatorCRM` | CRM projects |
 | `constructionEstimatorCategories` | custom service categories |
 
+Estimates and CRM projects also store the structured address fields
+`addressStatus` (verified / unverified / needs_review), `addressStreetNumber`, `addressRoute`, `addressUnit`,
+`addressCity`, `addressState`, `addressPostalCode`, `addressCountry`, `addressLatitude`, `addressLongitude`,
+`addressPlaceId` and `addressLastVerifiedAt`. Older records with only `address` keep working (*Unverified*).
+
 CRM photos are stored in the browser's IndexedDB (database `constructionEstimatorPhotos`),
 resized to at most 1600 px as JPEG.
 
@@ -62,7 +80,9 @@ index.html          page layout (5 pages + modals + print template)
 css/styles.css      styles, responsive layout, print layout
 js/core.js          shared helpers (escaping, money, dates, storage, modals)
 js/calc.js          the single calculation engine
+js/config.js        deployment config (Google Maps key placeholder, address region)
 js/settings.js      settings + estimate numbering
+js/address.js       address verification (Google Places loader, autocomplete, status, data model)
 js/categories.js    main + custom service categories
 js/services.js      services database & Services page
 js/estimates.js     Estimate Builder, Saved Estimates, Print/PDF, Email
