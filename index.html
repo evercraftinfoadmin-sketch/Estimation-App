@@ -56,10 +56,7 @@
         <aside class="builder-side">
           <section class="card summary-card">
             <h2>Estimate Total</h2>
-            <div class="sum-row sum-cat"><span>Drywall</span><span id="sum-drywall">$0.00</span></div>
-            <div class="sum-row sum-cat"><span>Stucco</span><span id="sum-stucco">$0.00</span></div>
-            <div class="sum-row sum-cat"><span>Painting</span><span id="sum-painting">$0.00</span></div>
-            <div class="sum-row sum-cat"><span>Other Services</span><span id="sum-other">$0.00</span></div>
+            <div id="sumCategories"></div>
             <div class="sum-row sum-strong"><span>Subtotal</span><span id="sumSubtotal">$0.00</span></div>
             <div class="sum-row">
               <label for="estMarkup" class="sum-label">Markup <span class="pct-input"><input id="estMarkup" type="number" min="0" step="0.1" inputmode="decimal"> %</span></label>
@@ -119,15 +116,21 @@
         <div><h1>Services</h1><div class="page-sub">Your service list. Prices here are defaults; each estimate can use its own price.</div></div>
         <button class="btn btn-primary" id="btnAddService">+ Add Service</button>
       </div>
+      <section class="card categories-card">
+        <div class="categories-head">
+          <div>
+            <h2>Categories</h2>
+            <div class="small">Drywall, Stucco and Painting are the main categories. Add your own for any other work.</div>
+          </div>
+          <button class="btn btn-light" id="btnAddCategory">+ Add Category</button>
+        </div>
+        <div class="cat-chips" id="categoriesList"></div>
+      </section>
       <section class="card">
         <div class="toolbar">
           <input id="serviceSearch" type="search" placeholder="Search services" aria-label="Search services">
           <select id="serviceCategoryFilter" aria-label="Category filter">
             <option value="all">All categories</option>
-            <option value="drywall">Drywall</option>
-            <option value="stucco">Stucco</option>
-            <option value="painting">Painting</option>
-            <option value="other">Other Services</option>
           </select>
         </div>
         <div class="table-wrap">
@@ -197,7 +200,7 @@
     <div class="form-grid two">
       <div class="field"><label for="csPrice">Default Price ($)</label><input id="csPrice" type="number" min="0" step="0.01" inputmode="decimal"></div>
       <div class="field"><label for="csCategory">Category</label>
-        <select id="csCategory"><option value="drywall">Drywall</option><option value="stucco">Stucco</option><option value="painting">Painting</option><option value="other">Other Services</option></select>
+        <select id="csCategory"></select>
       </div>
     </div>
     <div class="field"><label for="csDescription">Description</label><textarea id="csDescription" rows="2"></textarea></div>
@@ -210,13 +213,27 @@
   </form>
 </div>
 
+<div id="categoryModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="categoryModalTitle">
+  <form class="modal-box modal-sm" id="categoryForm">
+    <div class="modal-head"><h2 id="categoryModalTitle">Add Category</h2><button type="button" class="btn-icon" data-close="categoryModal" aria-label="Close">✕</button></div>
+    <p class="small" style="margin-top:0">Add a section for work outside Drywall, Stucco and Painting.</p>
+    <div class="field" id="catExistingField"><label for="catExisting">Saved category</label><select id="catExisting"></select></div>
+    <div class="field" id="catNewField"><label for="catName">New category name</label><input id="catName" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Roofing, Flooring, Tile"></div>
+    <p class="small">New categories are saved to your list, so you can add services to them on the Services page.</p>
+    <div class="btn-row end">
+      <button type="button" class="btn btn-light" data-close="categoryModal">Cancel</button>
+      <button type="submit" class="btn btn-primary">Add Category</button>
+    </div>
+  </form>
+</div>
+
 <div id="serviceModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="serviceModalTitle">
   <form class="modal-box modal-sm" id="serviceForm">
     <div class="modal-head"><h2 id="serviceModalTitle">Add Service</h2><button type="button" class="btn-icon" data-close="serviceModal" aria-label="Close">✕</button></div>
     <div class="field"><label for="svcName">Service</label><input id="svcName" type="text" autocomplete="off"></div>
     <div class="form-grid two">
       <div class="field"><label for="svcCategory">Category</label>
-        <select id="svcCategory"><option value="drywall">Drywall</option><option value="stucco">Stucco</option><option value="painting">Painting</option><option value="other">Other Services</option></select>
+        <select id="svcCategory"></select>
       </div>
       <div class="field"><label for="svcPrice">Default Price ($)</label><input id="svcPrice" type="number" min="0" step="0.01" inputmode="decimal"></div>
     </div>
@@ -312,6 +329,7 @@
 <script src="js/core.js"></script>
 <script src="js/calc.js"></script>
 <script src="js/settings.js"></script>
+<script src="js/categories.js"></script>
 <script src="js/services.js"></script>
 <script src="js/estimates.js"></script>
 <script src="js/crm.js"></script>

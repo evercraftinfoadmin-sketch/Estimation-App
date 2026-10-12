@@ -4,7 +4,7 @@
    uses computeEstimateTotals(); nothing else does estimate math.
 
    line total   = quantity × price
-   subtotal     = drywall + stucco + painting + other services totals
+   subtotal     = sum of all category totals (Drywall, Stucco, Painting + custom categories)
    markupAmount = subtotal × markup% / 100
    taxAmount    = taxableAmount × taxRate / 100
                   (taxableAmount = subtotal + markup, or subtotal only — see Settings)
@@ -12,19 +12,19 @@
 */
 function computeEstimateTotals({items, markup, taxRate, taxMode}){
   const categoryTotals={};
-  CATEGORY_KEYS.forEach(k=>{ categoryTotals[k]=0; });
+  MAIN_CATEGORY_KEYS.forEach(k=>{ categoryTotals[k]=0; });
 
   const lines=(items||[])
-    .filter(it=>CATEGORY_KEYS.includes(it.category))
+    .filter(it=>it && it.category)
     .map(it=>{
       const quantity=amount(it.quantity);
       const price=amount(it.price);
       const total=round2(quantity*price);
-      categoryTotals[it.category]=round2(categoryTotals[it.category]+total);
+      categoryTotals[it.category]=round2((categoryTotals[it.category]||0)+total);
       return {...it,quantity,price,total};
     });
 
-  const subtotal=round2(CATEGORY_KEYS.reduce((sum,k)=>sum+categoryTotals[k],0));
+  const subtotal=round2(Object.values(categoryTotals).reduce((sum,v)=>sum+v,0));
   const markupPercent=amount(markup);
   const markupAmount=round2(subtotal*markupPercent/100);
   const rate=amount(taxRate);

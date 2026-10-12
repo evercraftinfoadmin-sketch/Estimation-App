@@ -47,6 +47,8 @@ function wireEvents(){
   $("btnEmail").addEventListener("click",emailEstimate);
   $("btnReset").addEventListener("click",resetBuilder);
   $("customServiceForm").addEventListener("submit",e=>{ e.preventDefault(); submitCustomService(); });
+  $("categoryForm").addEventListener("submit",e=>{ e.preventDefault(); submitAddCategory(); });
+  $("catExisting").addEventListener("change",()=>{ $("catNewField").hidden=!!$("catExisting").value; });
 
   // Saved Estimates
   $("estimateSearch").addEventListener("input",renderSavedEstimates);
@@ -64,6 +66,8 @@ function wireEvents(){
   $("serviceCategoryFilter").addEventListener("change",renderServicesPage);
   $("servicesBody").addEventListener("click",handleServicesAction);
   $("btnAddService").addEventListener("click",()=>openServiceForm(null));
+  $("btnAddCategory").addEventListener("click",addCategoryFromServicesPage);
+  $("categoriesList").addEventListener("click",handleCategoriesCard);
   $("serviceForm").addEventListener("submit",e=>{ e.preventDefault(); submitServiceForm(); });
 
   // CRM
@@ -95,7 +99,7 @@ function wireEvents(){
 function init(){
   renderBrand();
   loadServices(); // creates the default services on first run
-  renderBuilderSections();
+  loadCustomCategories(); // migrates the old fixed "Other Services" category if it was used
   wireEvents();
   newEstimate();
   showPage(location.hash.slice(1) || "builder");

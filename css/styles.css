@@ -95,6 +95,18 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .category-total,.sum-row span,.kcard-estimate{overflow-wrap:anywhere}
 .line-empty{color:var(--muted);font-size:13px;padding:12px 0;border-bottom:1px solid var(--line)}
 .category-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.category-head-right{display:flex;align-items:center;gap:12px}
+.category-custom{border-left:4px solid #93c5fd}
+.cat-tag{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:#eff6ff;color:var(--primary-text);border-radius:999px;padding:2px 8px;vertical-align:middle}
+.add-category{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:2px dashed #cbd5e1;border-radius:var(--radius);padding:14px 18px;background:#fbfcfe}
+.danger-link{color:var(--danger)!important}
+.categories-card{margin-bottom:16px}
+.categories-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.categories-head h2{margin-bottom:2px}
+.cat-chips{display:flex;flex-wrap:wrap;gap:8px}
+.cat-chip{display:inline-flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:700;font-size:13px}
+.cat-chip.cat-main{background:#eef2ff}
+.cat-chip .btn-link{font-size:12px}
 
 .summary-card h2{margin-bottom:10px}
 .sum-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}

@@ -6,8 +6,9 @@ Plain HTML, CSS and JavaScript, with no frameworks and no build step.
 
 ## Features
 
-**Estimate Builder**: client details plus the three main categories (Drywall, Stucco, Painting)
-and **Other Services** for anything else (demolition, cleanup, carpentry, …).
+**Estimate Builder**: client details plus the three main categories (Drywall, Stucco, Painting).
+**+ Add Category** adds your own categories (Roofing, Flooring, Tile, …) as extra sections;
+they are saved, can hold services, and are managed on the Services page.
 Each category holds unlimited line items: *Service, Quantity, Price, Total*.
 There are no units: line total = quantity × price.
 Totals: category totals, subtotal, markup, sales tax and grand total.
@@ -40,6 +41,7 @@ Everything is stored in the browser's `localStorage`:
 | `constructionEstimatorServices` | service list |
 | `constructionEstimatorSavedEstimates` | saved estimates |
 | `constructionEstimatorCRM` | CRM projects |
+| `constructionEstimatorCategories` | custom service categories |
 
 ## Structure
 
@@ -49,6 +51,7 @@ css/styles.css      styles, responsive layout, print layout
 js/core.js          shared helpers (escaping, money, dates, storage, modals)
 js/calc.js          the single calculation engine
 js/settings.js      settings + estimate numbering
+js/categories.js    main + custom service categories
 js/services.js      services database & Services page
 js/estimates.js     Estimate Builder, Saved Estimates, Print/PDF, Email
 js/crm.js           CRM pipeline and Estimate ↔ CRM links

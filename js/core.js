@@ -6,27 +6,23 @@ const STORAGE_KEYS = {
   settings: "constructionEstimatorSettings",
   services: "constructionEstimatorServices",
   estimates: "constructionEstimatorSavedEstimates",
-  crm: "constructionEstimatorCRM"
+  crm: "constructionEstimatorCRM",
+  categories: "constructionEstimatorCategories"
 };
 
-const CATEGORIES = [
+// The three main categories are fixed. Users add their own categories
+// (Roofing, Flooring, ...) — see js/categories.js.
+const MAIN_CATEGORIES = [
   {key:"drywall", label:"Drywall"},
   {key:"stucco", label:"Stucco"},
-  {key:"painting", label:"Painting"},
-  // Anything outside the three main trades (demolition, cleanup, carpentry, ...)
-  {key:"other", label:"Other Services"}
+  {key:"painting", label:"Painting"}
 ];
-const CATEGORY_KEYS = CATEGORIES.map(c=>c.key);
+const MAIN_CATEGORY_KEYS = MAIN_CATEGORIES.map(c=>c.key);
 
 // Upper bound for quantities and prices so totals can never overflow to Infinity.
 const MAX_AMOUNT = 1e9;
 
 function $(id){ return document.getElementById(id); }
-
-function categoryLabel(key){
-  const c=CATEGORIES.find(c=>c.key===key);
-  return c ? c.label : "";
-}
 
 function num(value, fallback=0){
   const n=Number(value);

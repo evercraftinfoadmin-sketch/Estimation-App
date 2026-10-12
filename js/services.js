@@ -5,17 +5,13 @@
 const DEFAULT_SERVICE_NAMES = {
   drywall: ["Drywall Repair","Drywall Installation","Drywall Replacement","Drywall Finishing","Drywall Patching","Drywall Sanding","Drywall Texture"],
   stucco: ["Stucco Repair","Stucco Installation","Stucco Patching","Stucco Crack Repair","Stucco Removal","Stucco Finish","Stucco Color Coat"],
-  painting: ["Interior Painting","Exterior Painting","Wall Painting","Ceiling Painting","Door Painting","Trim Painting","Cabinet Painting","Fence Painting"],
-  other: ["Demolition","Debris Removal / Cleanup","Pressure Washing","Wallpaper Removal","Popcorn Ceiling Removal","Caulking & Sealing","Baseboard Installation","Minor Carpentry Repair"]
+  painting: ["Interior Painting","Exterior Painting","Wall Painting","Ceiling Painting","Door Painting","Trim Painting","Cabinet Painting","Fence Painting"]
 };
 
-// Set once the "Other Services" defaults have been added to an existing service list.
-const OTHER_SERVICES_SEEDED_KEY = "constructionEstimatorServicesOtherSeeded";
-
-function defaultServices(categories=CATEGORY_KEYS){
+function defaultServices(){
   const now=nowISO();
   const list=[];
-  for(const category of categories){
+  for(const category of MAIN_CATEGORY_KEYS){
     for(const name of DEFAULT_SERVICE_NAMES[category]){
       list.push({id:uid("svc"),category,name,defaultPrice:0,description:"",active:true,createdAt:now,updatedAt:now});
     }
@@ -26,7 +22,7 @@ function defaultServices(categories=CATEGORY_KEYS){
 function normalizeService(s){
   return {
     id:String(s.id || uid("svc")),
-    category:CATEGORY_KEYS.includes(s.category) ? s.category : "drywall",
+    category:String(s.category || "drywall"),
     name:String(s.name ?? "").trim() || "Service",
     defaultPrice:round2(amount(s.defaultPrice)),
     description:String(s.description ?? ""),
@@ -42,17 +38,9 @@ function loadServices(){
   if(!Array.isArray(stored)){
     const seeded=defaultServices();
     writeStore(STORAGE_KEYS.services,seeded);
-    writeStore(OTHER_SERVICES_SEEDED_KEY,true);
     return seeded;
   }
-  const list=stored.filter(s=>s && typeof s==="object").map(normalizeService);
-  // Service lists created before "Other Services" existed get its defaults once.
-  if(!readStore(OTHER_SERVICES_SEEDED_KEY,false)){
-    if(!list.some(s=>s.category==="other")) list.push(...defaultServices(["other"]));
-    writeStore(STORAGE_KEYS.services,list);
-    writeStore(OTHER_SERVICES_SEEDED_KEY,true);
-  }
-  return list;
+  return stored.filter(s=>s && typeof s==="object").map(normalizeService);
 }
 
 function saveServices(list){
@@ -91,7 +79,17 @@ function createService({category,name,defaultPrice,description,active=true}){
 
 let EDITING_SERVICE_ID = null;
 
+function renderServiceCategoryFilter(){
+  const filter=$("serviceCategoryFilter");
+  const categories=allCategories();
+  const current=categories.some(c=>c.key===filter.value) ? filter.value : "all";
+  filter.innerHTML=`<option value="all">All categories</option>`+categoryOptionsHtml(current,categories);
+  filter.value=current;
+}
+
 function renderServicesPage(){
+  renderServiceCategoryFilter();
+  renderCategoriesCard();
   const query=$("serviceSearch").value.trim().toLowerCase();
   const category=$("serviceCategoryFilter").value;
   const all=loadServices();
@@ -125,7 +123,7 @@ function openServiceForm(id){
   EDITING_SERVICE_ID=s ? s.id : null;
   $("serviceModalTitle").textContent=s ? "Edit Service" : "Add Service";
   $("svcName").value=s ? s.name : "";
-  $("svcCategory").value=s ? s.category : ($("serviceCategoryFilter").value!=="all" ? $("serviceCategoryFilter").value : "drywall");
+  $("svcCategory").innerHTML=categoryOptionsHtml(s ? s.category : ($("serviceCategoryFilter").value!=="all" ? $("serviceCategoryFilter").value : "drywall"));
   $("svcPrice").value=s ? s.defaultPrice : "";
   $("svcDescription").value=s ? s.description : "";
   $("svcActive").checked=s ? s.active : true;

@@ -6,7 +6,9 @@ const ESTIMATE_STATUSES = ["draft","sent","accepted","rejected","completed"];
 
 // The estimate currently open in the builder. Client fields live in the form inputs;
 // line items live here and are rendered into the category sections.
-let BUILDER = {id:null, crmProjectId:null, status:null, taxMode:null, items:[]};
+// customCategories: ids of the custom categories shown in this estimate (in order);
+// categoryNames: names saved with the estimate, used if a category is later deleted.
+let BUILDER = {id:null, crmProjectId:null, status:null, taxMode:null, items:[], customCategories:[], categoryNames:{}};
 let CLEAN_SNAPSHOT = "";
 let CUSTOM_SERVICE_CATEGORY = "drywall";
 
@@ -23,7 +25,8 @@ function readBuilderInput(){
     items:BUILDER.items,
     markup:$("estMarkup").value,
     taxRate:$("estTaxRate").value,
-    taxMode:BUILDER.taxMode || SETTINGS.taxMode
+    taxMode:BUILDER.taxMode || SETTINGS.taxMode,
+    customCategories:BUILDER.customCategories.map(id=>({id,name:builderCategoryLabel(id)}))
   };
 }
 
@@ -56,22 +59,89 @@ function isBuilderAutoNumber(){
   return !BUILDER.id && $("estimateNumber").value.trim()===formatEstimateNumber(SETTINGS.nextEstimateNumber);
 }
 
+/* ---------- Categories in the builder ---------- */
+
+function builderCategoryLabel(key){
+  const item=BUILDER.items.find(it=>it.category===key && it.categoryName);
+  return categoryLabel(key, BUILDER.categoryNames[key] || (item && item.categoryName));
+}
+
+// Main categories always, then the custom categories added to this estimate.
+function builderCategories(){
+  return [
+    ...MAIN_CATEGORIES.map(c=>({...c,custom:false})),
+    ...BUILDER.customCategories.map(id=>({key:id,label:builderCategoryLabel(id),custom:true}))
+  ];
+}
+
+function ensureCategoryInBuilder(key){
+  if(!isMainCategory(key) && !BUILDER.customCategories.includes(key)) BUILDER.customCategories.push(key);
+}
+
+function openAddCategoryForm(){
+  const available=loadCustomCategories().filter(c=>!BUILDER.customCategories.includes(c.id));
+  $("catExisting").innerHTML=`<option value="">— Create a new category —</option>`+
+    available.map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join("");
+  $("catExistingField").hidden=!available.length;
+  $("catName").value="";
+  $("catNewField").hidden=false;
+  openModal("categoryModal");
+  (available.length ? $("catExisting") : $("catName")).focus();
+}
+
+function submitAddCategory(){
+  let id=$("catExisting").value;
+  if(!id){
+    const category=createCategory($("catName").value);
+    if(!category){ $("catName").focus(); return; }
+    id=category.id;
+    renderServicesPage();
+  }
+  ensureCategoryInBuilder(id);
+  closeModal("categoryModal");
+  renderBuilderItems();
+  showToast(`Category "${builderCategoryLabel(id)}" added to this estimate.`);
+  const section=document.querySelector(`.category-card[data-category="${CSS.escape(id)}"]`);
+  if(section){
+    section.scrollIntoView({behavior:"smooth",block:"center"});
+    section.querySelector('[data-action="add-service"]').focus({preventScroll:true});
+  }
+}
+
+function removeCategoryFromEstimate(key){
+  const count=BUILDER.items.filter(it=>it.category===key).length;
+  if(count && !confirm(`Remove "${builderCategoryLabel(key)}" and its ${count} service line(s) from this estimate? The category stays in your list.`)) return;
+  BUILDER.items=BUILDER.items.filter(it=>it.category!==key);
+  BUILDER.customCategories=BUILDER.customCategories.filter(id=>id!==key);
+  renderBuilderItems();
+}
+
 /* ---------- Builder rendering ---------- */
 
 function renderBuilderSections(){
-  $("builderSections").innerHTML=CATEGORIES.map(c=>`
-    <section class="card category-card" data-category="${c.key}">
+  $("builderSections").innerHTML=builderCategories().map(c=>{
+    const key=escapeHtml(c.key);
+    return `
+    <section class="card category-card ${c.custom?"category-custom":""}" data-category="${key}">
       <div class="category-head">
-        <h2>${c.label.toUpperCase()}</h2>
-        <div class="category-total" id="catTotal-${c.key}">$0.00</div>
+        <h2>${escapeHtml(c.label.toUpperCase())}${c.custom?` <span class="cat-tag">custom</span>`:""}</h2>
+        <div class="category-head-right">
+          <div class="category-total" id="catTotal-${key}">$0.00</div>
+          ${c.custom?`<button class="btn-link danger-link" data-action="remove-category" data-category="${key}">Remove</button>`:""}
+        </div>
       </div>
       <div class="line-head" aria-hidden="true"><span>Service</span><span>Quantity</span><span>Price</span><span>Total</span><span></span></div>
-      <div class="line-items" id="items-${c.key}"></div>
+      <div class="line-items" id="items-${key}"></div>
       <div class="category-actions">
-        <button class="btn btn-light" data-action="add-service" data-category="${c.key}">+ Add Service</button>
-        <button class="btn btn-ghost" data-action="custom-service" data-category="${c.key}">+ Custom Service</button>
+        <button class="btn btn-light" data-action="add-service" data-category="${key}">+ Add Service</button>
+        <button class="btn btn-ghost" data-action="custom-service" data-category="${key}">+ Custom Service</button>
       </div>
-    </section>`).join("");
+    </section>`;
+  }).join("")+`
+    <div class="add-category">
+      <button class="btn btn-light" data-action="add-category">+ Add Category</button>
+      <span class="small">For work outside Drywall, Stucco and Painting: Roofing, Flooring, Tile, …</span>
+    </div>`;
 }
 
 function serviceOptions(item){
@@ -86,8 +156,10 @@ function serviceOptions(item){
 }
 
 function renderCategoryItems(category){
+  const container=$(`items-${category}`);
+  if(!container) return;
   const items=BUILDER.items.filter(it=>it.category===category);
-  $(`items-${category}`).innerHTML=items.length ? items.map(it=>`
+  container.innerHTML=items.length ? items.map(it=>`
     <div class="line-item" data-item-id="${escapeHtml(it.id)}">
       <div class="li-service">
         <select data-field="service" aria-label="Service">${serviceOptions(it)}</select>
@@ -106,7 +178,8 @@ function renderCategoryItems(category){
 }
 
 function renderBuilderItems(){
-  CATEGORY_KEYS.forEach(renderCategoryItems);
+  renderBuilderSections();
+  builderCategories().forEach(c=>renderCategoryItems(c.key));
   updateBuilderTotals();
 }
 
@@ -116,10 +189,14 @@ function updateBuilderTotals(){
     const cell=document.querySelector(`.line-item[data-item-id="${CSS.escape(it.id)}"] [data-total]`);
     if(cell) cell.textContent=money(it.total);
   });
-  CATEGORY_KEYS.forEach(k=>{
-    $(`catTotal-${k}`).textContent=money(d.categoryTotals[k]);
-    $(`sum-${k}`).textContent=money(d.categoryTotals[k]);
+  const categories=builderCategories();
+  categories.forEach(c=>{
+    const cell=$(`catTotal-${c.key}`);
+    if(cell) cell.textContent=money(d.categoryTotals[c.key]);
   });
+  $("sumCategories").innerHTML=categories.map(c=>
+    `<div class="sum-row sum-cat"><span>${escapeHtml(c.label)}</span><span id="sum-${escapeHtml(c.key)}">${money(d.categoryTotals[c.key])}</span></div>`
+  ).join("");
   $("sumSubtotal").textContent=money(d.subtotal);
   $("sumMarkup").textContent=money(d.markupAmount);
   $("sumTaxNote").textContent=`on ${taxModeLabel(d.taxMode)}`;
@@ -165,6 +242,10 @@ function handleBuilderClick(event){
     document.querySelector(`.line-item[data-item-id="${CSS.escape(item.id)}"] select`)?.focus();
   }else if(action==="custom-service"){
     openCustomServiceForm(btn.dataset.category);
+  }else if(action==="add-category"){
+    openAddCategoryForm();
+  }else if(action==="remove-category"){
+    removeCategoryFromEstimate(btn.dataset.category);
   }else if(action==="delete-item"){
     const id=btn.closest(".line-item").dataset.itemId;
     const item=findItem(id);
@@ -208,7 +289,10 @@ function openCustomServiceForm(category){
   $("csName").value="";
   $("csPrice").value="";
   $("csDescription").value="";
-  $("csCategory").value=category;
+  // Main + all saved custom categories; a category deleted meanwhile stays selectable here.
+  const options=allCategories();
+  if(!options.some(c=>c.key===category)) options.push({key:category,label:builderCategoryLabel(category)});
+  $("csCategory").innerHTML=categoryOptionsHtml(category,options);
   $("csSave").checked=false;
   openModal("customServiceModal");
   $("csName").focus();
@@ -229,6 +313,9 @@ function submitCustomService(){
     renderServicesPage();
   }
   closeModal("customServiceModal");
+  const newSection=!isMainCategory(category) && !BUILDER.customCategories.includes(category);
+  ensureCategoryInBuilder(category);
+  if(newSection) renderBuilderItems();
   addLineItem(category,{serviceId,name,description,price:defaultPrice});
   // Other rows' dropdowns in this category should list a newly saved service.
   if(serviceId) renderBuilderItems();
@@ -238,7 +325,7 @@ function submitCustomService(){
 /* ---------- New / reset / open ---------- */
 
 function newEstimate(prefill={}){
-  BUILDER={id:null,crmProjectId:prefill.crmProjectId||null,status:null,taxMode:null,items:[]};
+  BUILDER={id:null,crmProjectId:prefill.crmProjectId||null,status:null,taxMode:null,items:[],customCategories:[],categoryNames:{}};
   $("clientName").value=prefill.clientName||"";
   $("clientEmail").value=prefill.clientEmail||"";
   $("clientPhone").value=prefill.clientPhone||"";
@@ -263,8 +350,16 @@ function loadEstimateIntoBuilder(est){
     crmProjectId:est.crmProjectId,
     status:est.status,
     taxMode:est.taxMode,
-    items:clone(est.items)
+    items:clone(est.items),
+    customCategories:[],
+    categoryNames:{}
   };
+  // Custom categories of this estimate: the saved list first, then any used by its lines.
+  est.customCategories.forEach(c=>{ ensureCategoryInBuilder(c.id); BUILDER.categoryNames[c.id]=c.name; });
+  est.items.forEach(it=>{
+    ensureCategoryInBuilder(it.category);
+    if(it.categoryName && !BUILDER.categoryNames[it.category]) BUILDER.categoryNames[it.category]=it.categoryName;
+  });
   $("clientName").value=est.clientName;
   $("clientEmail").value=est.clientEmail;
   $("clientPhone").value=est.clientPhone;
@@ -293,10 +388,11 @@ function openEstimate(id){
 function normalizeEstimate(e){
   const legacy=!Array.isArray(e.items);
   const items=(legacy ? [] : e.items)
-    .filter(it=>it && CATEGORY_KEYS.includes(it.category))
+    .filter(it=>it && it.category)
     .map(it=>({
       id:String(it.id || uid("li")),
-      category:it.category,
+      category:String(it.category),
+      categoryName:String(it.categoryName ?? ""),
       serviceId:it.serviceId || null,
       name:String(it.name ?? ""),
       description:String(it.description ?? ""),
@@ -317,6 +413,10 @@ function normalizeEstimate(e){
     stuccoTotal:round2(amount(e.stuccoTotal)),
     paintingTotal:round2(amount(e.paintingTotal)),
     otherTotal:round2(amount(e.otherTotal)),
+    customCategories:(Array.isArray(e.customCategories) ? e.customCategories : [])
+      .filter(c=>c && c.id && !isMainCategory(c.id))
+      .map(c=>({id:String(c.id),name:String(c.name ?? "")})),
+    categoryTotals:(e.categoryTotals && typeof e.categoryTotals==="object") ? e.categoryTotals : {},
     subtotal:round2(amount(e.subtotal)),
     markup:amount(e.markup),
     markupAmount:round2(amount(e.markupAmount)),
@@ -363,11 +463,15 @@ function buildEstimateRecord(d, existing){
     clientEmail:d.clientEmail,
     clientPhone:d.clientPhone,
     address:d.address,
-    items:d.items.map(({id,category,serviceId,name,description,quantity,price,total})=>({id,category,serviceId,name,description,quantity,price,total})),
+    items:d.items.map(({id,category,serviceId,name,description,quantity,price,total})=>
+      ({id,category,categoryName:builderCategoryLabel(category),serviceId,name,description,quantity,price,total})),
     drywallTotal:d.categoryTotals.drywall,
     stuccoTotal:d.categoryTotals.stucco,
     paintingTotal:d.categoryTotals.painting,
-    otherTotal:d.categoryTotals.other,
+    // Sum of all custom categories; per-category amounts are in categoryTotals.
+    otherTotal:round2(Object.keys(d.categoryTotals).filter(k=>!isMainCategory(k)).reduce((s,k)=>s+d.categoryTotals[k],0)),
+    customCategories:d.customCategories,
+    categoryTotals:d.categoryTotals,
     subtotal:d.subtotal,
     markup:d.markup,
     markupAmount:d.markupAmount,
@@ -567,14 +671,23 @@ function handleEstimatesAction(event){
 
 /* ---------- Print / PDF ---------- */
 
+// Categories of an estimate in display order: main ones, then its custom categories.
+function estimateCategories(d){
+  const list=MAIN_CATEGORIES.map(c=>({key:c.key,label:c.label}));
+  const add=(key,label)=>{ if(!list.some(c=>c.key===key)) list.push({key,label}); };
+  (d.customCategories||[]).forEach(c=>add(c.id,c.name));
+  d.items.forEach(it=>add(it.category,categoryLabel(it.category,it.categoryName)));
+  return list;
+}
+
 function renderPrintView(d){
   const companyLine=[SETTINGS.companyAddress,SETTINGS.companyPhone,SETTINGS.companyEmail].filter(Boolean).map(escapeHtml).join(" · ");
-  const sections=CATEGORIES.map(c=>{
+  const sections=estimateCategories(d).map(c=>{
     const lines=d.items.filter(it=>it.category===c.key);
     if(!lines.length) return "";
     return `
       <section class="pv-section">
-        <h3>${c.label.toUpperCase()}</h3>
+        <h3>${escapeHtml(c.label.toUpperCase())}</h3>
         <table class="pv-table">
           <thead><tr><th>Service</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Total</th></tr></thead>
           <tbody>${lines.map(it=>`
@@ -585,7 +698,7 @@ function renderPrintView(d){
               <td class="num">${money(it.total)}</td>
             </tr>`).join("")}
           </tbody>
-          <tfoot><tr><td colspan="3">${c.label} total</td><td class="num">${money(d.categoryTotals[c.key])}</td></tr></tfoot>
+          <tfoot><tr><td colspan="3">${escapeHtml(c.label)} total</td><td class="num">${money(d.categoryTotals[c.key])}</td></tr></tfoot>
         </table>
       </section>`;
   }).join("");
@@ -645,7 +758,7 @@ function buildEmailBody(d){
   lines.push(`Client: ${d.clientName || "N/A"}`);
   lines.push(`Project: ${d.address || "N/A"}`,"");
 
-  for(const c of CATEGORIES){
+  for(const c of estimateCategories(d)){
     const items=d.items.filter(it=>it.category===c.key);
     if(!items.length) continue;
     lines.push(c.label.toUpperCase());
