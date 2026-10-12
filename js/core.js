@@ -12,7 +12,9 @@ const STORAGE_KEYS = {
 const CATEGORIES = [
   {key:"drywall", label:"Drywall"},
   {key:"stucco", label:"Stucco"},
-  {key:"painting", label:"Painting"}
+  {key:"painting", label:"Painting"},
+  // Anything outside the three main trades (demolition, cleanup, carpentry, ...)
+  {key:"other", label:"Other Services"}
 ];
 const CATEGORY_KEYS = CATEGORIES.map(c=>c.key);
 

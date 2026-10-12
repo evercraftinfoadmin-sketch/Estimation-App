@@ -6,7 +6,8 @@ Plain HTML, CSS and JavaScript, with no frameworks and no build step.
 
 ## Features
 
-**Estimate Builder**: client details plus three categories (Drywall, Stucco, Painting).
+**Estimate Builder**: client details plus the three main categories (Drywall, Stucco, Painting)
+and **Other Services** for anything else (demolition, cleanup, carpentry, …).
 Each category holds unlimited line items: *Service, Quantity, Price, Total*.
 There are no units: line total = quantity × price.
 Totals: category totals, subtotal, markup, sales tax and grand total.

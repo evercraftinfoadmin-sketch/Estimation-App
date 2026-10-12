@@ -102,7 +102,7 @@ function renderCategoryItems(category){
       <div class="li-total"><span class="li-label">Total</span><b data-total>$0.00</b></div>
       <button class="btn-icon" data-action="delete-item" title="Delete service" aria-label="Delete service">✕</button>
     </div>`).join("")
-    : `<div class="line-empty">No ${categoryLabel(category).toLowerCase()} services yet.</div>`;
+    : `<div class="line-empty">No services added yet.</div>`;
 }
 
 function renderBuilderItems(){
@@ -316,6 +316,7 @@ function normalizeEstimate(e){
     drywallTotal:round2(amount(e.drywallTotal)),
     stuccoTotal:round2(amount(e.stuccoTotal)),
     paintingTotal:round2(amount(e.paintingTotal)),
+    otherTotal:round2(amount(e.otherTotal)),
     subtotal:round2(amount(e.subtotal)),
     markup:amount(e.markup),
     markupAmount:round2(amount(e.markupAmount)),
@@ -366,6 +367,7 @@ function buildEstimateRecord(d, existing){
     drywallTotal:d.categoryTotals.drywall,
     stuccoTotal:d.categoryTotals.stucco,
     paintingTotal:d.categoryTotals.painting,
+    otherTotal:d.categoryTotals.other,
     subtotal:d.subtotal,
     markup:d.markup,
     markupAmount:d.markupAmount,

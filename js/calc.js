@@ -4,7 +4,7 @@
    uses computeEstimateTotals(); nothing else does estimate math.
 
    line total   = quantity × price
-   subtotal     = drywall + stucco + painting totals
+   subtotal     = drywall + stucco + painting + other services totals
    markupAmount = subtotal × markup% / 100
    taxAmount    = taxableAmount × taxRate / 100
                   (taxableAmount = subtotal + markup, or subtotal only — see Settings)

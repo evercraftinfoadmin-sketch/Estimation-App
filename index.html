@@ -59,6 +59,7 @@
             <div class="sum-row sum-cat"><span>Drywall</span><span id="sum-drywall">$0.00</span></div>
             <div class="sum-row sum-cat"><span>Stucco</span><span id="sum-stucco">$0.00</span></div>
             <div class="sum-row sum-cat"><span>Painting</span><span id="sum-painting">$0.00</span></div>
+            <div class="sum-row sum-cat"><span>Other Services</span><span id="sum-other">$0.00</span></div>
             <div class="sum-row sum-strong"><span>Subtotal</span><span id="sumSubtotal">$0.00</span></div>
             <div class="sum-row">
               <label for="estMarkup" class="sum-label">Markup <span class="pct-input"><input id="estMarkup" type="number" min="0" step="0.1" inputmode="decimal"> %</span></label>
@@ -126,6 +127,7 @@
             <option value="drywall">Drywall</option>
             <option value="stucco">Stucco</option>
             <option value="painting">Painting</option>
+            <option value="other">Other Services</option>
           </select>
         </div>
         <div class="table-wrap">
@@ -195,7 +197,7 @@
     <div class="form-grid two">
       <div class="field"><label for="csPrice">Default Price ($)</label><input id="csPrice" type="number" min="0" step="0.01" inputmode="decimal"></div>
       <div class="field"><label for="csCategory">Category</label>
-        <select id="csCategory"><option value="drywall">Drywall</option><option value="stucco">Stucco</option><option value="painting">Painting</option></select>
+        <select id="csCategory"><option value="drywall">Drywall</option><option value="stucco">Stucco</option><option value="painting">Painting</option><option value="other">Other Services</option></select>
       </div>
     </div>
     <div class="field"><label for="csDescription">Description</label><textarea id="csDescription" rows="2"></textarea></div>
@@ -214,7 +216,7 @@
     <div class="field"><label for="svcName">Service</label><input id="svcName" type="text" autocomplete="off"></div>
     <div class="form-grid two">
       <div class="field"><label for="svcCategory">Category</label>
-        <select id="svcCategory"><option value="drywall">Drywall</option><option value="stucco">Stucco</option><option value="painting">Painting</option></select>
+        <select id="svcCategory"><option value="drywall">Drywall</option><option value="stucco">Stucco</option><option value="painting">Painting</option><option value="other">Other Services</option></select>
       </div>
       <div class="field"><label for="svcPrice">Default Price ($)</label><input id="svcPrice" type="number" min="0" step="0.01" inputmode="decimal"></div>
     </div>

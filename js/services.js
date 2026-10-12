@@ -5,13 +5,17 @@
 const DEFAULT_SERVICE_NAMES = {
   drywall: ["Drywall Repair","Drywall Installation","Drywall Replacement","Drywall Finishing","Drywall Patching","Drywall Sanding","Drywall Texture"],
   stucco: ["Stucco Repair","Stucco Installation","Stucco Patching","Stucco Crack Repair","Stucco Removal","Stucco Finish","Stucco Color Coat"],
-  painting: ["Interior Painting","Exterior Painting","Wall Painting","Ceiling Painting","Door Painting","Trim Painting","Cabinet Painting","Fence Painting"]
+  painting: ["Interior Painting","Exterior Painting","Wall Painting","Ceiling Painting","Door Painting","Trim Painting","Cabinet Painting","Fence Painting"],
+  other: ["Demolition","Debris Removal / Cleanup","Pressure Washing","Wallpaper Removal","Popcorn Ceiling Removal","Caulking & Sealing","Baseboard Installation","Minor Carpentry Repair"]
 };
 
-function defaultServices(){
+// Set once the "Other Services" defaults have been added to an existing service list.
+const OTHER_SERVICES_SEEDED_KEY = "constructionEstimatorServicesOtherSeeded";
+
+function defaultServices(categories=CATEGORY_KEYS){
   const now=nowISO();
   const list=[];
-  for(const category of CATEGORY_KEYS){
+  for(const category of categories){
     for(const name of DEFAULT_SERVICE_NAMES[category]){
       list.push({id:uid("svc"),category,name,defaultPrice:0,description:"",active:true,createdAt:now,updatedAt:now});
     }
@@ -38,9 +42,17 @@ function loadServices(){
   if(!Array.isArray(stored)){
     const seeded=defaultServices();
     writeStore(STORAGE_KEYS.services,seeded);
+    writeStore(OTHER_SERVICES_SEEDED_KEY,true);
     return seeded;
   }
-  return stored.filter(s=>s && typeof s==="object").map(normalizeService);
+  const list=stored.filter(s=>s && typeof s==="object").map(normalizeService);
+  // Service lists created before "Other Services" existed get its defaults once.
+  if(!readStore(OTHER_SERVICES_SEEDED_KEY,false)){
+    if(!list.some(s=>s.category==="other")) list.push(...defaultServices(["other"]));
+    writeStore(STORAGE_KEYS.services,list);
+    writeStore(OTHER_SERVICES_SEEDED_KEY,true);
+  }
+  return list;
 }
 
 function saveServices(list){
