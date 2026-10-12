@@ -189,6 +189,20 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .photo-viewer-caption{color:#e5e7eb;margin-top:10px;font-size:14px;min-height:20px}
 .photo-viewer-close{position:absolute;top:-8px;right:-8px;background:#fff}
 
+/* ---------- Import ---------- */
+.import-tips{padding-left:18px;margin:0 0 14px}
+.import-tips li{margin-bottom:4px}
+.file-btn{display:inline-block;margin:0 6px 0 0;cursor:pointer;color:#fff}
+.import-error{color:var(--danger);font-weight:600;min-height:20px}
+.map-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px 12px;margin-bottom:10px}
+.map-field{margin:0}
+.map-field span{display:block;font-size:12px;font-weight:700;margin-bottom:4px}
+.map-field select{padding:7px 9px;font-size:13px}
+.imp-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.imp-chip{background:#ecfdf5;color:#047857;border-radius:999px;padding:4px 12px;font-weight:700;font-size:13px}
+.imp-chip.imp-skip{background:#fef3c7;color:#92400e}
+.import-preview{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+
 /* ---------- Settings ---------- */
 .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
 .terms-card{grid-column:1/-1}

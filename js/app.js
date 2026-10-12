@@ -104,6 +104,7 @@ function init(){
   loadCustomCategories(); // migrates the old fixed "Other Services" category if it was used
   wireEvents();
   wirePhotoEvents();
+  wireImportEvents();
   newEstimate();
   showPage(location.hash.slice(1) || "builder");
   cleanupOrphanPhotos();

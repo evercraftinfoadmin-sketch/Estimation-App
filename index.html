@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.12f">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.13a">
 </head>
 <body>
 
@@ -89,7 +89,10 @@
     <section id="page-estimates" class="page" hidden>
       <div class="page-head">
         <div><h1>Saved Estimates</h1><div class="page-sub">Stored in this browser.</div></div>
-        <button class="btn btn-primary" id="btnNewEstimate">+ New Estimate</button>
+        <div class="btn-row">
+          <button class="btn btn-light" id="btnImportEstimates">⬆ Import</button>
+          <button class="btn btn-primary" id="btnNewEstimate">+ New Estimate</button>
+        </div>
       </div>
       <section class="card">
         <div class="toolbar">
@@ -150,7 +153,10 @@
     <section id="page-crm" class="page" hidden>
       <div class="page-head">
         <div><h1>CRM</h1><div class="page-sub">Leads → Prospects → Client / Job → Start the Project → Project Completed → Follow-up</div></div>
-        <button class="btn btn-primary" id="btnNewLead">+ New Lead</button>
+        <div class="btn-row">
+          <button class="btn btn-light" id="btnImportCrm">⬆ Import</button>
+          <button class="btn btn-primary" id="btnNewLead">+ New Lead</button>
+        </div>
       </div>
       <div class="toolbar">
         <input id="crmSearch" type="search" placeholder="Search client, phone, address or estimate #" aria-label="Search CRM">
@@ -189,6 +195,16 @@
           <div class="btn-row end">
             <button type="button" class="btn btn-light" id="btnResetSettings">Reset Defaults</button>
             <button type="submit" class="btn btn-primary">Save Settings</button>
+          </div>
+        </section>
+        <section class="card terms-card">
+          <h2>Import &amp; Backup</h2>
+          <p class="small" style="margin-top:-8px">Bring in leads and estimates from your previous system (Excel or CSV). Your data lives only in this browser, so download a backup regularly.</p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary" id="btnImportSettings">⬆ Import Leads / Estimates</button>
+            <button type="button" class="btn btn-light" id="btnImportTemplate">Download Import Template</button>
+            <button type="button" class="btn btn-light" id="btnExportBackup">⬇ Download Backup</button>
+            <button type="button" class="btn btn-light" id="btnRestoreBackup">Restore Backup</button>
           </div>
         </section>
         <section class="card terms-card">
@@ -342,6 +358,47 @@
   </form>
 </div>
 
+<div id="importModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="importTitle">Import Leads &amp; Estimates</h2><button type="button" class="btn-icon" data-close="importModal" aria-label="Close">✕</button></div>
+
+    <div id="importStep1">
+      <p>Choose a spreadsheet exported from your previous system: <b>Excel (.xlsx)</b> or <b>CSV</b>. The first row must contain the column names.</p>
+      <ul class="small import-tips">
+        <li>One row per client / estimate, or one row per service line. Rows with the same <b>Estimate #</b> become one estimate.</li>
+        <li>Useful columns: Client Name, Email, Phone, Address, Estimate #, Date, Category, Service, Quantity, Price, Total, Status, Stage, Notes. Only one of Client Name / Address / Phone / Email is required.</li>
+        <li>Imported estimates keep their totals (0% markup and tax). Existing estimate numbers and existing CRM clients are not duplicated.</li>
+        <li>A <b>backup file (.json)</b> from this app can be restored here too.</li>
+      </ul>
+      <label class="btn btn-primary file-btn">Choose File…
+        <input type="file" id="importFile" accept=".csv,.txt,.xlsx,.xls,.json,text/csv" hidden>
+      </label>
+      <button type="button" class="btn btn-light" id="btnImportTemplate2">Download Template</button>
+      <p class="import-error" id="importError" role="alert"></p>
+    </div>
+
+    <div id="importStep2" hidden>
+      <div class="small" id="importFileName"></div>
+      <h3>Match your columns</h3>
+      <div class="map-grid" id="importMapping"></div>
+      <label class="check"><input type="checkbox" id="importCreateLeads" checked> <span>Also create CRM leads for these clients</span></label>
+      <h3>Preview</h3>
+      <div class="imp-summary" id="importSummary"></div>
+      <div class="table-wrap import-preview">
+        <table class="table">
+          <thead><tr><th>Client</th><th>Address</th><th>Estimate #</th><th>Lines</th><th>Total</th><th>Will import as</th></tr></thead>
+          <tbody id="importPreviewBody"></tbody>
+        </table>
+      </div>
+      <div class="small" id="importMore"></div>
+      <div class="btn-row between">
+        <button type="button" class="btn btn-light" id="btnImportBack">← Choose another file</button>
+        <button type="button" class="btn btn-success" id="btnRunImport">Import</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="photoViewer" class="modal photo-viewer" role="dialog" aria-modal="true" aria-label="Photo">
   <div class="photo-viewer-box">
     <button type="button" class="btn-icon photo-viewer-close" data-close="photoViewer" aria-label="Close">✕</button>
@@ -355,14 +412,15 @@
 <!-- Printable estimate (only visible when printing) -->
 <div id="printView" class="print-view"></div>
 
-<script src="js/core.js?v=2026.10.12f"></script>
-<script src="js/calc.js?v=2026.10.12f"></script>
-<script src="js/settings.js?v=2026.10.12f"></script>
-<script src="js/categories.js?v=2026.10.12f"></script>
-<script src="js/services.js?v=2026.10.12f"></script>
-<script src="js/photos.js?v=2026.10.12f"></script>
-<script src="js/estimates.js?v=2026.10.12f"></script>
-<script src="js/crm.js?v=2026.10.12f"></script>
-<script src="js/app.js?v=2026.10.12f"></script>
+<script src="js/core.js?v=2026.10.13a"></script>
+<script src="js/calc.js?v=2026.10.13a"></script>
+<script src="js/settings.js?v=2026.10.13a"></script>
+<script src="js/categories.js?v=2026.10.13a"></script>
+<script src="js/services.js?v=2026.10.13a"></script>
+<script src="js/photos.js?v=2026.10.13a"></script>
+<script src="js/estimates.js?v=2026.10.13a"></script>
+<script src="js/crm.js?v=2026.10.13a"></script>
+<script src="js/importer.js?v=2026.10.13a"></script>
+<script src="js/app.js?v=2026.10.13a"></script>
 </body>
 </html>

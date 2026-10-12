@@ -33,6 +33,13 @@ source of truth for pricing.
 **Settings**: company details (phone, email, license #), default markup, sales tax, what the tax applies to,
 the next estimate #, and the **Terms & Conditions** that are added to every estimate PDF and email.
 
+**Import & Backup**: ⬆ Import (CRM, Saved Estimates, Settings) reads leads and estimates from a
+previous system as **Excel (.xlsx) or CSV**: columns are matched automatically and can be changed,
+rows with the same Estimate # become one estimate, and existing estimate numbers / CRM clients are
+not duplicated. Imported estimates keep their totals (0% markup and tax). Settings → Download Backup
+saves all data (except photos) as a JSON file; Restore Backup loads it again.
+Excel files are read with SheetJS, loaded from cdnjs only when an .xlsx file is chosen.
+
 ## Data
 
 Everything is stored in the browser's `localStorage`:
@@ -61,6 +68,7 @@ js/services.js      services database & Services page
 js/estimates.js     Estimate Builder, Saved Estimates, Print/PDF, Email
 js/crm.js           CRM pipeline and Estimate ↔ CRM links
 js/photos.js        CRM project photos (IndexedDB, resizing, gallery)
+js/importer.js      CSV / Excel import, backup export & restore
 js/app.js           navigation and start-up
 ```
 
