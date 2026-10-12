@@ -279,6 +279,7 @@ function deleteProject(id){
   if(!p) return false;
   if(!confirm(`Delete CRM project for ${p.clientName || p.address || "this client"}? The linked estimate is kept.`)) return false;
   if(!saveProjects(loadProjects().filter(x=>x.id!==id))) return false;
+  deleteOwnerPhotos("project",id);
 
   const estimates=loadEstimates();
   let changed=false;
@@ -321,6 +322,7 @@ function renderCard(p){
   const estimateLine=hasEstimate
     ? `<button class="kcard-estimate" data-action="open-estimate">📄 ${escapeHtml(p.estimateNumber)} · <b>${money(p.estimateTotal)}</b></button>`
     : `<div class="kcard-line muted">No estimate yet</div>`;
+  const photoBadge=`<button type="button" class="kcard-photos" data-action="photos" data-photo-badge hidden></button>`;
 
   let body="", actions="";
   switch(p.stage){
@@ -374,9 +376,23 @@ function renderCard(p){
       </div>
       ${p.address && p.clientName ? `<div class="kcard-line muted">${escapeHtml(p.address)}</div>` : ""}
       ${estimateLine}
+      ${photoBadge}
       ${body}
       <div class="kcard-actions">${actions}</div>
     </article>`;
+}
+
+// Shows "📷 N" on cards that have photos (filled in after the board is drawn).
+async function fillCrmPhotoCounts(){
+  let counts={};
+  try{ counts=await photoCountsByOwner(); }catch(e){ return; }
+  document.querySelectorAll("#crmBoard .kcard").forEach(card=>{
+    const n=counts[photoOwner("project",card.dataset.id)]||0;
+    const badge=card.querySelector("[data-photo-badge]");
+    if(!badge) return;
+    badge.hidden=!n;
+    badge.textContent=`📷 ${n} photo${n===1?"":"s"}`;
+  });
 }
 
 function renderCrmBoard(){
@@ -393,6 +409,7 @@ function renderCrmBoard(){
         <div class="kanban-cards">${cards.map(renderCard).join("") || `<div class="kanban-empty">No projects</div>`}</div>
       </div>`;
   }).join("");
+  fillCrmPhotoCounts();
 }
 
 function handleCrmBoard(event){
@@ -410,6 +427,7 @@ function handleCrmBoard(event){
 
   ({
     open:()=>openProjectModal(id),
+    photos:()=>{ openProjectModal(id); $("pmPhotos").scrollIntoView({block:"center"}); },
     edit:()=>openProjectModal(id,"pmClientName"),
     estimate:()=>createEstimateFromProject(id),
     "open-estimate":()=>openProjectEstimate(id),
@@ -461,6 +479,7 @@ function openProjectModal(id, focusField){
     : `<div class="muted">No estimate linked.</div>
        ${id?`<button class="btn btn-light btn-sm" data-pm-action="create-estimate">Create Estimate</button>`:`<div class="small">Save the lead first, then create an estimate.</div>`}`;
   $("pmDelete").hidden=!id;
+  setPhotoGalleryOwner($("pmPhotos"),"project",id ? p.id : "","Save the lead first, then add photos.");
 
   openModal("projectModal");
   (focusField ? $(focusField) : $("pmClientName")).focus();

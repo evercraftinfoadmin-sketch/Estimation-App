@@ -46,6 +46,7 @@ function wireEvents(){
   $("btnPrint").addEventListener("click",printEstimate);
   $("btnEmail").addEventListener("click",emailEstimate);
   $("btnReset").addEventListener("click",resetBuilder);
+  $("pmPhotos").addEventListener("photos-changed",()=>fillCrmPhotoCounts());
   $("customServiceForm").addEventListener("submit",e=>{ e.preventDefault(); submitCustomService(); });
   $("categoryForm").addEventListener("submit",e=>{ e.preventDefault(); submitAddCategory(); });
   $("catExisting").addEventListener("change",()=>{ $("catNewField").hidden=!!$("catExisting").value; });
@@ -102,8 +103,10 @@ function init(){
   loadServices(); // creates the default services on first run
   loadCustomCategories(); // migrates the old fixed "Other Services" category if it was used
   wireEvents();
+  wirePhotoEvents();
   newEstimate();
   showPage(location.hash.slice(1) || "builder");
+  cleanupOrphanPhotos();
 }
 
 init();

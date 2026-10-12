@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.12d">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.12f">
 </head>
 <body>
 
@@ -52,6 +52,7 @@
           </section>
 
           <div id="builderSections"></div>
+
         </div>
 
         <aside class="builder-side">
@@ -327,6 +328,10 @@
       </section>
     </div>
 
+    <h3>Photos</h3>
+    <p class="small" style="margin-top:-4px">Job photos, before / after, reports. Saved right away.</p>
+    <div class="photo-gallery" id="pmPhotos"></div>
+
     <div class="btn-row between">
       <button type="button" class="btn btn-danger" id="pmDelete">Delete</button>
       <div class="btn-row">
@@ -337,18 +342,27 @@
   </form>
 </div>
 
+<div id="photoViewer" class="modal photo-viewer" role="dialog" aria-modal="true" aria-label="Photo">
+  <div class="photo-viewer-box">
+    <button type="button" class="btn-icon photo-viewer-close" data-close="photoViewer" aria-label="Close">✕</button>
+    <img id="photoViewerImg" alt="">
+    <div id="photoViewerCaption" class="photo-viewer-caption"></div>
+  </div>
+</div>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <!-- Printable estimate (only visible when printing) -->
 <div id="printView" class="print-view"></div>
 
-<script src="js/core.js?v=2026.10.12d"></script>
-<script src="js/calc.js?v=2026.10.12d"></script>
-<script src="js/settings.js?v=2026.10.12d"></script>
-<script src="js/categories.js?v=2026.10.12d"></script>
-<script src="js/services.js?v=2026.10.12d"></script>
-<script src="js/estimates.js?v=2026.10.12d"></script>
-<script src="js/crm.js?v=2026.10.12d"></script>
-<script src="js/app.js?v=2026.10.12d"></script>
+<script src="js/core.js?v=2026.10.12f"></script>
+<script src="js/calc.js?v=2026.10.12f"></script>
+<script src="js/settings.js?v=2026.10.12f"></script>
+<script src="js/categories.js?v=2026.10.12f"></script>
+<script src="js/services.js?v=2026.10.12f"></script>
+<script src="js/photos.js?v=2026.10.12f"></script>
+<script src="js/estimates.js?v=2026.10.12f"></script>
+<script src="js/crm.js?v=2026.10.12f"></script>
+<script src="js/app.js?v=2026.10.12f"></script>
 </body>
 </html>

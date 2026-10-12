@@ -25,7 +25,8 @@ price in an estimate never changes the default. Custom services can be used once
 **CRM**: a Kanban pipeline:
 Leads / Clients → Prospects → Client / Job → Start the Project → Project Completed → Follow-up.
 It covers prospect quote status, job scheduling and technician, the start-project and completion
-checklists (X / Y completed), and follow-ups. A project can create an estimate pre-filled with the
+checklists (X / Y completed), follow-ups, and **photos** for each project (job photos, before / after,
+reports; with captions). A project can create an estimate pre-filled with the
 client, and a saved estimate can create (or open) its single CRM project. The estimate stays the
 source of truth for pricing.
 
@@ -44,6 +45,9 @@ Everything is stored in the browser's `localStorage`:
 | `constructionEstimatorCRM` | CRM projects |
 | `constructionEstimatorCategories` | custom service categories |
 
+CRM photos are stored in the browser's IndexedDB (database `constructionEstimatorPhotos`),
+resized to at most 1600 px as JPEG.
+
 ## Structure
 
 ```
@@ -56,6 +60,7 @@ js/categories.js    main + custom service categories
 js/services.js      services database & Services page
 js/estimates.js     Estimate Builder, Saved Estimates, Print/PDF, Email
 js/crm.js           CRM pipeline and Estimate ↔ CRM links
+js/photos.js        CRM project photos (IndexedDB, resizing, gallery)
 js/app.js           navigation and start-up
 ```
 
