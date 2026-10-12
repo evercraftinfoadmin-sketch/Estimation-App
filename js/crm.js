@@ -329,13 +329,13 @@ function renderCard(p){
         ${p.clientPhone?`<div class="kcard-line">☎ ${escapeHtml(p.clientPhone)}</div>`:""}
         <div class="kcard-line muted">Created ${escapeHtml(formatDate(p.createdAt.slice(0,10)))}</div>`;
       actions=btn("open","Open")+btn("edit","Edit")+btn("estimate",hasEstimate?"Open Estimate":"Create Estimate")
-        +btn("to-prospect","Move to Prospect","btn-primary")+btn("delete","Delete","btn-danger");
+        +btn("to-prospect","Move to Prospect","btn-primary");
       break;
     case "prospect":
       body=`<select class="kcard-select" data-action="prospect-status" aria-label="Prospect status">
           ${PROSPECT_STATUSES.map(s=>`<option value="${s.key}" ${s.key===p.prospectStatus?"selected":""}>${s.label}</option>`).join("")}
         </select>`;
-      actions=btn("open","Open")+btn("edit","Edit")+btn("to-job","Move to Client / Job","btn-primary")+btn("delete","Delete","btn-danger");
+      actions=btn("open","Open")+btn("edit","Edit")+btn("to-job","Move to Client / Job","btn-primary");
       break;
     case "job":
       body=`<div class="kcard-line">📅 ${p.scheduledDate?escapeHtml(formatDate(p.scheduledDate)):`<span class="muted">Not scheduled</span>`}</div>
@@ -360,13 +360,18 @@ function renderCard(p){
         ${p.followUpNotes?`<div class="kcard-notes">${escapeHtml(p.followUpNotes)}</div>`:""}
         <span class="status-badge ${p.followUpCompleted?"status-completed":"status-draft"}">${p.followUpCompleted?"Completed":"Open"}</span>`;
       actions=(p.followUpCompleted ? btn("reopen-followup","Reopen") : btn("complete-followup","Complete Follow-up","btn-primary"))
-        +btn("open","Open")+btn("delete","Delete","btn-danger");
+        +btn("open","Open");
       break;
   }
 
   return `
     <article class="kcard ${p.stage==="followup"&&p.followUpCompleted?"kcard-done":""}" data-id="${escapeHtml(p.id)}">
-      <div class="kcard-title">${escapeHtml(p.clientName || p.address || "Unnamed client")}</div>
+      <div class="kcard-top">
+        <div class="kcard-title">${escapeHtml(p.clientName || p.address || "Unnamed client")}</div>
+        <button type="button" class="kcard-delete" data-action="delete" title="Delete" aria-label="Delete ${escapeHtml(p.clientName || p.address || "project")}">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>
+        </button>
+      </div>
       ${p.address && p.clientName ? `<div class="kcard-line muted">${escapeHtml(p.address)}</div>` : ""}
       ${estimateLine}
       ${body}

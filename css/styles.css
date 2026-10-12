@@ -142,7 +142,10 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .kanban-empty{color:var(--muted);font-size:12px;text-align:center;padding:18px 0}
 .kcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 2px 6px rgba(15,23,42,.05)}
 .kcard-done{opacity:.7}
+.kcard-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
 .kcard-title{font-weight:800;font-size:14px;margin-bottom:3px;word-break:break-word}
+.kcard-delete{flex:none;border:0;background:transparent;color:#9ca3af;border-radius:8px;width:30px;height:30px;margin:-5px -5px 0 0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.kcard-delete:hover,.kcard-delete:focus-visible{background:var(--danger-soft);color:var(--danger)}
 .kcard-line{font-size:12px;margin-top:3px;word-break:break-word}
 .kcard-notes{font-size:12px;background:#f9fafb;border-radius:8px;padding:6px 8px;margin-top:6px;white-space:pre-wrap;word-break:break-word}
 .kcard-estimate{display:block;width:100%;text-align:left;background:#f0fdf4;border:1px solid #bbf7d0;color:#065f46;border-radius:8px;padding:5px 8px;margin:6px 0;font:inherit;font-size:12px;cursor:pointer}
