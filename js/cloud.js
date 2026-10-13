@@ -57,7 +57,9 @@ const CLOUD = {
   running:null,
   again:false,
   unsubscribers:[],
-  warned:new Set()
+  warned:new Set(),
+  failures:[],       // records the server refused in the last sync
+  unsaved:0          // changes here not confirmed by the server
 };
 
 function cloudConfig(){
@@ -97,6 +99,21 @@ function cloudToLocal(remote, fields){
     for(const [k,v] of Object.entries(remote.extra)) if(!(k in rec) && k!=="id") rec[k]=v;
   }
   return rec;
+}
+
+// Fingerprint of a record as the app itself would save it: the app's own normalizing
+// (defaults, the CRM checklist) and the automatic timestamps don't count as a change.
+const CLOUD_NORMALIZE = {
+  Category:r=>normalizeCategory(r),
+  Service:r=>normalizeService(r),
+  Estimate:r=>normalizeEstimate(r),
+  CrmProject:r=>normalizeProject(r)
+};
+function cloudRecordHash(def, rec){
+  let r=rec;
+  try{ if(CLOUD_NORMALIZE[def.entity]) r=CLOUD_NORMALIZE[def.entity](rec); }catch(e){ r=rec; }
+  const {createdAt, updatedAt, legacy, ...content}=r;
+  return cloudHash(cloudToRemote({...content, id:rec.id},def.fields));
 }
 
 // Stable fingerprint of a record's content: empty values are ignored, so the app
@@ -164,6 +181,38 @@ function cloudErrorMessage(err){
 
 /* ---------- sync ---------- */
 
+// Network loss or an expired sign-in stops the whole sync; anything else only affects one record.
+function cloudFatalError(err){
+  const status=err && (err.status || (err.response && err.response.status));
+  return !status || status===401 || status===429;
+}
+
+function cloudRecordFailure(entity, lid, reason){
+  CLOUD.failures.push({entity, lid, reason});
+}
+
+// Changes in this browser that the server has not confirmed yet (new, edited or deleted
+// records). Local data from before the first sign-in is counted separately (pendingUpload).
+function cloudUnsavedCount(){
+  const meta=cloudMeta();
+  if(!meta.initialized) return 0;
+  let n=0;
+  for(const def of CLOUD_LISTS){
+    const metaRecs=meta.records[def.entity] || {}, unm=meta.unmigrated[def.entity] || {};
+    const local=readStore(def.key,[]);
+    const ids=new Set();
+    for(const rec of (Array.isArray(local) ? local : [])){
+      if(!rec || !rec.id) continue;
+      const lid=String(rec.id); ids.add(lid);
+      if(unm[lid]) continue;
+      const m=metaRecs[lid];
+      if(!m || m.hash!==cloudRecordHash(def,rec)) n++;
+    }
+    for(const lid of Object.keys(metaRecs)) if(!ids.has(lid)) n++;
+  }
+  return n;
+}
+
 async function cloudSyncList(def, meta, opts){
   const api=CLOUD.client.entities[def.entity];
   const metaRecs=meta.records[def.entity]=meta.records[def.entity] || {};
@@ -186,19 +235,19 @@ async function cloudSyncList(def, meta, opts){
     const version=Number(r.version) || 1;
 
     if(r.deletedAt){ // deleted in the cloud (by an admin)
-      if(loc && (!m || cloudHash(cloudToRemote(loc,def.fields))===m.hash)){ localById.delete(lid); changed=true; }
+      if(loc && (!m || cloudRecordHash(def,loc)===m.hash)){ localById.delete(lid); changed=true; }
       else if(loc){ saveCloudConflict(def.entity,loc,"deleted in the cloud while changed here"); localById.delete(lid); changed=true; conflicts++; }
       delete metaRecs[lid];
       delete unmigrated[lid];
       continue;
     }
     const remoteLocal=cloudToLocal(r,def.fields);
-    const remoteHash=cloudHash(cloudToRemote(remoteLocal,def.fields));
+    const remoteHash=cloudRecordHash(def,remoteLocal);
     if(!loc){
       if(m && m.version===version) continue; // deleted here, upload step decides
       localById.set(lid,remoteLocal); changed=true;
     }else{
-      const localHash=cloudHash(cloudToRemote(loc,def.fields));
+      const localHash=cloudRecordHash(def,loc);
       const localChanged=!m || localHash!==m.hash;
       const remoteChanged=!m || m.version!==version;
       if(localHash===remoteHash){ /* same content */ }
@@ -245,70 +294,83 @@ async function cloudSyncList(def, meta, opts){
     for(const lid of localById.keys()) if(!metaRecs[lid]) unmigrated[lid]=true;
   }
 
-  // 2. This browser → cloud
-  for(const [lid,loc] of localById){
-    if(unmigrated[lid] && !opts.uploadLocal) continue;
-    const m=metaRecs[lid];
-    const data=cloudToRemote(loc,def.fields);
-    const hash=cloudHash(data);
-    if(m && m.hash===hash) continue;
-    if(!m){
-      if(def.entity==="Estimate" && data.estimateNumber){
-        const taken=(await api.filter({estimateNumber:data.estimateNumber})).find(x=>!x.deletedAt && x.legacy_id!==lid);
-        if(taken){
-          if(!CLOUD.warned.has(lid+data.estimateNumber)){
-            CLOUD.warned.add(lid+data.estimateNumber);
-            showToast(`Estimate number ${data.estimateNumber} is already used in the cloud: change the number and save again.`);
+  // Downloaded records are written to this browser even if an upload below fails:
+  // the bookkeeping already says they are in sync.
+  try{
+    // 2. This browser → cloud
+    for(const [lid,loc] of localById){
+      if(unmigrated[lid] && !opts.uploadLocal) continue;
+      const m=metaRecs[lid];
+      const data=cloudToRemote(loc,def.fields);
+      const hash=cloudRecordHash(def,loc);
+      if(m && m.hash===hash) continue;
+      if(!m){
+        if(def.entity==="Estimate" && data.estimateNumber){
+          const taken=(await api.filter({estimateNumber:data.estimateNumber})).find(x=>!x.deletedAt && x.legacy_id!==lid);
+          if(taken){
+            if(!CLOUD.warned.has(lid+data.estimateNumber)){
+              CLOUD.warned.add(lid+data.estimateNumber);
+              showToast(`Estimate number ${data.estimateNumber} is already used in the cloud: change the number and save again.`);
+            }
+            cloudRecordFailure(def.entity,lid,`estimate number ${data.estimateNumber} is already used`);
+            continue;
           }
+        }
+        let created;
+        try{ created=await api.create({...data, version:1}); }
+        catch(err){ if(cloudFatalError(err)) throw err; cloudRecordFailure(def.entity,lid,cloudErrorMessage(err)); continue; }
+        if(!created || !created.id){ cloudRecordFailure(def.entity,lid,"the server did not confirm the save"); continue; }
+        metaRecs[lid]={rid:created.id, version:Number(created.version) || 1, hash};
+        delete unmigrated[lid];
+      }else{
+        const current=await api.get(m.rid);
+        const curVersion=Number(current && current.version) || 1;
+        if(!current || current.deletedAt || curVersion!==m.version){
+          // Someone else saved first: keep theirs, never overwrite.
+          saveCloudConflict(def.entity,loc,"changed here and in the cloud");
+          if(current && !current.deletedAt){
+            const remoteLocal=cloudToLocal(current,def.fields);
+            localById.set(lid,remoteLocal);
+            metaRecs[lid]={rid:current.id, version:curVersion, hash:cloudRecordHash(def,remoteLocal)};
+          }else{
+            localById.delete(lid); delete metaRecs[lid];
+          }
+          changed=true; conflicts++;
           continue;
         }
+        let updated;
+        try{ updated=await api.update(m.rid,{...data, version:curVersion+1}); }
+        catch(err){ if(cloudFatalError(err)) throw err; cloudRecordFailure(def.entity,lid,cloudErrorMessage(err)); continue; }
+        if(!updated || !updated.id){ cloudRecordFailure(def.entity,lid,"the server did not confirm the save"); continue; }
+        metaRecs[lid]={rid:m.rid, version:Number(updated.version) || curVersion+1, hash};
       }
-      const created=await api.create({...data, version:1});
-      metaRecs[lid]={rid:created.id, version:Number(created.version) || 1, hash};
-      delete unmigrated[lid];
-    }else{
-      const current=await api.get(m.rid);
-      const curVersion=Number(current && current.version) || 1;
-      if(!current || current.deletedAt || curVersion!==m.version){
-        // Someone else saved first: keep theirs, never overwrite.
-        saveCloudConflict(def.entity,loc,"changed here and in the cloud");
-        if(current && !current.deletedAt){
-          const remoteLocal=cloudToLocal(current,def.fields);
-          localById.set(lid,remoteLocal);
-          metaRecs[lid]={rid:current.id, version:curVersion, hash:cloudHash(cloudToRemote(remoteLocal,def.fields))};
-        }else{
-          localById.delete(lid); delete metaRecs[lid];
-        }
-        changed=true; conflicts++;
-        continue;
+    }
+
+    // 3. Deleted in this browser
+    for(const lid of Object.keys(metaRecs)){
+      if(localById.has(lid)) continue;
+      const m=metaRecs[lid];
+      if(cloudIsAdmin()){
+        const current=await api.get(m.rid);
+        if(current && !current.deletedAt && (Number(current.version) || 1)===m.version){
+          try{
+            await api.update(m.rid,{deletedAt:nowISO(), version:m.version+1}); // soft delete, restorable
+            delete metaRecs[lid];
+          }catch(err){ if(cloudFatalError(err)) throw err; cloudRecordFailure(def.entity,lid,"delete: "+cloudErrorMessage(err)); }
+        }else if(current && !current.deletedAt){
+          localById.set(lid,cloudToLocal(current,def.fields)); // changed meanwhile: bring it back
+          metaRecs[lid]={rid:current.id, version:Number(current.version) || 1, hash:cloudRecordHash(def,cloudToLocal(current,def.fields))};
+          changed=true;
+        }else delete metaRecs[lid];
+      }else{
+        const r=remoteByLid.get(lid);
+        if(r){ localById.set(lid,cloudToLocal(r,def.fields)); changed=true; }
+        showToast("Only an admin can delete shared records: the record was restored.");
       }
-      const updated=await api.update(m.rid,{...data, version:curVersion+1});
-      metaRecs[lid]={rid:m.rid, version:Number(updated && updated.version) || curVersion+1, hash};
     }
+  }finally{
+    if(changed) cloudWriteLocal(def.key,[...localById.values()]);
   }
-
-  // 3. Deleted in this browser
-  for(const lid of Object.keys(metaRecs)){
-    if(localById.has(lid)) continue;
-    const m=metaRecs[lid];
-    if(cloudIsAdmin()){
-      const current=await api.get(m.rid);
-      if(current && !current.deletedAt && (Number(current.version) || 1)===m.version){
-        await api.update(m.rid,{deletedAt:nowISO(), version:m.version+1}); // soft delete, restorable
-        delete metaRecs[lid];
-      }else if(current && !current.deletedAt){
-        localById.set(lid,cloudToLocal(current,def.fields)); // changed meanwhile: bring it back
-        metaRecs[lid]={rid:current.id, version:Number(current.version) || 1, hash:cloudHash(cloudToRemote(cloudToLocal(current,def.fields),def.fields))};
-        changed=true;
-      }else delete metaRecs[lid];
-    }else{
-      const r=remoteByLid.get(lid);
-      if(r){ localById.set(lid,cloudToLocal(r,def.fields)); changed=true; }
-      showToast("Only an admin can delete shared records: the record was restored.");
-    }
-  }
-
-  if(changed) cloudWriteLocal(def.key,[...localById.values()]);
   return {changed, conflicts, unmigrated:Object.keys(unmigrated).length};
 }
 
@@ -373,6 +435,7 @@ async function cloudSyncOnce(opts={}){
   if(!CLOUD.client || !CLOUD.role) return;
   setCloudState("syncing");
   const meta=cloudMeta();
+  CLOUD.failures=[];
   let changed=false, conflicts=0, unmigrated=0;
   const pendingBy={};
   try{
@@ -390,11 +453,17 @@ async function cloudSyncOnce(opts={}){
     CLOUD.pendingUpload=unmigrated;
     CLOUD.pendingBy=pendingBy;
     CLOUD.lastSync=new Date();
-    setCloudState("synced", conflicts ? `${conflicts} conflict(s): the cloud version was kept` : "");
+    CLOUD.unsaved=cloudUnsavedCount();
+    const notes=[];
+    if(conflicts) notes.push(`${conflicts} conflict(s): the cloud version was kept`);
+    if(CLOUD.failures.length) notes.push(CLOUD.failures.slice(0,3).map(f=>f.reason).join("; "));
+    setCloudState("synced", notes.join(" · "));
     if(conflicts) showToast("Some records were changed by someone else: their version was kept (your copy is saved).");
   }catch(err){
     saveCloudMeta(meta); // keep what was synced before the error
+    CLOUD.unsaved=cloudUnsavedCount();
     setCloudState(err && (err.status===401 || (err.response && err.response.status===401)) ? "signed_out" : "error", cloudErrorMessage(err));
+    changed=true; // part of the data may have arrived before the error
   }
   if(changed) refreshVisibleData();
 }
@@ -441,11 +510,11 @@ function renderCloudStatus(){
     signed_out:"☁ Sign in",
     no_access:"☁ No access",
     syncing:"☁ Syncing…",
-    synced:"☁ Synced"+(CLOUD.lastSync ? " "+CLOUD.lastSync.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : ""),
+    synced:CLOUD.unsaved ? `☁ ${CLOUD.unsaved} not saved` : "☁ Synced"+(CLOUD.lastSync ? " "+CLOUD.lastSync.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : ""),
     error:"☁ "+(CLOUD.message || "Cloud error")
   };
   chip.textContent=labels[CLOUD.state] || "☁";
-  chip.dataset.state=CLOUD.state;
+  chip.dataset.state=CLOUD.state==="synced" && CLOUD.unsaved ? "error" : CLOUD.state;
   chip.title=CLOUD.state==="no_access"
     ? `Signed in as ${CLOUD.user && CLOUD.user.email}, but this account has no CRM access yet. Ask an admin.`
     : CLOUD.state==="synced" ? `Signed in as ${CLOUD.user && CLOUD.user.email} (${CLOUD.role}). Click to sync now.${CLOUD.message ? "\n"+CLOUD.message : ""}`
@@ -458,9 +527,19 @@ function renderCloudStatus(){
   }
   const bar=$("cloudPendingBar");
   if(bar){
-    bar.hidden=!showPending;
-    if(showPending) $("cloudPendingText").textContent=
-      `${pendingSummary()} on this computer ${CLOUD.pendingUpload===1 ? "is" : "are"} not in the shared CRM yet. Other users can't see ${CLOUD.pendingUpload===1 ? "it" : "them"} until you upload.`;
+    // Shown only after a sync attempt, so a save in progress does not flash it.
+    const showUnsaved=CLOUD.unsaved>0 && !!CLOUD.role && CLOUD.state!=="syncing";
+    bar.hidden=!(showPending || showUnsaved);
+    const lines=[];
+    if(showPending) lines.push(`${pendingSummary()} on this computer ${CLOUD.pendingUpload===1 ? "is" : "are"} not in the shared CRM yet. Other users can't see ${CLOUD.pendingUpload===1 ? "it" : "them"} until you upload.`);
+    if(showUnsaved){
+      const why=CLOUD.state==="error" ? (CLOUD.message || "connection problem")
+        : (CLOUD.failures.length ? CLOUD.failures.slice(0,2).map(f=>f.reason).join("; ") : "waiting for the next sync");
+      lines.push(`${CLOUD.unsaved} change${CLOUD.unsaved===1 ? " is" : "s are"} not saved to the shared CRM yet (${why}). ${CLOUD.state==="error" ? "They stay on this computer and are saved automatically when the connection works again." : "Fix the problem and save again, or try again."}`);
+    }
+    $("cloudPendingText").textContent=lines.join(" ");
+    $("cloudPendingUpload").hidden=!showPending;
+    $("cloudRetry").hidden=!showUnsaved;
   }
   const out=$("cloudSignOut");
   if(out) out.hidden=!CLOUD.user;
@@ -635,11 +714,21 @@ async function initCloud(){
   await startCloudSession();
 }
 
-async function startCloudSession(){
+function hasStoredSignIn(){
   try{
-    CLOUD.user=await CLOUD.client.auth.me();
-  }catch(err){
-    CLOUD.user=null;
+    return !!(localStorage.getItem("base44_access_token") || new URLSearchParams(location.search).get("access_token"));
+  }catch(e){ return false; }
+}
+
+async function startCloudSession(){
+  CLOUD.user=null;
+  // Not signed in on this browser: no need to ask the server.
+  if(hasStoredSignIn()){
+    try{
+      CLOUD.user=await CLOUD.client.auth.me();
+    }catch(err){
+      CLOUD.user=null;
+    }
   }
   if(!CLOUD.user){ setCloudState("signed_out"); return; }
   let role=CLOUD.user.crm_role || (CLOUD.user.data && CLOUD.user.data.crm_role) || "";
@@ -687,6 +776,7 @@ function wireCloudEvents(){
   $("cloudStatus").addEventListener("click",handleCloudChipClick);
   $("cloudUpload").addEventListener("click",uploadLocalData);
   $("cloudPendingUpload").addEventListener("click",uploadLocalData);
+  $("cloudRetry").addEventListener("click",()=>cloudSync());
   $("cloudSignOut").addEventListener("click",cloudSignOut);
   $("cloudLoginForm").addEventListener("submit",e=>{ e.preventDefault(); submitCloudLogin(); });
   $("cloudLoginReset").addEventListener("click",requestPasswordLink);
