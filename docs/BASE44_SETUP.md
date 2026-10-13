@@ -59,8 +59,10 @@ Access depends on the **`crm_role`** field of each Base44 user:
 - **Sign in:** the ☁ button in the top bar opens a sign-in window inside the app:
   - **Email + password** works wherever the app is hosted. No password yet? "Send me a link to set
     a password" makes Base44 email a link.
-  - **Continue with Google** goes to the Base44 login page and comes back. Base44 may only return to
-    its own addresses, so email + password is the reliable option on other hosts.
+  - **Continue with Google** goes to the Base44 login page. After sign-in Base44 opens its own home
+    page, which in the dev app is only a redirect to this app; it hands the sign-in over after a `#`
+    (never sent to the web host). The Base44 address
+    `https://preview--ever-craft-crm-dev-6d7696b7.base44.app` works as a sign-in link the same way.
 - **Your changes:** saving uploads the change about 1.5 s later.
 - **Other people's changes:** they arrive immediately through Base44 realtime events when
   available, and in any case every **20 seconds**, when the tab becomes visible, or when the
