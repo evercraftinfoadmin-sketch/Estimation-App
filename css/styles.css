@@ -32,6 +32,8 @@ h3{font-size:13px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.04e
 .cloud-chip[data-state="error"]{color:#fca5a5;border-color:#991b1b}
 .cloud-link{background:transparent;color:#9ca3af;border:0;font-size:12px;cursor:pointer;text-decoration:underline;padding:4px}
 .cloud-link:hover{color:#fff}
+.cloud-pending{background:#fef3c7;border-bottom:1px solid #f59e0b;color:#78350f;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;font-size:14px;font-weight:600}
+.cloud-pending[hidden]{display:none}
 .nav button.active{background:var(--primary);color:#fff}
 
 .container{max-width:1320px;margin:auto;padding:24px 20px 60px}

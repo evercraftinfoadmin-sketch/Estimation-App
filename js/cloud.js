@@ -374,6 +374,7 @@ async function cloudSyncOnce(opts={}){
   setCloudState("syncing");
   const meta=cloudMeta();
   let changed=false, conflicts=0, unmigrated=0;
+  const pendingBy={};
   try{
     // Categories and services first: estimates refer to them.
     for(const def of CLOUD_LISTS){
@@ -381,11 +382,13 @@ async function cloudSyncOnce(opts={}){
       changed=changed || res.changed;
       conflicts+=res.conflicts;
       unmigrated+=res.unmigrated;
+      pendingBy[def.entity]=res.unmigrated;
     }
     if(await cloudSyncSettings(meta)) changed=true;
     meta.initialized=true;
     saveCloudMeta(meta);
     CLOUD.pendingUpload=unmigrated;
+    CLOUD.pendingBy=pendingBy;
     CLOUD.lastSync=new Date();
     setCloudState("synced", conflicts ? `${conflicts} conflict(s): the cloud version was kept` : "");
     if(conflicts) showToast("Some records were changed by someone else: their version was kept (your copy is saved).");
@@ -448,9 +451,16 @@ function renderCloudStatus(){
     : CLOUD.state==="synced" ? `Signed in as ${CLOUD.user && CLOUD.user.email} (${CLOUD.role}). Click to sync now.${CLOUD.message ? "\n"+CLOUD.message : ""}`
     : CLOUD.message || "";
   const up=$("cloudUpload");
+  const showPending=CLOUD.pendingUpload>0 && !!CLOUD.role;
   if(up){
-    up.hidden=!(CLOUD.pendingUpload>0 && CLOUD.role);
+    up.hidden=!showPending;
     up.textContent=`⬆ Upload local data (${CLOUD.pendingUpload})`;
+  }
+  const bar=$("cloudPendingBar");
+  if(bar){
+    bar.hidden=!showPending;
+    if(showPending) $("cloudPendingText").textContent=
+      `${pendingSummary()} on this computer ${CLOUD.pendingUpload===1 ? "is" : "are"} not in the shared CRM yet. Other users can't see ${CLOUD.pendingUpload===1 ? "it" : "them"} until you upload.`;
   }
   const out=$("cloudSignOut");
   if(out) out.hidden=!CLOUD.user;
@@ -564,10 +574,18 @@ async function handleTeamChange(e){
   }
 }
 
+// "3 CRM leads, 1 estimate, 21 services"
+function pendingSummary(){
+  const names={CrmProject:["CRM lead","CRM leads"],Estimate:["estimate","estimates"],Service:["service","services"],Category:["category","categories"]};
+  const by=CLOUD.pendingBy || {};
+  const parts=["CrmProject","Estimate","Service","Category"].filter(k=>by[k]>0).map(k=>`${by[k]} ${names[k][by[k]===1 ? 0 : 1]}`);
+  return parts.join(", ") || `${CLOUD.pendingUpload} record(s)`;
+}
+
 async function uploadLocalData(){
   const n=CLOUD.pendingUpload;
   if(!n) return;
-  if(!confirm(`Upload ${n} record(s) that exist only in this browser to the shared cloud data?\n\n`+
+  if(!confirm(`Upload ${pendingSummary()} that exist only on this computer to the shared CRM?\n\n`+
     "A backup file is downloaded first. Records that already exist in the cloud are not overwritten, and estimate numbers already used in the cloud are skipped.")) return;
   exportBackup();
   await cloudSync({uploadLocal:true});
@@ -668,6 +686,7 @@ async function startCloudSession(){
 function wireCloudEvents(){
   $("cloudStatus").addEventListener("click",handleCloudChipClick);
   $("cloudUpload").addEventListener("click",uploadLocalData);
+  $("cloudPendingUpload").addEventListener("click",uploadLocalData);
   $("cloudSignOut").addEventListener("click",cloudSignOut);
   $("cloudLoginForm").addEventListener("submit",e=>{ e.preventDefault(); submitCloudLogin(); });
   $("cloudLoginReset").addEventListener("click",requestPasswordLink);
