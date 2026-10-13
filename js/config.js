@@ -16,5 +16,8 @@ window.EVERCRAFT_CONFIG = {
   // and the access rules on the Base44 side. See docs/BASE44_SETUP.md.
   // Currently the DEVELOPMENT app "EverCraft CRM (dev)" with fake data only.
   base44AppId: "6acd6d429d6ed1576d7696b7",
-  base44AppBaseUrl: "https://ever-craft-crm-dev-6d7696b7.base44.app"
+  base44AppBaseUrl: "https://preview--ever-craft-crm-dev-6d7696b7.base44.app",
+  // API address. Empty = Base44's default (https://base44.app), which only serves published apps.
+  // The dev app is not published, so its preview address is used.
+  base44ServerUrl: "https://preview--ever-craft-crm-dev-6d7696b7.base44.app"
 };

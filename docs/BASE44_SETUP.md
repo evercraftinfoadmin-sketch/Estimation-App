@@ -11,6 +11,7 @@ Without a Base44 app id in `js/config.js`, the app works exactly as before (brow
 | | |
 |---|---|
 | Base44 app | **EverCraft CRM (dev)**, id `6acd6d429d6ed1576d7696b7`, **fake data only** |
+| API address (dev) | the dev app is not published, so `base44ServerUrl` and `base44AppBaseUrl` use its preview address `https://preview--ever-craft-crm-dev-6d7696b7.base44.app` (a published app uses Base44's default) |
 | Production app | not created yet (needs a paid Base44 plan, see *Limits*) |
 | Real company data | not uploaded |
 

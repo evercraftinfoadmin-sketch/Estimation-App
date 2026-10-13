@@ -62,7 +62,8 @@ const CLOUD = {
 
 function cloudConfig(){
   const c=window.EVERCRAFT_CONFIG || {};
-  return {appId:String(c.base44AppId || "").trim(), appBaseUrl:String(c.base44AppBaseUrl || "").trim()};
+  return {appId:String(c.base44AppId || "").trim(), appBaseUrl:String(c.base44AppBaseUrl || "").trim(),
+    serverUrl:String(c.base44ServerUrl || "").trim()};
 }
 
 function cloudIsAdmin(){ return CLOUD.role==="owner" || CLOUD.role==="admin"; }
@@ -492,7 +493,8 @@ async function initCloud(){
   setCloudState("syncing","Connecting…");
   try{
     const sdk=await loadBase44Sdk();
-    CLOUD.client=sdk.createClient({appId:cfg.appId, appBaseUrl:cfg.appBaseUrl || undefined, requiresAuth:false});
+    CLOUD.client=sdk.createClient({appId:cfg.appId, appBaseUrl:cfg.appBaseUrl || undefined,
+      serverUrl:cfg.serverUrl || undefined, requiresAuth:false});
   }catch(err){
     setCloudState("error","Cloud library could not load");
     return;
