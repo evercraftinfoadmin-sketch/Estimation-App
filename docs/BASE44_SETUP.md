@@ -88,7 +88,7 @@ Access depends on the **`crm_role`** field of each Base44 user:
 ## Testing
 
 - An automated test runs the sync against a fake Base44 server that enforces the same rules,
-  with a signed-out user, an outsider, two members and an owner (46 checks). It covers:
+  with a signed-out user, an outsider, two members and an owner (50 checks). It covers:
   - download and upload of data;
   - conflicts;
   - member delete refused and restored;

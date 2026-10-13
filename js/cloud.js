@@ -457,7 +457,12 @@ function renderCloudStatus(){
 }
 
 function handleCloudChipClick(){
-  if(CLOUD.state==="signed_out") return CLOUD.client.auth.redirectToLogin(location.href);
+  if(CLOUD.state==="signed_out"){
+    // Return without the #page part: the login adds ?access_token=… to this address,
+    // and after a "#" it would be lost. The page is reopened after sign-in.
+    try{ sessionStorage.setItem(CLOUD_RETURN_PAGE_KEY,location.hash.slice(1)); }catch(e){}
+    return CLOUD.client.auth.redirectToLogin(location.origin+location.pathname+location.search);
+  }
   if(CLOUD.state==="no_access"){
     alert(`Signed in as ${CLOUD.user && CLOUD.user.email}.\n\nThis account has no access to the company data yet. Ask an admin to set your CRM role.`);
     return;
@@ -481,6 +486,22 @@ function cloudSignOut(){
 }
 
 /* ---------- start-up ---------- */
+
+const CLOUD_RETURN_PAGE_KEY = "constructionEstimatorCloudReturnPage";
+
+// A sign-in token that arrived after the "#" (e.g. "#crm?access_token=…") is moved to where
+// the Base44 library keeps it, before the app rewrites the address. Runs when this file loads.
+function takeTokenFromHash(){
+  const m=/[?&#]access_token=([^&#]+)/.exec(location.hash);
+  if(!m) return false;
+  try{ localStorage.setItem("base44_access_token",decodeURIComponent(m[1])); }catch(e){}
+  const page=location.hash.slice(1).split(/[?&]/)[0];
+  history.replaceState(null,"",location.pathname+location.search+(page ? "#"+page : ""));
+  return true;
+}
+takeTokenFromHash();
+// Same token arriving without a page load: reload so the sign-in takes effect.
+window.addEventListener("hashchange",()=>{ if(takeTokenFromHash()) location.reload(); });
 
 async function loadBase44Sdk(){
   if(window.__EVERCRAFT_BASE44_SDK) return window.__EVERCRAFT_BASE44_SDK; // tests
@@ -507,6 +528,9 @@ async function initCloud(){
   if(!CLOUD.user){ setCloudState("signed_out"); return; }
   const role=CLOUD.user.crm_role || (CLOUD.user.data && CLOUD.user.data.crm_role) || "";
   CLOUD.role=["owner","admin","member"].includes(role) ? role : "";
+  let returnPage="";
+  try{ returnPage=sessionStorage.getItem(CLOUD_RETURN_PAGE_KEY) || ""; sessionStorage.removeItem(CLOUD_RETURN_PAGE_KEY); }catch(e){}
+  if(returnPage && PAGES.includes(returnPage)) showPage(returnPage);
   if(!CLOUD.role){ setCloudState("no_access"); return; }
 
   // Every save in the app schedules an upload of the changed lists.
