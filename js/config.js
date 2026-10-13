@@ -14,10 +14,9 @@ window.EVERCRAFT_CONFIG = {
   // Shared cloud data (Base44). Empty = off (data stays in this browser only).
   // The app id is a public identifier, not a secret; access is controlled by Base44 sign-in
   // and the access rules on the Base44 side. See docs/BASE44_SETUP.md.
-  // Currently the DEVELOPMENT app "EverCraft CRM (dev)" with fake data only.
-  base44AppId: "6acd6d429d6ed1576d7696b7",
-  base44AppBaseUrl: "https://preview--ever-craft-crm-dev-6d7696b7.base44.app",
-  // API address. Empty = Base44's default (https://base44.app), which only serves published apps.
-  // The dev app is not published, so its preview address is used.
-  base44ServerUrl: "https://preview--ever-craft-crm-dev-6d7696b7.base44.app"
+  // PRODUCTION app "EverCraft CRM" (real company data). Feature branches use the dev app.
+  base44AppId: "6aceadfed0aa786c7c2934ff",
+  base44AppBaseUrl: "https://ever-craft-crm-7c2934ff.base44.app",
+  // API address. Empty = Base44's default (https://base44.app); the production app is published.
+  base44ServerUrl: ""
 };
