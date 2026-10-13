@@ -16,7 +16,10 @@
    CRM photos stay in this browser for now (cloud photos are a later step). */
 
 const CLOUD_SDK_URL = "https://cdn.jsdelivr.net/npm/@base44/sdk@0.8.52/+esm";
-const CLOUD_POLL_MS = 20000;
+// Base44 allows about 40 requests a minute (measured on the free plan), so background
+// checks are kept light: each check costs 4 requests, settings + counter 2 more.
+const CLOUD_POLL_MS = 60000;
+const CLOUD_SETTINGS_EVERY_MS = 5*60000;
 const CLOUD_META_KEY = "constructionEstimatorCloudMeta";
 const CLOUD_CONFLICTS_KEY = "constructionEstimatorCloudConflicts";
 
@@ -175,11 +178,19 @@ function cloudErrorMessage(err){
   const status=err && (err.status || (err.response && err.response.status));
   if(status===401) return "Signed out";
   if(status===403) return "Not allowed (ask an admin)";
+  if(cloudRateLimited(err)) return "Base44 request limit reached, trying again in about a minute";
   if(!navigator.onLine) return "Offline";
   return (err && err.message) ? String(err.message) : "Cloud error";
 }
 
 /* ---------- sync ---------- */
+
+const CLOUD_BACKOFF_MS = 45000;
+
+function cloudRateLimited(err){
+  const status=err && (err.status || (err.response && err.response.status));
+  return status===429 || /rate limit/i.test(String(err && err.message || ""));
+}
 
 // Network loss or an expired sign-in stops the whole sync; anything else only affects one record.
 function cloudFatalError(err){
@@ -447,7 +458,13 @@ async function cloudSyncOnce(opts={}){
       unmigrated+=res.unmigrated;
       pendingBy[def.entity]=res.unmigrated;
     }
-    if(await cloudSyncSettings(meta)) changed=true;
+    // Settings and the estimate counter: on the first sync, after a local change to settings or
+    // estimates, and every few minutes.
+    if(!meta.initialized || CLOUD.settingsDirty || Date.now()-(CLOUD.settingsSyncedAt || 0)>CLOUD_SETTINGS_EVERY_MS){
+      CLOUD.settingsDirty=false;
+      if(await cloudSyncSettings(meta)) changed=true;
+      CLOUD.settingsSyncedAt=Date.now();
+    }
     meta.initialized=true;
     saveCloudMeta(meta);
     CLOUD.pendingUpload=unmigrated;
@@ -462,6 +479,11 @@ async function cloudSyncOnce(opts={}){
   }catch(err){
     saveCloudMeta(meta); // keep what was synced before the error
     CLOUD.unsaved=cloudUnsavedCount();
+    if(cloudRateLimited(err)){
+      // Too many requests for the Base44 plan: pause, then try again once.
+      CLOUD.backoffUntil=Date.now()+CLOUD_BACKOFF_MS;
+      scheduleCloudSync(CLOUD_BACKOFF_MS);
+    }
     setCloudState(err && (err.status===401 || (err.response && err.response.status===401)) ? "signed_out" : "error", cloudErrorMessage(err));
     changed=true; // part of the data may have arrived before the error
   }
@@ -479,6 +501,7 @@ function cloudSync(opts){
 
 function scheduleCloudSync(delay=1500){
   if(!CLOUD.role) return;
+  delay=Math.max(delay,(CLOUD.backoffUntil || 0)-Date.now());
   clearTimeout(CLOUD.timer);
   CLOUD.timer=setTimeout(()=>cloudSync(),delay);
 }
@@ -755,19 +778,22 @@ async function startCloudSession(){
   cloudWriteLocal=(key,value)=>appWriteStore(key,value);
   writeStore=function(key,value){
     const ok=appWriteStore(key,value);
-    if(ok && syncedKeys.has(key)) scheduleCloudSync();
+    if(ok && syncedKeys.has(key)){
+      if(key===STORAGE_KEYS.settings || key===STORAGE_KEYS.estimates) CLOUD.settingsDirty=true;
+      scheduleCloudSync();
+    }
     return ok;
   };
 
   await cloudSync();
-  CLOUD.pollTimer=setInterval(()=>{ if(!document.hidden) cloudSync(); },CLOUD_POLL_MS);
+  CLOUD.pollTimer=setInterval(()=>{ if(!document.hidden && Date.now()>=(CLOUD.backoffUntil || 0)) cloudSync(); },CLOUD_POLL_MS);
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) scheduleCloudSync(200); });
   window.addEventListener("online",()=>scheduleCloudSync(200));
   // Realtime: a change by someone else triggers a sync right away (polling stays as the safety net).
   for(const name of [...CLOUD_LISTS.map(d=>d.entity),"CompanySettings"]){
     try{
       const api=CLOUD.client.entities[name];
-      if(api && typeof api.subscribe==="function") CLOUD.unsubscribers.push(api.subscribe(()=>scheduleCloudSync(800)));
+      if(api && typeof api.subscribe==="function") CLOUD.unsubscribers.push(api.subscribe(()=>{ if(name==="CompanySettings") CLOUD.settingsDirty=true; scheduleCloudSync(3000); }));
     }catch(e){ /* polling covers it */ }
   }
 }

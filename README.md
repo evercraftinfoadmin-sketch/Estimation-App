@@ -56,7 +56,7 @@ Excel files are read with SheetJS, loaded from cdnjs only when an .xlsx file is 
 **Shared cloud data (Base44)**: when `js/config.js` has a Base44 app id, employees sign in
 with the ☁ button. Estimates, CRM projects, services, categories and company settings are then
 shared, with access enforced by Base44 (owner / admin / member). Changes sync near real time
-(realtime events + every 20 s), and conflicts never overwrite anyone's work. Setup and rules:
+(realtime events + a check every minute), and conflicts never overwrite anyone's work. Setup and rules:
 [docs/BASE44_SETUP.md](docs/BASE44_SETUP.md). This branch points to the **development** app
 (fake data).
 

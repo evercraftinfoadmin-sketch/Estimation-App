@@ -64,9 +64,18 @@ Access depends on the **`crm_role`** field of each Base44 user:
     (never sent to the web host). The Base44 address
     `https://preview--ever-craft-crm-dev-6d7696b7.base44.app` works as a sign-in link the same way.
 - **Your changes:** saving uploads the change about 1.5 s later.
-- **Other people's changes:** they arrive immediately through Base44 realtime events when
-  available, and in any case every **20 seconds**, when the tab becomes visible, or when the
-  connection comes back. Updates are *near* real time, not instant.
+- **Other people's changes:** they arrive through Base44 realtime events when available, and in
+  any case every **minute**, when the tab becomes visible, or when the connection comes back.
+  Company settings and the estimate counter are re-read every 5 minutes, or sooner when they
+  change. Updates are *near* real time, not instant.
+- **Not saved yet:** the yellow bar and the ☁ status count every change the server has not
+  confirmed:
+  - local data from before sign-in ("Upload to shared CRM");
+  - changes that failed (offline, a record the server refused, an estimate number already used)
+    ("Try again").
+
+  A change counts as saved only after the server confirms it. A record the server refuses does
+  not stop the others.
 - **Conflicts:** a record is written only if nobody changed it since this browser last saw it.
   Otherwise the cloud version is kept and your version is saved in the browser under
   `constructionEstimatorCloudConflicts`. Nothing is overwritten silently.
@@ -91,6 +100,13 @@ Access depends on the **`crm_role`** field of each Base44 user:
   - a bulk import cannot run in one server-side step.
 
   Backend functions (paid plan) would make both atomic.
+- **Request limit:** measured at about **40 requests per minute**. Above that, Base44 refuses
+  everything for about 40–60 seconds.
+  - Each background check costs 4 requests; settings and the counter add 2.
+  - When the limit is hit, the app shows "Base44 request limit reached", keeps the changes as
+    not saved, and tries again after 45 seconds.
+  - The limit is shared by all browsers of one user. It may also be shared by the whole app
+    (not verified). A paid plan raises it.
 
 ## Testing
 
