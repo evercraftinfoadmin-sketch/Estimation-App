@@ -225,6 +225,12 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .import-tips{padding-left:18px;margin:0 0 14px}
 .import-tips li{margin-bottom:4px}
 .file-btn{display:inline-block;margin:0 6px 0 0;cursor:pointer;color:#fff}
+.login-box{max-width:420px}
+.login-box form{margin-top:4px}
+.link-btn{background:none;border:0;padding:0;color:var(--primary,#2563eb);text-decoration:underline;cursor:pointer;font:inherit}
+.login-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:14px 0 10px}
+.login-or::before,.login-or::after{content:"";flex:1;border-top:1px solid var(--line)}
+#teamBody select{min-width:130px}
 .import-error{color:var(--danger);font-weight:600;min-height:20px}
 .map-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px 12px;margin-bottom:10px}
 .map-field{margin:0}

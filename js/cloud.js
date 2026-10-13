@@ -457,17 +457,111 @@ function renderCloudStatus(){
 }
 
 function handleCloudChipClick(){
-  if(CLOUD.state==="signed_out"){
-    // Return without the #page part: the login adds ?access_token=… to this address,
-    // and after a "#" it would be lost. The page is reopened after sign-in.
-    try{ sessionStorage.setItem(CLOUD_RETURN_PAGE_KEY,location.hash.slice(1)); }catch(e){}
-    return CLOUD.client.auth.redirectToLogin(location.origin+location.pathname+location.search);
-  }
+  if(CLOUD.state==="signed_out") return openCloudLogin();
   if(CLOUD.state==="no_access"){
-    alert(`Signed in as ${CLOUD.user && CLOUD.user.email}.\n\nThis account has no access to the company data yet. Ask an admin to set your CRM role.`);
+    alert(`Signed in as ${CLOUD.user && CLOUD.user.email}.\n\nThis account has no access to the company data yet. Ask an admin to give you access (Settings → Team Access).`);
     return;
   }
   cloudSync();
+}
+
+/* ---------- sign-in ---------- */
+
+function cloudApiUrl(pth){
+  const cfg=cloudConfig();
+  return `${(cfg.serverUrl || "https://base44.app").replace(/\/$/,"")}/api/apps/${cfg.appId}${pth}`;
+}
+
+function openCloudLogin(){
+  $("cloudLoginError").textContent="";
+  openModal("cloudLoginModal");
+  setTimeout(()=>$("cloudLoginEmail").focus(),50);
+}
+
+// Email + password sign-in happens inside the app, so it works wherever the app is hosted.
+async function submitCloudLogin(){
+  const email=$("cloudLoginEmail").value.trim(), password=$("cloudLoginPassword").value;
+  const err=$("cloudLoginError"), btn=$("cloudLoginSubmit");
+  if(!email || !password){ err.textContent="Enter your email and password."; return; }
+  err.textContent=""; btn.disabled=true; btn.textContent="Signing in…";
+  try{
+    const r=await fetch(cloudApiUrl("/auth/login"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password})});
+    let body={}; try{ body=await r.json(); }catch(e){}
+    if(!r.ok || !body.access_token){
+      err.textContent=(body && (body.detail || body.message)) || `Sign-in failed (${r.status}).`;
+      return;
+    }
+    $("cloudLoginPassword").value="";
+    CLOUD.client.auth.setToken(body.access_token); // kept by the Base44 library in this browser
+    closeModal("cloudLoginModal");
+    await startCloudSession();
+  }catch(e){
+    err.textContent="Could not reach the sign-in service. Check the internet connection.";
+  }finally{
+    btn.disabled=false; btn.textContent="Sign in";
+  }
+}
+
+async function requestPasswordLink(){
+  const email=$("cloudLoginEmail").value.trim(), err=$("cloudLoginError");
+  if(!email){ err.textContent="Enter your email first."; $("cloudLoginEmail").focus(); return; }
+  try{
+    await fetch(cloudApiUrl("/auth/reset-password-request"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email})});
+    err.textContent="";
+    alert(`If ${email} can sign in to this app, an email with a link to set a password is on its way. Set the password there, then come back and sign in here.`);
+  }catch(e){
+    err.textContent="Could not reach the sign-in service. Check the internet connection.";
+  }
+}
+
+function cloudGoogleLogin(){
+  // Return without the #page part: the login adds ?access_token=… to this address,
+  // and after a "#" it would be lost. The page is reopened after sign-in.
+  try{ sessionStorage.setItem(CLOUD_RETURN_PAGE_KEY,location.hash.slice(1)); }catch(e){}
+  CLOUD.client.auth.redirectToLogin(location.origin+location.pathname+location.search);
+}
+
+/* ---------- team access (Base44 app admins) ---------- */
+
+const TEAM_ROLES = [["none","No access"],["member","Member"],["admin","Admin"],["owner","Owner"]];
+
+function canManageTeam(){ return !!(CLOUD.user && CLOUD.user.role==="admin" && CLOUD.role); }
+
+async function renderTeamCard(){
+  const card=$("teamCard");
+  if(!card) return;
+  card.hidden=!canManageTeam();
+  if(card.hidden) return;
+  const status=$("teamStatus");
+  let users;
+  try{ users=await CLOUD.client.entities.User.list("full_name",500); }
+  catch(e){ status.textContent="Could not load the team: "+cloudErrorMessage(e); return; }
+  status.textContent="";
+  $("teamBody").innerHTML=(users || []).map(u=>{
+    const me=CLOUD.user && u.id===CLOUD.user.id;
+    const role=["member","admin","owner"].includes(u.crm_role) ? u.crm_role : "none";
+    return `<tr><td>${escapeHtml(u.full_name || "")}${me ? " <span class=\"small\">(you)</span>" : ""}</td><td>${escapeHtml(u.email || "")}</td>
+      <td><select data-user="${escapeHtml(u.id)}" data-current="${role}" ${me ? "disabled title=\"You cannot change your own access\"" : ""}>
+        ${TEAM_ROLES.map(([k,l])=>`<option value="${k}"${k===role ? " selected" : ""}>${l}</option>`).join("")}
+      </select></td></tr>`;
+  }).join("") || `<tr><td colspan="3" class="small">Nobody has signed in yet.</td></tr>`;
+}
+
+async function handleTeamChange(e){
+  const sel=e.target.closest("select[data-user]");
+  if(!sel) return;
+  const status=$("teamStatus");
+  sel.disabled=true;
+  try{
+    await CLOUD.client.entities.User.update(sel.dataset.user,{crm_role:sel.value});
+    sel.dataset.current=sel.value;
+    status.textContent="Saved. The person gets the new access the next time the app opens.";
+  }catch(err){
+    sel.value=sel.dataset.current;
+    status.textContent="Not saved: "+cloudErrorMessage(err);
+  }finally{
+    sel.disabled=false;
+  }
 }
 
 async function uploadLocalData(){
@@ -520,18 +614,33 @@ async function initCloud(){
     setCloudState("error","Cloud library could not load");
     return;
   }
+  await startCloudSession();
+}
+
+async function startCloudSession(){
   try{
     CLOUD.user=await CLOUD.client.auth.me();
   }catch(err){
     CLOUD.user=null;
   }
   if(!CLOUD.user){ setCloudState("signed_out"); return; }
-  const role=CLOUD.user.crm_role || (CLOUD.user.data && CLOUD.user.data.crm_role) || "";
+  let role=CLOUD.user.crm_role || (CLOUD.user.data && CLOUD.user.data.crm_role) || "";
+  if(!["owner","admin","member"].includes(role) && CLOUD.user.role==="admin"){
+    // A Base44 app admin (set by the app's owner in Base44) takes owner access on first sign-in.
+    try{
+      await CLOUD.client.auth.updateMe({crm_role:"owner"});
+      CLOUD.user=await CLOUD.client.auth.me();
+      role=CLOUD.user.crm_role || "";
+    }catch(e){ /* stays without access */ }
+  }
   CLOUD.role=["owner","admin","member"].includes(role) ? role : "";
   let returnPage="";
   try{ returnPage=sessionStorage.getItem(CLOUD_RETURN_PAGE_KEY) || ""; sessionStorage.removeItem(CLOUD_RETURN_PAGE_KEY); }catch(e){}
   if(returnPage && PAGES.includes(returnPage)) showPage(returnPage);
   if(!CLOUD.role){ setCloudState("no_access"); return; }
+  if(!$("page-settings").hidden) renderTeamCard();
+  if(CLOUD.started) return cloudSync();
+  CLOUD.started=true;
 
   // Every save in the app schedules an upload of the changed lists.
   const syncedKeys=new Set([...CLOUD_LISTS.map(d=>d.key),STORAGE_KEYS.settings]);
@@ -560,4 +669,11 @@ function wireCloudEvents(){
   $("cloudStatus").addEventListener("click",handleCloudChipClick);
   $("cloudUpload").addEventListener("click",uploadLocalData);
   $("cloudSignOut").addEventListener("click",cloudSignOut);
+  $("cloudLoginForm").addEventListener("submit",e=>{ e.preventDefault(); submitCloudLogin(); });
+  $("cloudLoginReset").addEventListener("click",requestPasswordLink);
+  $("cloudLoginGoogle").addEventListener("click",cloudGoogleLogin);
+  $("teamBody").addEventListener("change",handleTeamChange);
+  // Settings page: also show the team list (admins only).
+  const appLoadSettingsForm=loadSettingsForm;
+  loadSettingsForm=function(){ appLoadSettingsForm(); renderTeamCard(); };
 }

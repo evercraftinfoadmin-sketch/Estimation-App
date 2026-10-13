@@ -43,19 +43,24 @@ Access depends on the **`crm_role`** field of each Base44 user:
 | `owner` | ✔ | ✔ | ✔ | ✔ |
 | `admin` | ✔ | ✔ | ✔ | ✔ |
 | `member` | ✔ | ✔ | ✖ | read only |
-| *(empty)* | ✖ | ✖ | ✖ | ✖ |
+| *(empty)* or `none` | ✖ | ✖ | ✖ | ✖ |
 
 - The rules are Base44 row-level security rules on each entity. `crm_role` and `deletedAt` have
   field rules so only admins can change them. Users cannot give themselves access.
-- A new account has **no access** until an admin sets its `crm_role`. In Base44: *Dashboard →
-  Data → User → (user) → crm_role*.
+- A new account has **no access** until an admin gives it access in the app: **Settings → Team
+  Access** (shown to Base44 app admins), or in Base44 under *Dashboard → Data → User → crm_role*.
+- A Base44 **app admin** (built-in role `admin`, which only the app's owner can grant) gets
+  `owner` access automatically the first time they sign in.
 - The app hides what the server would refuse. For example, when a member deletes a record, the
   app restores it with a message.
 
 ## How syncing works
 
-- **Sign in:** the ☁ button in the top bar opens the Base44 login (email + password, or Google),
-  then returns to the app.
+- **Sign in:** the ☁ button in the top bar opens a sign-in window inside the app:
+  - **Email + password** works wherever the app is hosted. No password yet? "Send me a link to set
+    a password" makes Base44 email a link.
+  - **Continue with Google** goes to the Base44 login page and comes back. Base44 may only return to
+    its own addresses, so email + password is the reliable option on other hosts.
 - **Your changes:** saving uploads the change about 1.5 s later.
 - **Other people's changes:** they arrive immediately through Base44 realtime events when
   available, and in any case every **20 seconds**, when the tab becomes visible, or when the
@@ -88,7 +93,7 @@ Access depends on the **`crm_role`** field of each Base44 user:
 ## Testing
 
 - An automated test runs the sync against a fake Base44 server that enforces the same rules,
-  with a signed-out user, an outsider, two members and an owner (50 checks). It covers:
+  with a signed-out user, an outsider, two members and an owner (64 checks). It covers:
   - download and upload of data;
   - conflicts;
   - member delete refused and restored;
@@ -103,7 +108,7 @@ Access depends on the **`crm_role`** field of each Base44 user:
 
 1. Choose the plan, then create the production app (private).
 2. Copy the entity schemas from the dev app.
-3. Set the owner's `crm_role`.
+3. Sign in once as the owner (gets `owner` access automatically), then give employees access in Settings → Team Access.
 4. Put the production app id and URL in the deployed `js/config.js`.
 5. Upload the real data from one browser with **Upload local data** (a backup is downloaded first).
 6. Check the counts.

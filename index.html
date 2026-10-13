@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.15b">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.15c">
 </head>
 <body>
 
@@ -211,6 +211,12 @@
           <p class="small" id="mapsKeyStatus"></p>
           <div class="btn-row end"><button type="submit" class="btn btn-primary">Save Settings</button></div>
         </section>
+        <section class="card terms-card" id="teamCard" hidden>
+          <h2>Team Access (shared cloud data)</h2>
+          <p class="small" style="margin-top:-8px">Everyone who signs in appears here. Choose what each person may do: <b>Member</b> can view and edit, <b>Admin</b> can also delete and change Settings. <b>No access</b> sees nothing. New employees: send them the app link and ask them to sign in once, then give them access here.</p>
+          <div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Email</th><th>Access</th></tr></thead><tbody id="teamBody"></tbody></table></div>
+          <p class="small" id="teamStatus"></p>
+        </section>
         <section class="card terms-card">
           <h2>Import &amp; Backup</h2>
           <p class="small" style="margin-top:-8px">Bring in leads and estimates from your previous system (Excel or CSV). Your data lives only in this browser, so download a backup regularly.</p>
@@ -372,6 +378,22 @@
   </form>
 </div>
 
+<div id="cloudLoginModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cloudLoginTitle">
+  <div class="modal-box login-box">
+    <div class="modal-head"><h2 id="cloudLoginTitle">Sign in to the shared CRM</h2><button type="button" class="btn-icon" data-close="cloudLoginModal" aria-label="Close">✕</button></div>
+    <form id="cloudLoginForm">
+      <div class="field"><label for="cloudLoginEmail">Email</label><input id="cloudLoginEmail" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="cloudLoginPassword">Password</label><input id="cloudLoginPassword" type="password" autocomplete="current-password" required></div>
+      <p class="import-error" id="cloudLoginError" role="alert"></p>
+      <div class="btn-row"><button type="submit" class="btn btn-primary" id="cloudLoginSubmit">Sign in</button></div>
+    </form>
+    <p class="small">No password yet, or forgot it? Enter your email above and <button type="button" class="link-btn" id="cloudLoginReset">send me a link to set a password</button>.</p>
+    <div class="login-or"><span>or</span></div>
+    <button type="button" class="btn btn-light" id="cloudLoginGoogle">Continue with Google</button>
+    <p class="small">Continue with Google opens the Base44 sign-in page and then comes back here.</p>
+  </div>
+</div>
+
 <div id="importModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
   <div class="modal-box">
     <div class="modal-head"><h2 id="importTitle">Import Leads &amp; Estimates</h2><button type="button" class="btn-icon" data-close="importModal" aria-label="Close">✕</button></div>
@@ -426,18 +448,18 @@
 <!-- Printable estimate (only visible when printing) -->
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.10.15b"></script>
-<script src="js/core.js?v=2026.10.15b"></script>
-<script src="js/calc.js?v=2026.10.15b"></script>
-<script src="js/settings.js?v=2026.10.15b"></script>
-<script src="js/address.js?v=2026.10.15b"></script>
-<script src="js/categories.js?v=2026.10.15b"></script>
-<script src="js/services.js?v=2026.10.15b"></script>
-<script src="js/photos.js?v=2026.10.15b"></script>
-<script src="js/cloud.js?v=2026.10.15b"></script>
-<script src="js/estimates.js?v=2026.10.15b"></script>
-<script src="js/crm.js?v=2026.10.15b"></script>
-<script src="js/importer.js?v=2026.10.15b"></script>
-<script src="js/app.js?v=2026.10.15b"></script>
+<script src="js/config.js?v=2026.10.15c"></script>
+<script src="js/core.js?v=2026.10.15c"></script>
+<script src="js/calc.js?v=2026.10.15c"></script>
+<script src="js/settings.js?v=2026.10.15c"></script>
+<script src="js/address.js?v=2026.10.15c"></script>
+<script src="js/categories.js?v=2026.10.15c"></script>
+<script src="js/services.js?v=2026.10.15c"></script>
+<script src="js/photos.js?v=2026.10.15c"></script>
+<script src="js/cloud.js?v=2026.10.15c"></script>
+<script src="js/estimates.js?v=2026.10.15c"></script>
+<script src="js/crm.js?v=2026.10.15c"></script>
+<script src="js/importer.js?v=2026.10.15c"></script>
+<script src="js/app.js?v=2026.10.15c"></script>
 </body>
 </html>
