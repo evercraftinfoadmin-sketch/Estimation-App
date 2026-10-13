@@ -151,6 +151,45 @@ function cloudMeta(){
 
 function saveCloudMeta(m){ cloudWriteLocal(CLOUD_META_KEY,m); }
 
+const CLOUD_PREVIOUS_KEY = "constructionEstimatorPreviousCloudData";
+
+// The app now points to a different Base44 app (e.g. test → production). Records this browser
+// received from or sent to the previous app are set aside (kept under CLOUD_PREVIOUS_KEY, never
+// deleted, never uploaded to the new app), and the estimate counter is recalculated from the
+// estimates that remain. Data that never left this browser stays where it is.
+function cloudSetAsidePreviousApp(){
+  const {appId}=cloudConfig();
+  const old=readStore(CLOUD_META_KEY,null);
+  if(!old || !old.appId || old.appId===appId) return 0;
+  const archive=readStore(CLOUD_PREVIOUS_KEY,[]);
+  const entry={fromAppId:old.appId, setAsideAt:nowISO(), data:{}};
+  let moved=0;
+  for(const def of CLOUD_LISTS){
+    const ids=new Set(Object.keys((old.records || {})[def.entity] || {}));
+    if(!ids.size) continue;
+    const list=readStore(def.key,[]);
+    if(!Array.isArray(list)) continue;
+    const keep=list.filter(r=>!(r && ids.has(String(r.id))));
+    const away=list.filter(r=>r && ids.has(String(r.id)));
+    if(!away.length) continue;
+    entry.data[def.key]=away;
+    moved+=away.length;
+    if(!archive.includes(entry)){ archive.push(entry); }
+    // the copy is stored before the records leave the list
+    if(!cloudWriteLocal(CLOUD_PREVIOUS_KEY,archive)) return 0;
+    cloudWriteLocal(def.key,keep);
+  }
+  // Numbering continues from the remaining (own) estimates, not from the previous app's counter.
+  const usedMax=readStore(STORAGE_KEYS.estimates,[]).reduce((max,e)=>{
+    const n=parseInt(String((e && e.estimateNumber) || "").split("-").pop(),10);
+    return Number.isFinite(n) && n>max ? n : max;
+  },0);
+  SETTINGS.nextEstimateNumber=Math.max(DEFAULT_SETTINGS.nextEstimateNumber,usedMax+1);
+  cloudWriteLocal(STORAGE_KEYS.settings,SETTINGS);
+  cloudWriteLocal(CLOUD_META_KEY,{appId, initialized:false, records:{}, unmigrated:{}});
+  return moved;
+}
+
 function saveCloudConflict(entity, localRecord, reason){
   const list=readStore(CLOUD_CONFLICTS_KEY,[]);
   list.push({entity, reason, savedAt:nowISO(), record:localRecord});
@@ -769,6 +808,11 @@ async function startCloudSession(){
   if(returnPage && PAGES.includes(returnPage)) showPage(returnPage);
   if(!CLOUD.role){ setCloudState("no_access"); return; }
   if(!$("page-settings").hidden) renderTeamCard();
+  const setAside=cloudSetAsidePreviousApp();
+  if(setAside){
+    refreshVisibleData();
+    showToast(`${setAside} record(s) from the previous cloud (test data) were set aside on this computer and will not be uploaded.`);
+  }
   if(CLOUD.started) return cloudSync();
   CLOUD.started=true;
 
