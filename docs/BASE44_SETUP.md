@@ -64,8 +64,9 @@ Access depends on the **`crm_role`** field of each Base44 user:
     (never sent to the web host). The Base44 address
     `https://preview--ever-craft-crm-dev-6d7696b7.base44.app` works as a sign-in link the same way.
 - **Your changes:** saving uploads the change about 1.5 s later.
-- **Other people's changes:** they arrive through Base44 realtime events when available, and in
-  any case every **minute**, when the tab becomes visible, or when the connection comes back.
+- **Other people's changes (and your other devices):** they arrive through Base44 realtime events
+  within a few seconds (measured: 6 s between two devices), and in any case every **30 seconds**,
+  when the tab becomes visible, or when the connection comes back. Clicking "☁ Synced" checks at once.
   Company settings and the estimate counter are re-read every 5 minutes, or sooner when they
   change. Updates are *near* real time, not instant.
 - **Not saved yet:** the yellow bar and the ☁ status count every change the server has not
