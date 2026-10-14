@@ -1,0 +1,12 @@
+{
+  "name": "evercraft-estimator-tests",
+  "private": true,
+  "description": "Browser tests for the EverCraft Estimation-App (no Base44 access needed)",
+  "scripts": {
+    "test": "node run.js"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0",
+    "xlsx": "0.18.5"
+  }
+}

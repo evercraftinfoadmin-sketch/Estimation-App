@@ -1,0 +1,51 @@
+const { launch, FILE, OUT, FIXTURES, MODE } = require('../helpers');
+let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+m);};
+(async()=>{
+  const b=await launch(); const p=await b.newPage({viewport:{width:1360,height:1000}});
+  const printAndWait = async () => { const n = await p.evaluate(() => window.__prints); await p.click('#btnPrint'); await p.waitForFunction(n => window.__prints > n, n, { timeout: 5000 }); };
+
+  const errs=[]; p.on('pageerror',e=>errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')errs.push(m.text());});
+  p.on('dialog',d=>d.accept());
+  await p.addInitScript(() => { window.__prints = 0; window.print = () => { window.__prints++; }; });
+  await p.goto(FILE);
+  await p.fill('#clientName','Ann Lee'); await p.fill('#clientEmail','ann@x.com'); await p.fill('#projectAddress','1 Main St');
+  await p.click('[data-action=add-service][data-category=painting]');
+  await p.locator('#items-painting select').selectOption({label:'Interior Painting'});
+  await p.locator('#items-painting [data-field=quantity]').fill('1000'); await p.locator('#items-painting [data-field=price]').fill('3');
+  await printAndWait();
+  const pv=await p.innerText('#printView');
+  const must=['TERMS AND CONDITIONS','Please read the terms and conditions.','proper coverage of the floor','Sherwin-Williams','Credit card payment fee: 3.5%','Cash discount: 5%','2-3 working days','PAYMENT SCHEDULE','1. Deposit','non-refundable deposit of ten percent (10%)','2. First Progress Payment','forty percent (40%)','3. Final Payment','fifty percent (50%)','4. Late or Missing Payments','California law','+1 818 913 4820','EverCraft.pro@gmail.com','#1133560'];
+  const missing=must.filter(s=>!pv.includes(s));
+  ok(missing.length===0,'PDF contains the full Terms & Conditions '+JSON.stringify(missing));
+  ok(/License #1133560/.test(pv) && /\+1 818 913 4820/.test(pv.split('TERMS')[0]),'PDF header shows phone, email and license');
+  ok(pv.indexOf('TERMS AND CONDITIONS')>pv.indexOf('TOTAL'),'terms appear after the totals');
+  const body=await p.evaluate(()=>buildEmailBody(getEstimateData()));
+  ok(must.every(s=>body.includes(s)),'email contains the full Terms & Conditions');
+  // edit terms in Settings
+  await p.click('#mainNav [data-page=settings]');
+  ok((await p.inputValue('#setTerms')).includes('Sherwin-Williams') && await p.inputValue('#setLicense')==='#1133560','Settings shows terms and license');
+  await p.fill('#setTerms','Custom terms line A.\nLine B.');
+  await p.click('#settingsForm .terms-card button[type=submit]');
+  await p.click('#mainNav [data-page=builder]'); await printAndWait();
+  ok((await p.innerText('#printView')).includes('Custom terms line A.'),'edited terms used on the PDF');
+  await p.click('#mainNav [data-page=settings]'); await p.click('#btnDefaultTerms');
+  ok((await p.inputValue('#setTerms')).includes('PAYMENT SCHEDULE'),'Restore Default refills the terms');
+  await p.click('#settingsForm .terms-card button[type=submit]');
+  await p.reload();
+  ok((await p.evaluate(()=>SETTINGS.terms)).includes('PAYMENT SCHEDULE'),'terms persist after reload');
+  // older saved settings get contact details
+  await p.evaluate(()=>{localStorage.clear(); localStorage.setItem(storageKey('constructionEstimatorSettings'),JSON.stringify({companyName:'EverCraft Home Improvement',companyEmail:'',companyPhone:'',markup:20,nextEstimateNumber:1010}));});
+  await p.reload();
+  const s=await p.evaluate(()=>SETTINGS);
+  ok(s.companyPhone==='+1 818 913 4820' && s.companyEmail==='EverCraft.pro@gmail.com' && s.licenseNumber==='#1133560' && s.terms.includes('Sherwin') && s.markup===20 && s.nextEstimateNumber===1010,'existing settings: contacts + terms filled, other settings kept');
+  await p.click('#mainNav [data-page=builder]'); await p.click('a[href="#settings"]');
+  ok(await p.waitForSelector('#page-settings',{state:'visible',timeout:3000}).then(()=>true,()=>false),'"Edit" link under the builder opens Settings');
+  ok(errs.length===0,'no console errors '+JSON.stringify(errs));
+  await p.click('#mainNav [data-page=builder]');
+  await p.fill('#clientName','Ann Lee'); await p.fill('#projectAddress','1 Main St, Los Angeles, CA');
+  await p.click('[data-action=add-service][data-category=painting]');
+  await p.locator('#items-painting select').selectOption({label:'Interior Painting'});
+  await p.locator('#items-painting [data-field=quantity]').fill('1000'); await p.locator('#items-painting [data-field=price]').fill('3');
+  await printAndWait(); await p.emulateMedia({media:'print'}); await p.pdf({path:OUT+'/terms.pdf',format:'Letter'});
+  console.log(`\n${pass} passed, ${fail} failed`); await b.close();
+})();
