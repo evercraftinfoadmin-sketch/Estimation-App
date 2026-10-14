@@ -183,10 +183,15 @@ async function renderPhotoGallery(el){
   photoGalleryShell(el);
   const grid=el.querySelector(".photo-grid");
   const type=el.dataset.ownerType, id=el.dataset.ownerId;
-  (GALLERY_URLS.get(el)||[]).forEach(u=>URL.revokeObjectURL(u));
-  GALLERY_URLS.set(el,[]);
+  // Old image addresses are released only after their images have left the page.
+  const show=(html,urls=[])=>{
+    const old=GALLERY_URLS.get(el)||[];
+    grid.innerHTML=html;
+    GALLERY_URLS.set(el,urls);
+    old.forEach(u=>URL.revokeObjectURL(u));
+  };
   if(!id){
-    grid.innerHTML=`<div class="photo-empty">${escapeHtml(el.dataset.emptyText || "No photos yet.")}</div>`;
+    show(`<div class="photo-empty">${escapeHtml(el.dataset.emptyText || "No photos yet.")}</div>`);
     el.querySelector(".photo-add").hidden=true;
     return [];
   }
@@ -195,14 +200,13 @@ async function renderPhotoGallery(el){
   try{
     photos=await listPhotos(type,id);
   }catch(e){
-    grid.innerHTML=`<div class="photo-empty">Photos are not available in this browser.</div>`;
+    show(`<div class="photo-empty">Photos are not available in this browser.</div>`);
     return [];
   }
   // Ignore a stale render if the gallery switched to another estimate/project meanwhile.
   if(el.dataset.ownerId!==id || el.dataset.ownerType!==type) return photos;
   const urls=photos.map(p=>URL.createObjectURL(p.blob));
-  GALLERY_URLS.set(el,urls);
-  grid.innerHTML=photos.length ? photos.map((p,i)=>`
+  show(photos.length ? photos.map((p,i)=>`
     <figure class="photo" data-photo-id="${escapeHtml(p.id)}">
       <button type="button" class="photo-view" data-photo-action="view" title="View photo">
         <img src="${urls[i]}" alt="${escapeHtml(p.caption || p.name || "Photo")}" loading="lazy">
@@ -210,7 +214,7 @@ async function renderPhotoGallery(el){
       <button type="button" class="photo-delete" data-photo-action="delete" title="Delete photo" aria-label="Delete photo">✕</button>
       <input type="text" class="photo-caption" data-photo-action="caption" maxlength="120" placeholder="Add a caption" value="${escapeHtml(p.caption)}" aria-label="Photo caption">
     </figure>`).join("")
-    : `<div class="photo-empty">No photos yet.</div>`;
+    : `<div class="photo-empty">No photos yet.</div>`, urls);
   el.dispatchEvent(new CustomEvent("photos-changed",{detail:{count:photos.length},bubbles:true}));
   return photos;
 }
