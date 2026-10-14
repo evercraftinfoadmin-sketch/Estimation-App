@@ -172,6 +172,7 @@ function toggleService(id){
 function deleteService(id){
   const s=getService(id);
   if(!s) return;
+  if(typeof cloudDeleteRefused==="function" && cloudDeleteRefused()) return;
   if(!confirm(`Delete service "${s.name}"? Existing estimates keep their line items.`)) return;
   saveServices(loadServices().filter(x=>x.id!==id));
   renderServicesPage();

@@ -10,7 +10,7 @@ Without a Base44 app id in `js/config.js`, the app works exactly as before (brow
 
 | | |
 |---|---|
-| Base44 app | **EverCraft CRM (dev)**, id `6acd6d429d6ed1576d7696b7`, **fake data only** |
+| Test app (feature branches) | **EverCraft CRM (dev)**, id `6acd6d429d6ed1576d7696b7`, **fake data only** |
 | API address (dev) | the dev app is not published, so `base44ServerUrl` and `base44AppBaseUrl` use its preview address `https://preview--ever-craft-crm-dev-6d7696b7.base44.app` (a published app uses Base44's default) |
 | Production app | **EverCraft CRM**, id `6aceadfed0aa786c7c2934ff`, published at `https://ever-craft-crm-7c2934ff.base44.app`; used by branch `main` |
 | Real company data | only in production, uploaded from the owner's browser with **Upload to shared CRM** |
@@ -88,6 +88,28 @@ Access depends on the **`crm_role`** field of each Base44 user:
   into it.
 - **Not synced:** the Google Maps key (per browser), CRM photos (still in the browser; cloud photos
   come next).
+
+## Data in the browser
+
+- **Each Base44 app has its own copy** of the data and its own sign-in in the browser (keys end in
+  `@<app id>`). The test and the production version can be opened on the same web address
+  without mixing.
+- **First start with a cloud app:** the browser's existing data (the original keys) is *copied*
+  into that app's copy; the original data is never changed. Records this browser exchanged
+  with a *different* cloud app (e.g. test records when opening production) are not copied, and
+  numbering restarts from the remaining estimates.
+- **The copy is all or nothing.** If the browser storage is full, the partial copy is removed,
+  the app keeps working on the original data, and nothing syncs until a later start succeeds.
+- **Edits made during a sync are kept.** The sync merges with what was saved meanwhile, and the
+  next sync uploads it.
+- **Upload local data** stays requested until it is complete. If it's interrupted (offline,
+  request limit), it continues automatically, and the message says what really happened.
+- **Restoring a backup while connected** pauses syncing and forgets the sync bookkeeping. The
+  backup can't delete or overwrite shared records: the shared version is kept, and the backup
+  copy is saved as a conflict copy. Records only in the backup wait for "Upload to shared CRM".
+- **Deleting:** only owners and admins can delete shared records; members get a message.
+- **Photos:** in cloud mode, photos are never deleted automatically (no start-up cleanup, not
+  deleted with a project), because a project can come back from the cloud.
 
 ## Limits of the current (free) plan
 

@@ -90,6 +90,9 @@ async function photoCountsByOwner(){
 
 // Removes photos whose CRM project no longer exists.
 async function cleanupOrphanPhotos(){
+  // With shared cloud data a project missing here can still come back from the cloud: never
+  // delete photos automatically then.
+  if(typeof cloudActive==="function" && cloudActive()) return;
   try{
     const counts=await photoCountsByOwner();
     const projects=new Set(loadProjects().map(p=>p.id));

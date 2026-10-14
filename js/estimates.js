@@ -575,6 +575,7 @@ function duplicateEstimate(id){
 function deleteEstimate(id){
   const est=getEstimate(id);
   if(!est) return;
+  if(typeof cloudDeleteRefused==="function" && cloudDeleteRefused()) return;
   if(!confirm(`Delete estimate ${est.estimateNumber} for ${est.clientName || est.address || "this client"}? This cannot be undone.`)) return;
   if(!saveEstimates(loadEstimates().filter(e=>e.id!==id))) return;
   unlinkEstimateFromProjects(id);

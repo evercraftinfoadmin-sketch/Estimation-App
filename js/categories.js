@@ -104,6 +104,7 @@ function renameCategory(id, name){
 function deleteCategory(id){
   const c=getCustomCategory(id);
   if(!c) return false;
+  if(typeof cloudDeleteRefused==="function" && cloudDeleteRefused()) return false;
   const services=loadServices().filter(s=>s.category===id);
   const msg=services.length
     ? `Delete category "${c.name}" and its ${services.length} service(s)? Saved estimates keep their lines.`

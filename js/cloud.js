@@ -12,16 +12,22 @@
      saved under "constructionEstimatorCloudConflicts". Nothing is overwritten silently.
    - Records that existed in this browser before its first sync are NOT uploaded
      automatically: "Upload local data" asks first and downloads a backup.
-   - Changes arrive by realtime events when available and by polling every 20 s.
-   CRM photos stay in this browser for now (cloud photos are a later step). */
+   - Changes arrive by realtime events when available and by a check every minute.
+   - Each Base44 app has its own copy of the data and its own sign-in in this browser
+     (storageKey in core.js), so test and production never mix.
+   - Only owners/admins delete shared records; members get a message instead.
+   CRM photos stay in this browser for now (cloud photos are a later step); in cloud mode they
+   are never deleted automatically, because a project can come back from the cloud. */
 
 const CLOUD_SDK_URL = "https://cdn.jsdelivr.net/npm/@base44/sdk@0.8.52/+esm";
 // Base44 allows about 40 requests a minute (measured on the free plan), so background
 // checks are kept light: each check costs 4 requests, settings + counter 2 more.
 const CLOUD_POLL_MS = 60000;
 const CLOUD_SETTINGS_EVERY_MS = 5*60000;
-const CLOUD_META_KEY = "constructionEstimatorCloudMeta";
-const CLOUD_CONFLICTS_KEY = "constructionEstimatorCloudConflicts";
+// Bookkeeping, conflict copies and the sign-in belong to one Base44 app (see storageKey in core.js).
+const CLOUD_META_KEY = storageKey("constructionEstimatorCloudMeta");
+const CLOUD_CONFLICTS_KEY = storageKey("constructionEstimatorCloudConflicts");
+const CLOUD_TOKEN_KEY = storageKey("base44_access_token");
 
 const CLOUD_ADDRESS_FIELDS = ["address","addressStatus","addressStreetNumber","addressRoute","addressUnit","addressCity",
   "addressState","addressPostalCode","addressCountry","addressLatitude","addressLongitude","addressPlaceId","addressLastVerifiedAt"];
@@ -151,43 +157,31 @@ function cloudMeta(){
 
 function saveCloudMeta(m){ cloudWriteLocal(CLOUD_META_KEY,m); }
 
-const CLOUD_PREVIOUS_KEY = "constructionEstimatorPreviousCloudData";
+// Is this copy of the app connected to a shared cloud app (signed in or not)?
+function cloudActive(){ return !!cloudConfig().appId; }
 
-// The app now points to a different Base44 app (e.g. test → production). Records this browser
-// received from or sent to the previous app are set aside (kept under CLOUD_PREVIOUS_KEY, never
-// deleted, never uploaded to the new app), and the estimate counter is recalculated from the
-// estimates that remain. Data that never left this browser stays where it is.
-function cloudSetAsidePreviousApp(){
-  const {appId}=cloudConfig();
-  const old=readStore(CLOUD_META_KEY,null);
-  if(!old || !old.appId || old.appId===appId) return 0;
-  const archive=readStore(CLOUD_PREVIOUS_KEY,[]);
-  const entry={fromAppId:old.appId, setAsideAt:nowISO(), data:{}};
-  let moved=0;
-  for(const def of CLOUD_LISTS){
-    const ids=new Set(Object.keys((old.records || {})[def.entity] || {}));
-    if(!ids.size) continue;
-    const list=readStore(def.key,[]);
-    if(!Array.isArray(list)) continue;
-    const keep=list.filter(r=>!(r && ids.has(String(r.id))));
-    const away=list.filter(r=>r && ids.has(String(r.id)));
-    if(!away.length) continue;
-    entry.data[def.key]=away;
-    moved+=away.length;
-    if(!archive.includes(entry)){ archive.push(entry); }
-    // the copy is stored before the records leave the list
-    if(!cloudWriteLocal(CLOUD_PREVIOUS_KEY,archive)) return 0;
-    cloudWriteLocal(def.key,keep);
-  }
-  // Numbering continues from the remaining (own) estimates, not from the previous app's counter.
-  const usedMax=readStore(STORAGE_KEYS.estimates,[]).reduce((max,e)=>{
-    const n=parseInt(String((e && e.estimateNumber) || "").split("-").pop(),10);
-    return Number.isFinite(n) && n>max ? n : max;
-  },0);
-  SETTINGS.nextEstimateNumber=Math.max(DEFAULT_SETTINGS.nextEstimateNumber,usedMax+1);
-  cloudWriteLocal(STORAGE_KEYS.settings,SETTINGS);
-  cloudWriteLocal(CLOUD_META_KEY,{appId, initialized:false, records:{}, unmigrated:{}});
-  return moved;
+// Only owners and admins may delete shared records. Members' deletes would be undone by the
+// next sync anyway, so the app refuses them up front (local-only use is not restricted).
+function cloudCanDelete(){ return !(CLOUD.role && !cloudIsAdmin()); }
+
+function cloudDeleteRefused(){
+  if(cloudCanDelete()) return false;
+  alert("Only an admin can delete shared records. Ask an admin, or change the record instead.");
+  return true;
+}
+
+// Restoring a backup while this browser syncs: syncing stops until the page reloads and the
+// bookkeeping is forgotten, so the restored data counts as data from this computer only. Then the
+// next sync neither deletes nor overwrites shared records: where the shared CRM has a record its
+// version is kept (the restored copy is saved as a conflict copy), and records only in the backup
+// wait for "Upload to shared CRM".
+function cloudPrepareRestore(){
+  if(!cloudActive()) return false;
+  CLOUD.suspended=true;
+  clearTimeout(CLOUD.timer);
+  clearInterval(CLOUD.pollTimer);
+  try{ localStorage.removeItem(CLOUD_META_KEY); }catch(e){}
+  return true;
 }
 
 function saveCloudConflict(entity, localRecord, reason){
@@ -267,10 +261,14 @@ async function cloudSyncList(def, meta, opts){
   const api=CLOUD.client.entities[def.entity];
   const metaRecs=meta.records[def.entity]=meta.records[def.entity] || {};
   const unmigrated=meta.unmigrated[def.entity]=meta.unmigrated[def.entity] || {};
+  const uploadLocal=!!(opts && opts.uploadLocal);
   const remote=await cloudListAll(def.entity);
   let local=readStore(def.key,[]);
   if(!Array.isArray(local)) local=[];
   const localById=new Map(local.filter(r=>r && r.id).map(r=>[String(r.id),r]));
+  // What the list looked like when this sync read it: anything saved in this browser while the
+  // sync waits for the network is detected against it and wins (see the end of this function).
+  const readAtStart=new Map(local.filter(r=>r && r.id).map(r=>[String(r.id),JSON.stringify(r)]));
   const remoteByLid=new Map();
   let changed=false, conflicts=0;
 
@@ -349,7 +347,7 @@ async function cloudSyncList(def, meta, opts){
   try{
     // 2. This browser → cloud
     for(const [lid,loc] of localById){
-      if(unmigrated[lid] && !opts.uploadLocal) continue;
+      if(unmigrated[lid] && !uploadLocal) continue;
       const m=metaRecs[lid];
       const data=cloudToRemote(loc,def.fields);
       const hash=cloudRecordHash(def,loc);
@@ -419,7 +417,20 @@ async function cloudSyncList(def, meta, opts){
       }
     }
   }finally{
-    if(changed) cloudWriteLocal(def.key,[...localById.values()]);
+    if(changed && !CLOUD.suspended){
+      // Merge with what is saved now: records created, edited or deleted here during the sync
+      // keep the newer local state; the bookkeeping still has the last confirmed version, so
+      // the next sync uploads them.
+      const now=readStore(def.key,[]);
+      const nowById=new Map((Array.isArray(now) ? now : []).filter(r=>r && r.id).map(r=>[String(r.id),r]));
+      for(const [lid,rec] of nowById){
+        if(readAtStart.get(lid)!==JSON.stringify(rec)){ localById.set(lid,rec); CLOUD.again=true; }
+      }
+      for(const lid of readAtStart.keys()){
+        if(!nowById.has(lid)){ localById.delete(lid); CLOUD.again=true; }
+      }
+      cloudWriteLocal(def.key,[...localById.values()]);
+    }
   }
   return {changed, conflicts, unmigrated:Object.keys(unmigrated).length};
 }
@@ -481,8 +492,9 @@ async function cloudSyncSettings(meta){
   return changed;
 }
 
-async function cloudSyncOnce(opts={}){
-  if(!CLOUD.client || !CLOUD.role) return;
+async function cloudSyncOnce(){
+  if(!CLOUD.client || !CLOUD.role || CLOUD.suspended) return;
+  const opts={uploadLocal:!!CLOUD.uploadRequested};
   setCloudState("syncing");
   const meta=cloudMeta();
   CLOUD.failures=[];
@@ -505,7 +517,9 @@ async function cloudSyncOnce(opts={}){
       CLOUD.settingsSyncedAt=Date.now();
     }
     meta.initialized=true;
+    if(CLOUD.suspended) return;
     saveCloudMeta(meta);
+    if(opts.uploadLocal && !unmigrated) CLOUD.uploadRequested=false; // everything uploaded
     CLOUD.pendingUpload=unmigrated;
     CLOUD.pendingBy=pendingBy;
     CLOUD.lastSync=new Date();
@@ -516,6 +530,7 @@ async function cloudSyncOnce(opts={}){
     setCloudState("synced", notes.join(" · "));
     if(conflicts) showToast("Some records were changed by someone else: their version was kept (your copy is saved).");
   }catch(err){
+    if(CLOUD.suspended) return;
     saveCloudMeta(meta); // keep what was synced before the error
     CLOUD.unsaved=cloudUnsavedCount();
     if(cloudRateLimited(err)){
@@ -529,9 +544,18 @@ async function cloudSyncOnce(opts={}){
   if(changed) refreshVisibleData();
 }
 
+// One sync at a time. A request that arrives while one runs makes it run again right after,
+// and the returned promise only settles when no follow-up is due (unless paused by the limit).
+// {uploadLocal:true} asks to upload local data; the request stays until the upload is complete.
 function cloudSync(opts){
+  if(opts && opts.uploadLocal) CLOUD.uploadRequested=true;
   if(CLOUD.running){ CLOUD.again=true; return CLOUD.running; }
-  CLOUD.running=cloudSyncOnce(opts).finally(()=>{
+  CLOUD.running=(async()=>{
+    do{
+      CLOUD.again=false;
+      await cloudSyncOnce();
+    }while(CLOUD.again && !CLOUD.suspended && Date.now()>=(CLOUD.backoffUntil || 0));
+  })().finally(()=>{
     CLOUD.running=null;
     if(CLOUD.again){ CLOUD.again=false; scheduleCloudSync(300); }
   });
@@ -643,7 +667,8 @@ async function submitCloudLogin(){
       return;
     }
     $("cloudLoginPassword").value="";
-    CLOUD.client.auth.setToken(body.access_token); // kept by the Base44 library in this browser
+    try{ localStorage.setItem(CLOUD_TOKEN_KEY,body.access_token); }catch(e){}
+    CLOUD.client.auth.setToken(body.access_token,false); // this app's sign-in only
     closeModal("cloudLoginModal");
     await startCloudSession();
   }catch(e){
@@ -730,11 +755,22 @@ async function uploadLocalData(){
     "A backup file is downloaded first. Records that already exist in the cloud are not overwritten, and estimate numbers already used in the cloud are skipped.")) return;
   exportBackup();
   await cloudSync({uploadLocal:true});
-  if(CLOUD.state==="synced") showToast(CLOUD.pendingUpload ? `Uploaded. ${CLOUD.pendingUpload} record(s) could not be uploaded (see messages).` : "Local data uploaded.");
+  // Report what really happened.
+  if(CLOUD.state==="synced" && !CLOUD.pendingUpload){
+    showToast(`Local data uploaded (${n} record(s)).`);
+  }else if(CLOUD.state==="synced"){
+    alert(`${n-CLOUD.pendingUpload} of ${n} record(s) uploaded. ${CLOUD.pendingUpload} could not be uploaded`+
+      (CLOUD.failures.length ? `: ${CLOUD.failures.slice(0,3).map(f=>f.reason).join("; ")}` : "")+
+      ".\n\nThey stay on this computer; fix the problem and click Upload again.");
+  }else{
+    alert(`The upload is not finished (${CLOUD.message || "cloud error"}).\n\n`+
+      "Nothing is lost: the records stay on this computer and the upload continues automatically when the shared CRM is reachable again.");
+  }
 }
 
 function cloudSignOut(){
   if(!confirm("Sign out of the shared cloud data? Data stays in this browser.")) return;
+  try{ localStorage.removeItem(CLOUD_TOKEN_KEY); }catch(e){}
   CLOUD.client.auth.logout(location.href);
 }
 
@@ -747,12 +783,23 @@ const CLOUD_RETURN_PAGE_KEY = "constructionEstimatorCloudReturnPage";
 function takeTokenFromHash(){
   const m=/[?&#]access_token=([^&#]+)/.exec(location.hash);
   if(!m) return false;
-  try{ localStorage.setItem("base44_access_token",decodeURIComponent(m[1])); }catch(e){}
+  try{ localStorage.setItem(CLOUD_TOKEN_KEY,decodeURIComponent(m[1])); }catch(e){}
   const page=location.hash.slice(1).split(/[?&]/)[0];
   history.replaceState(null,"",location.pathname+location.search+(page ? "#"+page : ""));
   return true;
 }
+// The same for "?access_token=…" (Base44 login returning to this page).
+function takeTokenFromSearch(){
+  const params=new URLSearchParams(location.search);
+  const token=params.get("access_token");
+  if(!token) return;
+  try{ localStorage.setItem(CLOUD_TOKEN_KEY,token); }catch(e){}
+  params.delete("access_token");
+  const q=params.toString();
+  history.replaceState(null,"",location.pathname+(q ? "?"+q : "")+location.hash);
+}
 takeTokenFromHash();
+takeTokenFromSearch();
 // Same token arriving without a page load: reload so the sign-in takes effect.
 window.addEventListener("hashchange",()=>{ if(takeTokenFromHash()) location.reload(); });
 
@@ -764,11 +811,21 @@ async function loadBase44Sdk(){
 async function initCloud(){
   const cfg=cloudConfig();
   if(!cfg.appId){ setCloudState("off"); return; }
+  if(STORAGE_COPY_FAILED){
+    // core.js could not prepare this app's copy of the data: never sync a partial copy.
+    setCloudState("error","Not enough browser storage to prepare the shared data. Free some space and reload.");
+    return;
+  }
   setCloudState("syncing","Connecting…");
   try{
     const sdk=await loadBase44Sdk();
+    // The Base44 library also keeps a copy of the sign-in under one shared name, which the test
+    // and the production app would share on this web address. This app only uses its own key
+    // (CLOUD_TOKEN_KEY), so the shared copy is removed before and after the library starts.
+    clearSharedSdkToken();
     CLOUD.client=sdk.createClient({appId:cfg.appId, appBaseUrl:cfg.appBaseUrl || undefined,
-      serverUrl:cfg.serverUrl || undefined, requiresAuth:false});
+      serverUrl:cfg.serverUrl || undefined, requiresAuth:false, token:cloudStoredToken() || undefined});
+    clearSharedSdkToken();
   }catch(err){
     setCloudState("error","Cloud library could not load");
     return;
@@ -776,10 +833,14 @@ async function initCloud(){
   await startCloudSession();
 }
 
-function hasStoredSignIn(){
-  try{
-    return !!(localStorage.getItem("base44_access_token") || new URLSearchParams(location.search).get("access_token"));
-  }catch(e){ return false; }
+function cloudStoredToken(){
+  try{ return localStorage.getItem(CLOUD_TOKEN_KEY) || ""; }catch(e){ return ""; }
+}
+
+function hasStoredSignIn(){ return !!cloudStoredToken(); }
+
+function clearSharedSdkToken(){
+  try{ localStorage.removeItem("base44_access_token"); }catch(e){}
 }
 
 async function startCloudSession(){
@@ -789,7 +850,16 @@ async function startCloudSession(){
     try{
       CLOUD.user=await CLOUD.client.auth.me();
     }catch(err){
-      CLOUD.user=null;
+      const status=err && (err.status || (err.response && err.response.status));
+      if(status===401 || status===403){
+        try{ localStorage.removeItem(CLOUD_TOKEN_KEY); }catch(e){} // sign-in expired or refused
+      }else{
+        // Offline or Base44 not reachable: keep the sign-in and try again.
+        setCloudState("error",cloudErrorMessage(err));
+        clearTimeout(CLOUD.retryTimer);
+        CLOUD.retryTimer=setTimeout(startCloudSession,30000);
+        return;
+      }
     }
   }
   if(!CLOUD.user){ setCloudState("signed_out"); return; }
@@ -808,11 +878,6 @@ async function startCloudSession(){
   if(returnPage && PAGES.includes(returnPage)) showPage(returnPage);
   if(!CLOUD.role){ setCloudState("no_access"); return; }
   if(!$("page-settings").hidden) renderTeamCard();
-  const setAside=cloudSetAsidePreviousApp();
-  if(setAside){
-    refreshVisibleData();
-    showToast(`${setAside} record(s) from the previous cloud (test data) were set aside on this computer and will not be uploaded.`);
-  }
   if(CLOUD.started) return cloudSync();
   CLOUD.started=true;
 

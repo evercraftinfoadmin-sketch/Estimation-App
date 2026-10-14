@@ -57,8 +57,8 @@ Excel files are read with SheetJS, loaded from cdnjs only when an .xlsx file is 
 with the ☁ button. Estimates, CRM projects, services, categories and company settings are then
 shared, with access enforced by Base44 (owner / admin / member). Changes sync near real time
 (realtime events + a check every minute), and conflicts never overwrite anyone's work. Setup and rules:
-[docs/BASE44_SETUP.md](docs/BASE44_SETUP.md). This branch points to the **development** app
-(fake data).
+[docs/BASE44_SETUP.md](docs/BASE44_SETUP.md). On `main` the app uses the **production** Base44 app
+"EverCraft CRM"; feature branches use the test app (fake data).
 
 ## Data
 
@@ -76,6 +76,10 @@ Estimates and CRM projects also store the structured address fields
 `addressStatus` (verified / unverified / needs_review), `addressStreetNumber`, `addressRoute`, `addressUnit`,
 `addressCity`, `addressState`, `addressPostalCode`, `addressCountry`, `addressLatitude`, `addressLongitude`,
 `addressPlaceId` and `addressLastVerifiedAt`. Older records with only `address` keep working (*Unverified*).
+
+With shared cloud data, each Base44 app keeps its own copy of these keys (`…@<app id>`), plus its
+sign-in (`base44_access_token@<app id>`), sync bookkeeping (`constructionEstimatorCloudMeta@…`) and
+conflict copies (`constructionEstimatorCloudConflicts@…`); see docs/BASE44_SETUP.md.
 
 CRM photos are stored in the browser's IndexedDB (database `constructionEstimatorPhotos`),
 resized to at most 1600 px as JPEG.
