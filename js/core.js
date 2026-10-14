@@ -161,8 +161,15 @@ let STORAGE_COPY_FAILED = false;
       let value=JSON.parse(raw);
       const ids=otherAppRecords[entityOfKey[base]];
       if(ids && Array.isArray(value)) value=value.filter(r=>!(r && Object.prototype.hasOwnProperty.call(ids,String(r.id))));
-      // Numbering restarts from the remaining estimates, not from the other app's counter.
-      if(base===STORAGE_BASE_KEYS.settings && !sameApp && legacyMeta && value) delete value.nextEstimateNumber;
+      // Numbering continues after the remaining estimates, not from the other app's counter.
+      if(base===STORAGE_BASE_KEYS.settings && !sameApp && legacyMeta && value){
+        let estimates=JSON.parse(localStorage.getItem(STORAGE_BASE_KEYS.estimates) || "[]");
+        const estIds=otherAppRecords.Estimate || {};
+        if(!Array.isArray(estimates)) estimates=[];
+        const usedMax=estimates.filter(e=>e && !Object.prototype.hasOwnProperty.call(estIds,String(e.id)))
+          .reduce((max,e)=>{ const n=parseInt(String(e.estimateNumber || "").split("-").pop(),10); return Number.isFinite(n) && n>max ? n : max; },0);
+        if(usedMax) value.nextEstimateNumber=usedMax+1; else delete value.nextEstimateNumber;
+      }
       localStorage.setItem(storageKey(base),JSON.stringify(value));
       written.push(storageKey(base));
     }
