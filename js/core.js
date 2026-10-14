@@ -2,13 +2,23 @@
 
 /* Shared helpers, constants and storage access used by every module. */
 
-const STORAGE_KEYS = {
+const STORAGE_BASE_KEYS = {
   settings: "constructionEstimatorSettings",
   services: "constructionEstimatorServices",
   estimates: "constructionEstimatorSavedEstimates",
   crm: "constructionEstimatorCRM",
   categories: "constructionEstimatorCategories"
 };
+
+// With shared cloud data, each Base44 app (test / production) keeps its own copy of the data
+// in this browser ("…@<app id>"), so opening the test and the production version on the same
+// web address never mixes them. Without a cloud app the original keys are used.
+const STORAGE_NAMESPACE = (()=>{
+  const id=String((window.EVERCRAFT_CONFIG || {}).base44AppId || "").trim();
+  return id ? "@"+id : "";
+})();
+function storageKey(base){ return base+STORAGE_NAMESPACE; }
+const STORAGE_KEYS = Object.fromEntries(Object.entries(STORAGE_BASE_KEYS).map(([k,v])=>[k,storageKey(v)]));
 
 // The three main categories are fixed. Users add their own categories
 // (Roofing, Flooring, ...) — see js/categories.js.
@@ -122,3 +132,45 @@ function showToast(message){
   clearTimeout(TOAST_TIMER);
   TOAST_TIMER=setTimeout(()=>el.classList.remove("show"),2600);
 }
+
+/* First start with a cloud app: copy this browser's existing data (the original keys) into the
+   app's own copy. The original data is left untouched. Records that this browser exchanged with
+   a different cloud app (e.g. test records when opening production) are not copied. All or
+   nothing: if the browser storage is full, the partial copy is removed and STORAGE_COPY_FAILED
+   tells the cloud module not to sync; the app then works on the original data. */
+let STORAGE_COPY_FAILED = false;
+(function copyLegacyDataIntoNamespace(){
+  if(!STORAGE_NAMESPACE) return;
+  const ready=storageKey("constructionEstimatorDataReady");
+  const written=[];
+  try{
+    if(localStorage.getItem(ready)) return;
+    const appId=STORAGE_NAMESPACE.slice(1);
+    const legacyMeta=JSON.parse(localStorage.getItem("constructionEstimatorCloudMeta") || "null");
+    const sameApp=!!(legacyMeta && legacyMeta.appId===appId);
+    const otherAppRecords=(!sameApp && legacyMeta && legacyMeta.records) || {};
+    const entityOfKey={
+      [STORAGE_BASE_KEYS.categories]:"Category", [STORAGE_BASE_KEYS.services]:"Service",
+      [STORAGE_BASE_KEYS.estimates]:"Estimate", [STORAGE_BASE_KEYS.crm]:"CrmProject"
+    };
+    const bases=[...Object.values(STORAGE_BASE_KEYS)];
+    if(sameApp) bases.push("constructionEstimatorCloudMeta","constructionEstimatorCloudConflicts");
+    for(const base of bases){
+      const raw=localStorage.getItem(base);
+      if(raw===null || localStorage.getItem(storageKey(base))!==null) continue; // never overwrite
+      let value=JSON.parse(raw);
+      const ids=otherAppRecords[entityOfKey[base]];
+      if(ids && Array.isArray(value)) value=value.filter(r=>!(r && Object.prototype.hasOwnProperty.call(ids,String(r.id))));
+      // Numbering restarts from the remaining estimates, not from the other app's counter.
+      if(base===STORAGE_BASE_KEYS.settings && !sameApp && legacyMeta && value) delete value.nextEstimateNumber;
+      localStorage.setItem(storageKey(base),JSON.stringify(value));
+      written.push(storageKey(base));
+    }
+    localStorage.setItem(ready,new Date().toISOString());
+  }catch(e){
+    STORAGE_COPY_FAILED=true;
+    for(const k of written){ try{ localStorage.removeItem(k); }catch(e2){} }
+    // Keep working on the original data (cloud off) until the copy succeeds on a later start.
+    Object.assign(STORAGE_KEYS,STORAGE_BASE_KEYS);
+  }
+})();

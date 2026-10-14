@@ -77,6 +77,10 @@ Estimates and CRM projects also store the structured address fields
 `addressCity`, `addressState`, `addressPostalCode`, `addressCountry`, `addressLatitude`, `addressLongitude`,
 `addressPlaceId` and `addressLastVerifiedAt`. Older records with only `address` keep working (*Unverified*).
 
+With shared cloud data, each Base44 app keeps its own copy of these keys (`…@<app id>`), plus its
+sign-in (`base44_access_token@<app id>`), sync bookkeeping (`constructionEstimatorCloudMeta@…`) and
+conflict copies (`constructionEstimatorCloudConflicts@…`); see docs/BASE44_SETUP.md.
+
 CRM photos are stored in the browser's IndexedDB (database `constructionEstimatorPhotos`),
 resized to at most 1600 px as JPEG.
 

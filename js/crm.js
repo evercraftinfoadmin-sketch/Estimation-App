@@ -304,9 +304,12 @@ function setFollowUpCompleted(id, completed){
 function deleteProject(id){
   const p=getProject(id);
   if(!p) return false;
+  if(typeof cloudDeleteRefused==="function" && cloudDeleteRefused()) return false;
   if(!confirm(`Delete CRM project for ${p.clientName || p.address || "this client"}? The linked estimate is kept.`)) return false;
   if(!saveProjects(loadProjects().filter(x=>x.id!==id))) return false;
-  deleteOwnerPhotos("project",id);
+  // With shared cloud data the project can come back (e.g. changed by someone else meanwhile),
+  // so its photos stay on this device; without a cloud they are deleted with the project.
+  if(!(typeof cloudActive==="function" && cloudActive())) deleteOwnerPhotos("project",id);
 
   const estimates=loadEstimates();
   let changed=false;
