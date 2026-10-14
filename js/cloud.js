@@ -691,10 +691,12 @@ async function requestPasswordLink(){
 }
 
 function cloudGoogleLogin(){
-  // Return without the #page part: the login adds ?access_token=… to this address,
-  // and after a "#" it would be lost. The page is reopened after sign-in.
+  // After the Base44 login, return to the Base44 app's own home page: it forwards to this app
+  // with the sign-in after a "#" (Base44 does not reliably hand the sign-in to other web
+  // addresses, e.g. on phones). The current page is reopened after sign-in.
   try{ sessionStorage.setItem(CLOUD_RETURN_PAGE_KEY,location.hash.slice(1)); }catch(e){}
-  CLOUD.client.auth.redirectToLogin(location.origin+location.pathname+location.search);
+  const home=cloudConfig().appBaseUrl.replace(/\/$/,"");
+  CLOUD.client.auth.redirectToLogin(home ? home+"/" : location.origin+location.pathname+location.search);
 }
 
 /* ---------- team access (Base44 app admins) ---------- */
