@@ -113,6 +113,7 @@ function init(){
   wireEvents();
   wirePhotoEvents();
   wireImportEvents();
+  wireMigrationEvents();
   wireCloudEvents();
   newEstimate();
   showPage(location.hash.slice(1) || "builder");

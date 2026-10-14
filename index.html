@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.18a">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.18b">
 </head>
 <body>
 
@@ -222,6 +222,18 @@
           <p class="small" style="margin-top:-8px">Everyone who signs in appears here. Choose what each person may do: <b>Member</b> can view and edit, <b>Admin</b> can also delete and change Settings. <b>No access</b> sees nothing. New employees: send them the app link and ask them to sign in once, then give them access here.</p>
           <div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Email</th><th>Access</th></tr></thead><tbody id="teamBody"></tbody></table></div>
           <p class="small" id="teamStatus"></p>
+        </section>
+        <section class="card terms-card" id="migrationCard" hidden>
+          <h2>Migration Check (dry run)</h2>
+          <p class="small" style="margin-top:-8px">Before uploading existing data to the shared CRM, check what would happen: counts, duplicates, conflicts and broken links. The check only reads; <b>nothing is changed</b> here or in the shared CRM.</p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-light" id="btnMigrationLocal">Check this browser's data</button>
+            <button type="button" class="btn btn-light" id="btnMigrationFile">Check a backup file</button>
+            <button type="button" class="btn btn-light" id="migrationDownload" hidden>⬇ Download report</button>
+            <input type="file" id="migrationFile" accept=".json,application/json" hidden>
+          </div>
+          <p class="small" id="migrationStatus" aria-live="polite"></p>
+          <div id="migrationResult" class="migration-result"></div>
         </section>
         <section class="card terms-card">
           <h2>Import &amp; Backup</h2>
@@ -454,18 +466,19 @@
 <!-- Printable estimate (only visible when printing) -->
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.10.18a"></script>
-<script src="js/core.js?v=2026.10.18a"></script>
-<script src="js/calc.js?v=2026.10.18a"></script>
-<script src="js/settings.js?v=2026.10.18a"></script>
-<script src="js/address.js?v=2026.10.18a"></script>
-<script src="js/categories.js?v=2026.10.18a"></script>
-<script src="js/services.js?v=2026.10.18a"></script>
-<script src="js/photos.js?v=2026.10.18a"></script>
-<script src="js/cloud.js?v=2026.10.18a"></script>
-<script src="js/estimates.js?v=2026.10.18a"></script>
-<script src="js/crm.js?v=2026.10.18a"></script>
-<script src="js/importer.js?v=2026.10.18a"></script>
-<script src="js/app.js?v=2026.10.18a"></script>
+<script src="js/config.js?v=2026.10.18b"></script>
+<script src="js/core.js?v=2026.10.18b"></script>
+<script src="js/calc.js?v=2026.10.18b"></script>
+<script src="js/settings.js?v=2026.10.18b"></script>
+<script src="js/address.js?v=2026.10.18b"></script>
+<script src="js/categories.js?v=2026.10.18b"></script>
+<script src="js/services.js?v=2026.10.18b"></script>
+<script src="js/photos.js?v=2026.10.18b"></script>
+<script src="js/cloud.js?v=2026.10.18b"></script>
+<script src="js/estimates.js?v=2026.10.18b"></script>
+<script src="js/crm.js?v=2026.10.18b"></script>
+<script src="js/importer.js?v=2026.10.18b"></script>
+<script src="js/migration.js?v=2026.10.18b"></script>
+<script src="js/app.js?v=2026.10.18b"></script>
 </body>
 </html>

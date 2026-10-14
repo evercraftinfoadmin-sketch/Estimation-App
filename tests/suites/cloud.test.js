@@ -422,7 +422,8 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
       window.__bk=new File([JSON.stringify({app:BACKUP_APP,version:1,exportedAt:new Date().toISOString(),data})],'b.json');
     });
     await Promise.all([ADM.waitForNavigation(), ADM.evaluate(()=>restoreBackupFile(window.__bk))]);
-    await ADM.waitForFunction(()=>typeof CLOUD!=='undefined' && CLOUD.state!=='syncing' && !CLOUD.running,null,{timeout:15000});
+    // after the reload: wait for the first sync to have run, not just for the page
+    await ADM.waitForFunction(()=>typeof CLOUD!=='undefined' && CLOUD.started && CLOUD.state==='synced' && !CLOUD.running,null,{timeout:15000});
     ok(ADM.dialogs.some(d=>d.includes('Shared CRM: the backup does not change or delete shared records')),'F2: the restore warns how it treats shared data');
     ok(!pr('crm-good').deletedAt && table('CrmProject').filter(r=>!r.deletedAt).length===before,'F2: records missing from the backup are NOT deleted for everyone');
     ok(pr('crm-test-2').notes!=='from old backup' && (await store(ADM,'constructionEstimatorCRM')).find(p=>p.id==='crm-test-2').notes===pr('crm-test-2').notes,'F2: the shared version wins over the old backup copy');
@@ -461,6 +462,57 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
     ok(await P.evaluate(()=>STORAGE_KEYS.crm==='constructionEstimatorCRM' && loadProjects().some(p=>p.id==='crm-q')),'F8: the app keeps working on the original data meanwhile');
     await ctx2.close();
     ok((await store(D,'constructionEstimatorCRM')).some(p=>p.id==='crm-d') && (await rawStore(D,'constructionEstimatorCRM')).some(p=>p.id==='crm-d'),'F6: on first start the app gets a copy; the original data stays as it was');
+  }
+
+  // M. migration check (dry run): reads only, reports what an upload would do
+  {
+    await ADM.evaluate(()=>showPage('settings')); await ADM.waitForTimeout(300);
+    ok(await ADM.isVisible('#migrationCard'),'M: owner sees the Migration Check card');
+    await B.evaluate(()=>showPage('settings')); await B.waitForTimeout(300);
+    ok(await B.isHidden('#migrationCard'),'M: a member does not see the Migration Check card');
+    const crm2=remote('CrmProject','crm-test-2');
+    const source={
+      categories:[{id:'cat-new',name:'Fencing'}],
+      services:[{id:'svc-local-hang',category:'drywall',name:'Drywall Installation',defaultPrice:9,active:true},
+                {id:'svc-new',category:'cat-missing',name:'Gate repair',defaultPrice:50,active:true}],
+      crm:[{id:'crm-new-1',clientName:'Real Lead One',clientPhone:'(818) 555-0101',stage:'lead',estimateId:'est-new-1'},
+           {id:'crm-new-2',clientName:'TEST Carol Lead',clientPhone:'',address:'',stage:'lead'},
+           {id:'crm-new-3',clientName:'Real Lead One',clientPhone:'818-555-0101',stage:'lead'},
+           {id:'crm-test-2',clientName:crm2.clientName,stage:'job',tasks:[]},
+           {id:'crm-new-1',clientName:'Real Lead One again',stage:'lead'}],
+      estimates:[{id:'est-new-1',estimateNumber:'EST-2026-7771',clientName:'Real Lead One',crmProjectId:'crm-new-1',items:[]},
+                 {id:'est-new-2',estimateNumber:'EST-2026-9001',clientName:'Number taken',items:[]},
+                 {id:'est-new-3',estimateNumber:'',clientName:'No number',items:[]},
+                 {id:'est-new-4',estimateNumber:'EST-2026-9500',clientName:'Missing project',crmProjectId:'crm-gone',items:[]}],
+      settings:{companyName:'EverCraft Real Name',markup:25}
+    };
+    const before=calls.length, storageBefore=await ADM.evaluate(()=>JSON.stringify(Object.entries(localStorage).sort()));
+    const r=await ADM.evaluate(async src=>{ const rep=migrationReport(src, await migrationCloudData()); return rep; },source);
+    const ops=calls.slice(before).map(c=>c.op);
+    ok(ops.length>0 && ops.every(o=>o==='filter'),'M: the check only reads from the server ('+[...new Set(ops)].join(',')+')');
+    ok(await ADM.evaluate(()=>JSON.stringify(Object.entries(localStorage).sort()))===storageBefore,'M: the check does not change this browser\'s data');
+    const T=r.types;
+    ok(T.Category.create===1 && T.Service.mergedByName===1 && T.Service.create===1,'M: new category and service counted; same-name service merged ('+JSON.stringify([T.Category.create,T.Service.mergedByName,T.Service.create])+')');
+    ok(T.Service.examples.mergedByName[0].priceDiffers===true,'M: merged service with a different price is flagged');
+    ok(T.CrmProject.create===3 && T.CrmProject.different===1 && T.CrmProject.duplicateIds===1,'M: CRM: 3 new, 1 different from shared, 1 duplicate id ('+JSON.stringify([T.CrmProject.create,T.CrmProject.different,T.CrmProject.duplicateIds])+')');
+    ok(T.Estimate.create===2 && T.Estimate.numberTaken===1 && T.Estimate.invalid===1,'M: estimates: 2 new, 1 number already used, 1 without a number ('+JSON.stringify([T.Estimate.create,T.Estimate.numberTaken,T.Estimate.invalid])+')');
+    ok(JSON.stringify(r.newIds.Estimate.sort())===JSON.stringify(['est-new-1','est-new-4']) && r.newIds.CrmProject.length===3,'M: report lists exactly the ids an upload would create (rollback list)');
+    const txt=r.problems.map(p=>p.text).join(' | ');
+    ok(/EST-2026-9001 is already used/.test(txt) && /crm-gone does not exist/.test(txt) && /cat-missing of "Gate repair" does not exist/.test(txt) && /same id appears twice/.test(txt),'M: problems: number taken, broken estimate link, missing category, duplicate id');
+    ok((r.duplicates||[]).some(d=>d.ids.includes('crm-new-1') && d.ids.includes('crm-new-3') && d.match==='phone') && (r.duplicates||[]).some(d=>d.ids.includes('crm-new-2') && d.ids.includes('crm-test-2')),'M: possible duplicate clients found (same phone; same name as a shared lead) '+JSON.stringify(r.duplicates||[]).slice(0,200));
+    ok(r.settings.differentFields.includes('companyName') && r.counter.highestUsed===9500 && r.counter.ok===false,'M: settings difference and a too-low estimate counter are reported');
+    // the screen: a backup file through the card
+    const backupFile={name:'backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({app:'EverCraftEstimator',version:1,exportedAt:new Date().toISOString(),data:source}))};
+    await ADM.setInputFiles('#migrationFile',backupFile);
+    await ADM.waitForFunction(()=>document.getElementById('migrationResult').textContent.includes('Nothing was changed'),null,{timeout:10000});
+    const shown=await ADM.textContent('#migrationResult');
+    await ADM.locator('#migrationCard').screenshot({path:OUT+'/migration.png'});
+    ok(shown.includes('An upload would add 7 record(s)') && shown.includes('EST-2026-9001') && await ADM.isVisible('#migrationDownload'),'M: the card shows the report for a backup file, with a download button');
+    const dl=ADM.waitForEvent('download'); await ADM.click('#migrationDownload'); const f=await dl;
+    ok(/^migration-check-.*\.json$/.test(f.suggestedFilename()),'M: the report downloads as JSON');
+    await ADM.setInputFiles('#migrationFile',{name:'x.json',mimeType:'application/json',buffer:Buffer.from('{"nope":1}')});
+    await ADM.waitForTimeout(300);
+    ok((await ADM.textContent('#migrationStatus')).includes('not a backup file'),'M: a wrong file is refused');
   }
 
   // 14. app still works with cloud on

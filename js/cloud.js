@@ -706,6 +706,7 @@ const TEAM_ROLES = [["none","No access"],["member","Member"],["admin","Admin"],[
 function canManageTeam(){ return !!(CLOUD.user && CLOUD.user.role==="admin" && CLOUD.role); }
 
 async function renderTeamCard(){
+  if(typeof renderMigrationCard==="function") renderMigrationCard();
   const card=$("teamCard");
   if(!card) return;
   card.hidden=!canManageTeam();
