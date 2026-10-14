@@ -12,7 +12,7 @@
      saved under "constructionEstimatorCloudConflicts". Nothing is overwritten silently.
    - Records that existed in this browser before its first sync are NOT uploaded
      automatically: "Upload local data" asks first and downloads a backup.
-   - Changes arrive by realtime events when available and by a check every minute.
+   - Changes arrive by realtime events (about a second) and by a check every 30 seconds.
    - Each Base44 app has its own copy of the data and its own sign-in in this browser
      (storageKey in core.js), so test and production never mix.
    - Only owners/admins delete shared records; members get a message instead.
@@ -22,7 +22,7 @@
 const CLOUD_SDK_URL = "https://cdn.jsdelivr.net/npm/@base44/sdk@0.8.52/+esm";
 // Base44 allows about 40 requests a minute (measured on the free plan), so background
 // checks are kept light: each check costs 4 requests, settings + counter 2 more.
-const CLOUD_POLL_MS = 60000;
+const CLOUD_POLL_MS = 30000;
 const CLOUD_SETTINGS_EVERY_MS = 5*60000;
 // Bookkeeping, conflict copies and the sign-in belong to one Base44 app (see storageKey in core.js).
 const CLOUD_META_KEY = storageKey("constructionEstimatorCloudMeta");
@@ -668,7 +668,7 @@ async function submitCloudLogin(){
     }
     $("cloudLoginPassword").value="";
     try{ localStorage.setItem(CLOUD_TOKEN_KEY,body.access_token); }catch(e){}
-    CLOUD.client.auth.setToken(body.access_token,false); // this app's sign-in only
+    cloudUseToken(body.access_token);
     closeModal("cloudLoginModal");
     await startCloudSession();
   }catch(e){
@@ -841,6 +841,15 @@ function cloudStoredToken(){
 
 function hasStoredSignIn(){ return !!cloudStoredToken(); }
 
+// Gives the sign-in to the whole Base44 client: data requests AND the realtime connection
+// (auth.setToken alone leaves realtime signed out, so it would get no events).
+function cloudUseToken(token){
+  if(!token || !CLOUD.client) return;
+  if(typeof CLOUD.client.setToken==="function") CLOUD.client.setToken(token);
+  else CLOUD.client.auth.setToken(token,false);
+  clearSharedSdkToken(); // this app's sign-in only
+}
+
 function clearSharedSdkToken(){
   try{ localStorage.removeItem("base44_access_token"); }catch(e){}
 }
@@ -901,10 +910,11 @@ async function startCloudSession(){
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) scheduleCloudSync(200); });
   window.addEventListener("online",()=>scheduleCloudSync(200));
   // Realtime: a change by someone else triggers a sync right away (polling stays as the safety net).
+  cloudUseToken(cloudStoredToken());
   for(const name of [...CLOUD_LISTS.map(d=>d.entity),"CompanySettings"]){
     try{
       const api=CLOUD.client.entities[name];
-      if(api && typeof api.subscribe==="function") CLOUD.unsubscribers.push(api.subscribe(()=>{ if(name==="CompanySettings") CLOUD.settingsDirty=true; scheduleCloudSync(3000); }));
+      if(api && typeof api.subscribe==="function") CLOUD.unsubscribers.push(api.subscribe(()=>{ if(name==="CompanySettings") CLOUD.settingsDirty=true; scheduleCloudSync(1000); }));
     }catch(e){ /* polling covers it */ }
   }
 }
