@@ -31,7 +31,8 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   await p.locator('#pmPhotos .photo-caption').first().dispatchEvent('change'); await p.waitForTimeout(200);
   await p.locator('#pmPhotos .photo-view').first().click();
   const viewerOk=await p.waitForFunction(()=>{ const v=document.getElementById('photoViewer'); return v && v.classList.contains('open') && document.getElementById('photoViewerCaption').textContent==='Before: cracked stucco'; },null,{timeout:5000}).then(()=>true,()=>false);
-  ok(viewerOk,'photo opens large with caption');
+  const viewerState=viewerOk ? '' : ' '+JSON.stringify(await p.evaluate(()=>({open:$('photoViewer').classList.contains('open'), caption:$('photoViewerCaption').textContent, input:document.querySelector('#pmPhotos .photo-caption')?.value, photos:document.querySelectorAll('#pmPhotos .photo').length})));
+  ok(viewerOk,'photo opens large with caption'+viewerState);
   await p.click('#photoViewer [data-close=photoViewer]');
   await p.locator('#pmPhotos .photo-delete').last().click();
   ok(await waitPhotos('#pmPhotos',2) && dialogs.at(-1)==='Delete this photo?','delete one photo (with confirmation)');

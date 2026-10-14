@@ -33,7 +33,7 @@ const SIGNED_OUT_SDK = `window.__EVERCRAFT_BASE44_SDK = window.__EVERCRAFT_BASE4
 // chromium.launch(), with the test config added to every new page.
 // Pass { config } to use other config values (the cloud test uses its own fake app).
 async function launch(opts = {}) {
-  const executablePath = fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined;
+  const executablePath = process.env.TEST_BROWSER || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
   const browser = await chromium.launch({ executablePath });
   const config = opts.config || CONFIGS[MODE];
   const prepare = async ctx => {
