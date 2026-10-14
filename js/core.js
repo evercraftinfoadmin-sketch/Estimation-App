@@ -1,0 +1,183 @@
+"use strict";
+
+/* Shared helpers, constants and storage access used by every module. */
+
+const STORAGE_BASE_KEYS = {
+  settings: "constructionEstimatorSettings",
+  services: "constructionEstimatorServices",
+  estimates: "constructionEstimatorSavedEstimates",
+  crm: "constructionEstimatorCRM",
+  categories: "constructionEstimatorCategories"
+};
+
+// With shared cloud data, each Base44 app (test / production) keeps its own copy of the data
+// in this browser ("…@<app id>"), so opening the test and the production version on the same
+// web address never mixes them. Without a cloud app the original keys are used.
+const STORAGE_NAMESPACE = (()=>{
+  const id=String((window.EVERCRAFT_CONFIG || {}).base44AppId || "").trim();
+  return id ? "@"+id : "";
+})();
+function storageKey(base){ return base+STORAGE_NAMESPACE; }
+const STORAGE_KEYS = Object.fromEntries(Object.entries(STORAGE_BASE_KEYS).map(([k,v])=>[k,storageKey(v)]));
+
+// The three main categories are fixed. Users add their own categories
+// (Roofing, Flooring, ...) — see js/categories.js.
+const MAIN_CATEGORIES = [
+  {key:"drywall", label:"Drywall"},
+  {key:"stucco", label:"Stucco"},
+  {key:"painting", label:"Painting"}
+];
+const MAIN_CATEGORY_KEYS = MAIN_CATEGORIES.map(c=>c.key);
+
+// Upper bound for quantities and prices so totals can never overflow to Infinity.
+const MAX_AMOUNT = 1e9;
+
+function $(id){ return document.getElementById(id); }
+
+function num(value, fallback=0){
+  const n=Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// Non-negative, finite, capped number (quantities, prices, percentages).
+function amount(value){
+  return Math.min(MAX_AMOUNT, Math.max(0, num(value)));
+}
+
+function round2(n){
+  return Math.round((num(n)+Number.EPSILON)*100)/100;
+}
+
+function escapeHtml(s){
+  return String(s ?? "").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+
+function money(n){
+  return "$"+num(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function formatQty(n){
+  return num(n).toLocaleString("en-US",{maximumFractionDigits:2});
+}
+
+function capitalize(s){
+  s=String(s ?? "");
+  return s.charAt(0).toUpperCase()+s.slice(1);
+}
+
+// Local calendar date (YYYY-MM-DD). toISOString() would give the UTC date,
+// which is already "tomorrow" in US evenings.
+function localISODate(d=new Date()){
+  const pad=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function formatDate(isoDate){
+  if(!isoDate) return "";
+  const [y,m,d]=String(isoDate).split("-").map(Number);
+  const date=new Date(y,(m||1)-1,d||1);
+  return isNaN(date) ? String(isoDate) : date.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+}
+
+function formatDateTime(iso){
+  const d=new Date(iso);
+  return isNaN(d) ? "" : d.toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});
+}
+
+function nowISO(){ return new Date().toISOString(); }
+
+function uid(prefix){
+  const rand=(window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);
+  return `${prefix}-${rand}`;
+}
+
+function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+function readStore(key, fallback){
+  try{
+    const raw=localStorage.getItem(key);
+    return raw==null ? fallback : JSON.parse(raw);
+  }catch(e){
+    return fallback;
+  }
+}
+
+function writeStore(key, value){
+  try{
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  }catch(e){
+    alert("Could not save data in this browser (storage may be full or blocked).");
+    return false;
+  }
+}
+
+function openModal(id){
+  $(id).classList.add("open");
+  document.body.classList.add("modal-open");
+}
+
+function closeModal(id){
+  $(id).classList.remove("open");
+  if(!document.querySelector(".modal.open")) document.body.classList.remove("modal-open");
+}
+
+let TOAST_TIMER = null;
+
+function showToast(message){
+  const el=$("toast");
+  el.textContent=message;
+  el.classList.add("show");
+  clearTimeout(TOAST_TIMER);
+  TOAST_TIMER=setTimeout(()=>el.classList.remove("show"),2600);
+}
+
+/* First start with a cloud app: copy this browser's existing data (the original keys) into the
+   app's own copy. The original data is left untouched. Records that this browser exchanged with
+   a different cloud app (e.g. test records when opening production) are not copied. All or
+   nothing: if the browser storage is full, the partial copy is removed and STORAGE_COPY_FAILED
+   tells the cloud module not to sync; the app then works on the original data. */
+let STORAGE_COPY_FAILED = false;
+(function copyLegacyDataIntoNamespace(){
+  if(!STORAGE_NAMESPACE) return;
+  const ready=storageKey("constructionEstimatorDataReady");
+  const written=[];
+  try{
+    if(localStorage.getItem(ready)) return;
+    const appId=STORAGE_NAMESPACE.slice(1);
+    const legacyMeta=JSON.parse(localStorage.getItem("constructionEstimatorCloudMeta") || "null");
+    const sameApp=!!(legacyMeta && legacyMeta.appId===appId);
+    const otherAppRecords=(!sameApp && legacyMeta && legacyMeta.records) || {};
+    const entityOfKey={
+      [STORAGE_BASE_KEYS.categories]:"Category", [STORAGE_BASE_KEYS.services]:"Service",
+      [STORAGE_BASE_KEYS.estimates]:"Estimate", [STORAGE_BASE_KEYS.crm]:"CrmProject"
+    };
+    const bases=[...Object.values(STORAGE_BASE_KEYS)];
+    if(sameApp) bases.push("constructionEstimatorCloudMeta","constructionEstimatorCloudConflicts");
+    for(const base of bases){
+      const raw=localStorage.getItem(base);
+      if(raw===null || localStorage.getItem(storageKey(base))!==null) continue; // never overwrite
+      let value=JSON.parse(raw);
+      const ids=otherAppRecords[entityOfKey[base]];
+      if(ids && Array.isArray(value)) value=value.filter(r=>!(r && Object.prototype.hasOwnProperty.call(ids,String(r.id))));
+      // Numbering continues after the remaining estimates, not from the other app's counter.
+      if(base===STORAGE_BASE_KEYS.settings && !sameApp && legacyMeta && value){
+        let estimates=JSON.parse(localStorage.getItem(STORAGE_BASE_KEYS.estimates) || "[]");
+        const estIds=otherAppRecords.Estimate || {};
+        if(!Array.isArray(estimates)) estimates=[];
+        const usedMax=estimates.filter(e=>e && !Object.prototype.hasOwnProperty.call(estIds,String(e.id)))
+          .reduce((max,e)=>{ const n=parseInt(String(e.estimateNumber || "").split("-").pop(),10); return Number.isFinite(n) && n>max ? n : max; },0);
+        if(usedMax) value.nextEstimateNumber=usedMax+1; else delete value.nextEstimateNumber;
+      }
+      localStorage.setItem(storageKey(base),JSON.stringify(value));
+      written.push(storageKey(base));
+    }
+    localStorage.setItem(ready,new Date().toISOString());
+  }catch(e){
+    STORAGE_COPY_FAILED=true;
+    for(const k of written){ try{ localStorage.removeItem(k); }catch(e2){} }
+    // Keep working on the original data (cloud off) until the copy succeeds on a later start.
+    Object.assign(STORAGE_KEYS,STORAGE_BASE_KEYS);
+  }
+})();

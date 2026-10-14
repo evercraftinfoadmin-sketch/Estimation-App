@@ -3,729 +3,469 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Construction Estimator</title>
-<style>
-:root{--bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#6b7280;--line:#e5e7eb;--primary:#2563eb;--dark:#111827;--green:#059669}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Inter,Arial,sans-serif;color:var(--text)}
-.container{max-width:1250px;margin:auto;padding:28px 20px 50px}
-.header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:24px}
-h1{margin:0 0 6px;font-size:30px}.sub{color:var(--muted)}
-.badge{background:#dbeafe;color:#1d4ed8;padding:8px 12px;border-radius:999px;font-weight:700}
-.grid{display:grid;grid-template-columns:390px 1fr;gap:20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 5px 20px rgba(15,23,42,.05)}
-h2{font-size:18px;margin:0 0 16px}h3{font-size:15px;margin:20px 0 10px}
-label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}
-input,select{width:100%;padding:11px 12px;border:1px solid #d1d5db;border-radius:9px;font-size:14px;background:#fff}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-button{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:pointer}
-.primary{background:var(--primary);color:white;width:100%;margin-top:18px}.secondary{background:#eef2ff;color:#3730a3}.danger{background:#fee2e2;color:#b91c1c}
-.material{border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:12px}
-.material-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.material-name{font-weight:800}.small{font-size:12px;color:var(--muted)}
-.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
-.metric{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:15px}
-.metric span{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.metric strong{font-size:20px}
-.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;font-size:13px}.table th,.table td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line)}.table th{color:var(--muted);font-size:12px}
-.total{font-size:28px;font-weight:900;color:var(--green)}
-.actions{display:flex;gap:8px;margin-top:15px}.actions button{flex:1}
-@media(max-width:900px){.grid{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}}
-@media(max-width:550px){.summary,.row{grid-template-columns:1fr}.header{display:block}.badge{display:inline-block;margin-top:12px}}
-@media print{
-  body{background:#fff}
-  .container{max-width:none;padding:0}
-  .card{box-shadow:none;border:0}
-  .grid .card:first-child,.actions,.badge{display:none!important}
-  .grid{display:block}
-  .summary{grid-template-columns:repeat(4,1fr)}
-  .card{padding:10px}
-}
-
-.modal{display:none;position:fixed;z-index:1000;inset:0;background:rgba(15,23,42,.55);padding:30px;overflow:auto}
-.modal-box{max-width:1000px;margin:auto;background:white;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
-.modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
-.settings-tabs{display:flex;gap:8px;margin:20px 0;border-bottom:1px solid var(--line);padding-bottom:10px}
-.tab{background:#f3f4f6;color:#374151}.tab.active{background:#dbeafe;color:#1d4ed8}
-.settings-toolbar{display:flex;gap:10px;margin-bottom:15px}.settings-toolbar select{max-width:220px}
-.setting-material{border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:12px}
-.settings-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
-.settings-actions button{width:auto}
-
-</style>
+<title>Estimate Builder + CRM</title>
+<!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
+<link rel="stylesheet" href="css/styles.css?v=2026.10.18h">
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <div>
-      <h1>Construction Estimator</h1>
-      <div class="sub">Painting • Drywall • Stucco — material, labor, markup & profit</div>
+
+<div class="app">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-name" id="brandName">Construction Estimator</div>
+        <div class="brand-sub">Estimate Builder + CRM</div>
+      </div>
+      <nav class="nav" id="mainNav" aria-label="Main">
+        <button data-page="builder">Estimate Builder</button>
+        <button data-page="estimates">Saved Estimates</button>
+        <button data-page="services">Services</button>
+        <button data-page="crm">CRM</button>
+        <button data-page="settings">Settings</button>
+      </nav>
+      <div class="cloud-bar">
+        <button type="button" class="cloud-chip" id="cloudStatus" hidden>☁</button>
+        <button type="button" class="cloud-link" id="cloudUpload" hidden>⬆ Upload local data</button>
+        <button type="button" class="cloud-link" id="cloudSignOut" hidden>Sign out</button>
+      </div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <button class="secondary" onclick="openSettings()">⚙ Settings</button>
-      <div class="badge">US / sq ft</div>
-    </div>
+  </header>
+
+  <div class="cloud-pending" id="cloudPendingBar" hidden role="status">
+    <span id="cloudPendingText"></span>
+    <button type="button" class="btn btn-primary" id="cloudPendingUpload">⬆ Upload to shared CRM</button>
+    <button type="button" class="btn btn-light" id="cloudRetry" hidden>↻ Try again</button>
   </div>
 
-  <div class="grid">
-    <div class="card">
-      <h2>Client & Project</h2>
+  <main class="container">
 
-      <div class="row">
+    <!-- ============ ESTIMATE BUILDER ============ -->
+    <section id="page-builder" class="page" hidden>
+      <div class="page-head">
         <div>
-          <label for="clientName">Client Name</label>
-          <input id="clientName" type="text" placeholder="John Smith">
-        </div>
-        <div>
-          <label for="clientEmail">Client Email</label>
-          <input id="clientEmail" type="email" placeholder="client@email.com">
+          <h1>Estimate Builder <span id="builderBadge" class="status-badge status-unsaved">Not saved</span></h1>
+          <div class="page-sub" id="builderMeta"></div>
         </div>
       </div>
 
-      <label for="projectAddress">Project Address</label>
-      <input id="projectAddress" type="text" placeholder="123 Main St, Los Angeles, CA">
+      <div class="builder-grid">
+        <div class="builder-main">
+          <section class="card">
+            <h2>Client &amp; Estimate</h2>
+            <div class="form-grid">
+              <div class="field"><label for="clientName">Client Name</label><input id="clientName" type="text" autocomplete="off" placeholder="John Smith"></div>
+              <div class="field"><label for="clientEmail">Client Email</label><input id="clientEmail" type="email" autocomplete="off" placeholder="client@email.com"></div>
+              <div class="field"><label for="clientPhone">Client Phone</label><input id="clientPhone" type="tel" autocomplete="off" placeholder="(555) 123-4567"></div>
+              <div class="field span-3"><label for="projectAddress">Project Address</label><input id="projectAddress" type="text" autocomplete="off" placeholder="123 Main St, Los Angeles, CA"></div>
+              <div class="field"><label for="estimateNumber">Estimate #</label><input id="estimateNumber" type="text" autocomplete="off"></div>
+              <div class="field"><label for="estimateDate">Date</label><input id="estimateDate" type="date"></div>
+            </div>
+          </section>
 
-      <div class="row">
-        <div>
-          <label for="estimateNumber">Estimate #</label>
-          <input id="estimateNumber" type="text">
+          <div id="builderSections"></div>
+
         </div>
-        <div>
-          <label for="estimateDate">Date</label>
-          <input id="estimateDate" type="date">
+
+        <aside class="builder-side">
+          <section class="card summary-card">
+            <h2>Estimate Total</h2>
+            <div id="sumCategories"></div>
+            <div class="sum-row sum-strong"><span>Subtotal</span><span id="sumSubtotal">$0.00</span></div>
+            <div class="sum-row">
+              <label for="estMarkup" class="sum-label">Markup <span class="pct-input"><input id="estMarkup" type="number" min="0" step="0.1" inputmode="decimal"> %</span></label>
+              <span id="sumMarkup">$0.00</span>
+            </div>
+            <div class="sum-row">
+              <label for="estTaxRate" class="sum-label">Sales Tax <span class="pct-input"><input id="estTaxRate" type="number" min="0" step="0.01" inputmode="decimal"> %</span>
+                <span class="small" id="sumTaxNote"></span></label>
+              <span id="sumTax">$0.00</span>
+            </div>
+            <div class="sum-row sum-total"><span>TOTAL</span><span id="sumTotal">$0.00</span></div>
+
+            <div class="summary-actions">
+              <button class="btn btn-success btn-block" id="btnSaveEstimate">Save Estimate</button>
+              <div class="btn-row">
+                <button class="btn btn-light" id="btnPrint">Print / PDF</button>
+                <button class="btn btn-light" id="btnEmail">Email Client</button>
+              </div>
+              <button class="btn btn-danger-soft btn-block" id="btnReset">Reset</button>
+            </div>
+            <p class="small terms-note">Terms &amp; Conditions are included in every PDF and email. <a href="#settings">Edit</a></p>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============ SAVED ESTIMATES ============ -->
+    <section id="page-estimates" class="page" hidden>
+      <div class="page-head">
+        <div><h1>Saved Estimates</h1><div class="page-sub">Stored in this browser.</div></div>
+        <div class="btn-row">
+          <button class="btn btn-light" id="btnImportEstimates">⬆ Import</button>
+          <button class="btn btn-primary" id="btnNewEstimate">+ New Estimate</button>
         </div>
       </div>
-
-      <h2 style="margin-top:24px">Project</h2>
-
-      <label for="projectType">Work type</label>
-      <select id="projectType" onchange="renderMaterials()">
-        <option value="painting">Painting</option>
-        <option value="drywall">Drywall</option>
-        <option value="stucco">Stucco</option>
-      </select>
-
-      <div class="row">
-        <div>
-          <label for="area">Area (sq ft)</label>
-          <input id="area" type="number" value="1000" min="0" step="1" oninput="calculate()">
+      <section class="card">
+        <div class="toolbar">
+          <input id="estimateSearch" type="search" placeholder="Search client, address or estimate #" aria-label="Search estimates">
+          <select id="estimateStatusFilter" aria-label="Status filter">
+            <option value="all">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="accepted">Accepted</option>
+            <option value="rejected">Rejected</option>
+            <option value="completed">Completed</option>
+          </select>
+          <select id="estimateAddressFilter" aria-label="Address filter"><option value="all">All addresses</option></select>
         </div>
-        <div>
-          <label for="coats">Coats</label>
-          <input id="coats" type="number" value="2" min="1" step="1" oninput="calculate()">
+        <div class="table-wrap">
+          <table class="table responsive-table">
+            <thead><tr><th>Estimate #</th><th>Client</th><th>Address</th><th>Date</th><th>Status</th><th>Total</th><th>Updated</th><th>Actions</th></tr></thead>
+            <tbody id="estimatesBody"></tbody>
+          </table>
         </div>
+        <div id="estimatesEmpty" class="empty" hidden></div>
+      </section>
+    </section>
+
+    <!-- ============ SERVICES ============ -->
+    <section id="page-services" class="page" hidden>
+      <div class="page-head">
+        <div><h1>Services</h1><div class="page-sub">Your service list. Prices here are defaults; each estimate can use its own price.</div></div>
+        <button class="btn btn-primary" id="btnAddService">+ Add Service</button>
       </div>
-
-      <h3>Labor & Pricing</h3>
-      <div class="row">
-        <div>
-          <label for="laborRate">Labor / sq ft ($)</label>
-          <input id="laborRate" type="number" value="1.50" min="0" step="0.01" oninput="calculate()">
+      <section class="card categories-card">
+        <div class="categories-head">
+          <div>
+            <h2>Categories</h2>
+            <div class="small">Drywall, Stucco and Painting are the main categories. Add your own for any other work.</div>
+          </div>
+          <button class="btn btn-light" id="btnAddCategory">+ Add Category</button>
         </div>
-        <div>
-          <label for="markup">Markup (%)</label>
-          <input id="markup" type="number" value="25" min="0" step="1" oninput="calculate()">
-        </div>
-      </div>
-
-      <button class="primary" onclick="calculate()">Calculate Estimate</button>
-      <div class="actions">
-        <button class="secondary" onclick="printEstimate()">Download / Save PDF</button>
-        <button class="secondary" onclick="emailEstimate()">Email Client</button>
-        <button class="danger" onclick="resetProject()">Reset</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Material Database</h2>
-      <div id="materials"></div>
-    </div>
-  </div>
-
-  <div class="card" style="margin-top:20px">
-    <h2>Estimate Summary</h2>
-    <div id="clientPreview" style="padding:12px;background:#f8fafc;border-radius:10px;margin-bottom:16px;color:#4b5563"></div>
-    <div class="summary">
-      <div class="metric"><span>Area</span><strong id="mArea">0 sq ft</strong></div>
-      <div class="metric"><span>Materials</span><strong id="mMaterials">$0.00</strong></div>
-      <div class="metric"><span>Labor</span><strong id="mLabor">$0.00</strong></div>
-      <div class="metric"><span>Customer Price</span><strong class="total" id="mTotal">$0.00</strong></div>
-    </div>
-
-    <div class="table-wrap">
-      <table class="table">
-        <thead><tr><th>Material</th><th>Required</th><th>Unit</th><th>Unit Price</th><th>Total</th></tr></thead>
-        <tbody id="estimateTable"></tbody>
-      </table>
-    </div>
-
-    <div style="margin-top:20px;max-width:500px;margin-left:auto">
-      <div class="resultLine"><b>Material Cost</b><span id="rMaterial">$0.00</span></div>
-      <div class="resultLine"><b>Labor Cost</b><span id="rLabor">$0.00</span></div>
-      <div class="resultLine"><b>Direct Cost</b><span id="rDirect">$0.00</span></div>
-      <div class="resultLine"><b>Markup</b><span id="rMarkup">$0.00</span></div>
-      <div class="resultLine"><b id="rTaxLabel">Sales Tax</b><span id="rTax">$0.00</span></div>
-      <div class="resultLine" style="font-size:20px"><b>Customer Price</b><span class="total" id="rTotal">$0.00</span></div>
-    </div>
-  </div>
-</div>
-
-<style>
-.resultLine{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
-</style>
-
-
-<div id="settingsModal" class="modal">
-  <div class="modal-box">
-    <div class="modal-head">
-      <div>
-        <h2 style="margin:0">Estimator Settings</h2>
-        <div class="small">Manage materials, coverage, waste, labor and pricing variables.</div>
-      </div>
-      <button class="danger" onclick="closeSettings()">✕</button>
-    </div>
-
-    <div class="settings-tabs">
-      <button class="tab active" onclick="showSettingsTab('materialsTab',this)">Materials Database</button>
-      <button class="tab" onclick="showSettingsTab('laborTab',this)">Labor & Pricing</button>
-      <button class="tab" onclick="showSettingsTab('companyTab',this)">Company</button>
-    </div>
-
-    <div id="materialsTab" class="settings-tab-content">
-      <div class="settings-toolbar">
-        <select id="settingsType" onchange="renderSettingsMaterials()">
-          <option value="painting">Painting</option>
-          <option value="drywall">Drywall</option>
-          <option value="stucco">Stucco</option>
-        </select>
-        <button class="secondary" onclick="addMaterial()">+ Add Material</button>
-      </div>
-      <div id="settingsMaterials"></div>
-    </div>
-
-    <div id="laborTab" class="settings-tab-content" style="display:none">
-      <div class="row">
-        <div>
-          <label>Default Labor / sq ft ($)</label>
-          <input id="defaultLaborRate" type="number" min="0" step="0.01">
-        </div>
-        <div>
-          <label>Default Markup (%)</label>
-          <input id="defaultMarkup" type="number" min="0" step="1">
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label for="salesTax">Sales Tax (%)</label>
-          <input id="salesTax" type="number" min="0" step="0.01">
-        </div>
-        <div>
-          <label for="taxMode">Apply Sales Tax To</label>
-          <select id="taxMode">
-            <option value="materials">Materials only</option>
-            <option value="all">Whole price (materials + labor + markup)</option>
+        <div class="cat-chips" id="categoriesList"></div>
+      </section>
+      <section class="card">
+        <div class="toolbar">
+          <input id="serviceSearch" type="search" placeholder="Search services" aria-label="Search services">
+          <select id="serviceCategoryFilter" aria-label="Category filter">
+            <option value="all">All categories</option>
           </select>
         </div>
-      </div>
-      <div class="row">
-        <div>
-          <label for="defaultCoats">Default Coats</label>
-          <input id="defaultCoats" type="number" min="1" step="1">
+        <div class="table-wrap">
+          <table class="table responsive-table">
+            <thead><tr><th>Service</th><th>Category</th><th>Default Price</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="servicesBody"></tbody>
+          </table>
         </div>
-        <div>
-          <label for="nextEstimateNumber">Next Estimate #</label>
-          <input id="nextEstimateNumber" type="number" min="1" step="1">
+        <div id="servicesEmpty" class="empty" hidden></div>
+      </section>
+    </section>
+
+    <!-- ============ CRM ============ -->
+    <section id="page-crm" class="page" hidden>
+      <div class="page-head">
+        <div><h1>CRM</h1><div class="page-sub">Leads → Prospects → Client / Job → Start the Project → Project Completed → Follow-up</div></div>
+        <div class="btn-row">
+          <button class="btn btn-light" id="btnImportCrm">⬆ Import</button>
+          <button class="btn btn-primary" id="btnNewLead">+ New Lead</button>
         </div>
       </div>
-      <p class="small">These values become the defaults for new estimates. Material-specific coverage, price and waste are stored in the Materials Database. The estimate number advances each time an estimate is printed or emailed.</p>
+      <div class="toolbar">
+        <input id="crmSearch" type="search" placeholder="Search client, phone, address or estimate #" aria-label="Search CRM">
+        <select id="crmAddressFilter" aria-label="Address filter"><option value="all">All addresses</option></select>
+      </div>
+      <div class="kanban" id="crmBoard"></div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section id="page-settings" class="page" hidden>
+      <div class="page-head"><div><h1>Settings</h1><div class="page-sub">Company details and pricing defaults for new estimates.</div></div></div>
+      <form id="settingsForm" class="settings-grid">
+        <section class="card">
+          <h2>Company</h2>
+          <div class="field"><label for="setCompanyName">Company Name</label><input id="setCompanyName" type="text"></div>
+          <div class="field"><label for="setCompanyEmail">Company Email</label><input id="setCompanyEmail" type="email"></div>
+          <div class="field"><label for="setCompanyPhone">Company Phone</label><input id="setCompanyPhone" type="tel"></div>
+          <div class="field"><label for="setCompanyAddress">Company Address</label><input id="setCompanyAddress" type="text"></div>
+          <div class="field"><label for="setLicense">License Number</label><input id="setLicense" type="text" placeholder="#1133560"></div>
+          <div class="field"><label for="setEstimateFooter">Estimate Footer</label><input id="setEstimateFooter" type="text" placeholder="Thank you for choosing us."></div>
+        </section>
+        <section class="card">
+          <h2>Pricing &amp; Numbering</h2>
+          <div class="form-grid two">
+            <div class="field"><label for="setMarkup">Default Markup (%)</label><input id="setMarkup" type="number" min="0" step="0.1"></div>
+            <div class="field"><label for="setSalesTax">Default Sales Tax (%)</label><input id="setSalesTax" type="number" min="0" step="0.01"></div>
+          </div>
+          <div class="field">
+            <label for="setTaxMode">Apply Sales Tax To</label>
+            <select id="setTaxMode">
+              <option value="all">Subtotal + markup</option>
+              <option value="subtotal">Subtotal only (before markup)</option>
+            </select>
+          </div>
+          <div class="field"><label for="setNextNumber">Next Estimate #</label><input id="setNextNumber" type="number" min="1" step="1"></div>
+          <p class="small">Estimate numbers run EST-YEAR-1001, 1002, … and are never reused.</p>
+          <div class="btn-row end">
+            <button type="button" class="btn btn-light" id="btnResetSettings">Reset Defaults</button>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </div>
+        </section>
+        <section class="card terms-card">
+          <h2>Address Verification (Google Places)</h2>
+          <p class="small" style="margin-top:-8px">Client addresses are checked with Google Places suggestions. Use a <b>restricted browser key</b> (HTTP referrers + "Maps JavaScript API" and "Places API (New)" only). The key is stored only in this browser. Setup steps: docs/GOOGLE_MAPS_SETUP.md.</p>
+          <div class="field"><label for="setMapsKey">Google Maps API key</label><input id="setMapsKey" type="text" autocomplete="off" spellcheck="false" placeholder="YOUR_RESTRICTED_API_KEY"></div>
+          <p class="small" id="mapsKeyStatus"></p>
+          <div class="btn-row end"><button type="submit" class="btn btn-primary">Save Settings</button></div>
+        </section>
+        <section class="card terms-card" id="teamCard" hidden>
+          <h2>Team Access (shared cloud data)</h2>
+          <p class="small" style="margin-top:-8px">Everyone who signs in appears here. Choose what each person may do: <b>Member</b> can view and edit, <b>Admin</b> can also delete and change Settings. <b>No access</b> sees nothing. New employees: send them the app link and ask them to sign in once, then give them access here.</p>
+          <div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Email</th><th>Access</th></tr></thead><tbody id="teamBody"></tbody></table></div>
+          <p class="small" id="teamStatus"></p>
+        </section>
+        <section class="card terms-card">
+          <h2>Import &amp; Backup</h2>
+          <p class="small" style="margin-top:-8px">Bring in leads and estimates from your previous system (Excel or CSV). Your data lives only in this browser, so download a backup regularly.</p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-primary" id="btnImportSettings">⬆ Import Leads / Estimates</button>
+            <button type="button" class="btn btn-light" id="btnImportTemplate">Download Import Template</button>
+            <button type="button" class="btn btn-light" id="btnExportBackup">⬇ Download Backup</button>
+            <button type="button" class="btn btn-light" id="btnRestoreBackup">Restore Backup</button>
+          </div>
+        </section>
+        <section class="card terms-card">
+          <div class="categories-head">
+            <div>
+              <h2>Terms &amp; Conditions</h2>
+              <div class="small">Added to every estimate sent to a client: Print / PDF and Email.</div>
+            </div>
+            <button type="button" class="btn btn-light" id="btnDefaultTerms">Restore Default</button>
+          </div>
+          <textarea id="setTerms" rows="22" aria-label="Terms and Conditions"></textarea>
+          <div class="btn-row end">
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </div>
+        </section>
+      </form>
+    </section>
+  </main>
+</div>
+
+<!-- ============ MODALS ============ -->
+<div id="customServiceModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="customServiceTitle">
+  <form class="modal-box modal-sm" id="customServiceForm">
+    <div class="modal-head"><h2 id="customServiceTitle">Custom Service</h2><button type="button" class="btn-icon" data-close="customServiceModal" aria-label="Close">✕</button></div>
+    <div class="field"><label for="csName">Service Name</label><input id="csName" type="text" autocomplete="off"></div>
+    <div class="form-grid two">
+      <div class="field"><label for="csPrice">Default Price ($)</label><input id="csPrice" type="number" min="0" step="0.01" inputmode="decimal"></div>
+      <div class="field"><label for="csCategory">Category</label>
+        <select id="csCategory"></select>
+      </div>
+    </div>
+    <div class="field"><label for="csDescription">Description</label><textarea id="csDescription" rows="2"></textarea></div>
+    <label class="check"><input id="csSave" type="checkbox"> <span>Save to Service List</span></label>
+    <p class="small">If not saved, the service is used only in this estimate.</p>
+    <div class="btn-row end">
+      <button type="button" class="btn btn-light" data-close="customServiceModal">Cancel</button>
+      <button type="submit" class="btn btn-primary">Add to Estimate</button>
+    </div>
+  </form>
+</div>
+
+<div id="categoryModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="categoryModalTitle">
+  <form class="modal-box modal-sm" id="categoryForm">
+    <div class="modal-head"><h2 id="categoryModalTitle">Add Category</h2><button type="button" class="btn-icon" data-close="categoryModal" aria-label="Close">✕</button></div>
+    <p class="small" style="margin-top:0">Add a section for work outside Drywall, Stucco and Painting.</p>
+    <div class="field" id="catExistingField"><label for="catExisting">Saved category</label><select id="catExisting"></select></div>
+    <div class="field" id="catNewField"><label for="catName">New category name</label><input id="catName" type="text" maxlength="40" autocomplete="off" placeholder="e.g. Roofing, Flooring, Tile"></div>
+    <p class="small">New categories are saved to your list, so you can add services to them on the Services page.</p>
+    <div class="btn-row end">
+      <button type="button" class="btn btn-light" data-close="categoryModal">Cancel</button>
+      <button type="submit" class="btn btn-primary">Add Category</button>
+    </div>
+  </form>
+</div>
+
+<div id="serviceModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="serviceModalTitle">
+  <form class="modal-box modal-sm" id="serviceForm">
+    <div class="modal-head"><h2 id="serviceModalTitle">Add Service</h2><button type="button" class="btn-icon" data-close="serviceModal" aria-label="Close">✕</button></div>
+    <div class="field"><label for="svcName">Service</label><input id="svcName" type="text" autocomplete="off"></div>
+    <div class="form-grid two">
+      <div class="field"><label for="svcCategory">Category</label>
+        <select id="svcCategory"></select>
+      </div>
+      <div class="field"><label for="svcPrice">Default Price ($)</label><input id="svcPrice" type="number" min="0" step="0.01" inputmode="decimal"></div>
+    </div>
+    <div class="field"><label for="svcDescription">Description</label><textarea id="svcDescription" rows="2"></textarea></div>
+    <label class="check"><input id="svcActive" type="checkbox" checked> <span>Active (shown in the Estimate Builder)</span></label>
+    <div class="btn-row end">
+      <button type="button" class="btn btn-light" data-close="serviceModal">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save Service</button>
+    </div>
+  </form>
+</div>
+
+<div id="projectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
+  <form class="modal-box" id="projectForm">
+    <div class="modal-head"><h2 id="projectModalTitle">CRM Project</h2><button type="button" class="btn-icon" data-close="projectModal" aria-label="Close">✕</button></div>
+
+    <div class="pm-grid">
+      <section>
+        <h3>Client</h3>
+        <div class="field"><label for="pmClientName">Client Name</label><input id="pmClientName" type="text" autocomplete="off"></div>
+        <div class="form-grid two">
+          <div class="field"><label for="pmClientEmail">Email</label><input id="pmClientEmail" type="email" autocomplete="off"></div>
+          <div class="field"><label for="pmClientPhone">Phone</label><input id="pmClientPhone" type="tel" autocomplete="off"></div>
+        </div>
+        <div class="field"><label for="pmAddress">Address</label><input id="pmAddress" type="text" autocomplete="off"></div>
+
+        <h3>Estimate</h3>
+        <div class="pm-estimate" id="pmEstimate"></div>
+
+        <h3>Pipeline</h3>
+        <div class="form-grid two">
+          <div class="field"><label for="pmStage">Stage</label>
+            <select id="pmStage">
+              <option value="lead">Leads / Clients</option>
+              <option value="prospect">Prospects</option>
+              <option value="job">Client / Job</option>
+              <option value="started">Start the Project</option>
+              <option value="completed">Project Completed</option>
+              <option value="followup">Follow-up</option>
+            </select>
+          </div>
+          <div class="field"><label for="pmProspectStatus">Prospect Status</label>
+            <select id="pmProspectStatus">
+              <option value="quote_sent">Quote sent</option>
+              <option value="quote_accepted">Quote accepted</option>
+              <option value="needs_action">Unconfirmed / needs action</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Client / Job</h3>
+        <div class="form-grid two">
+          <div class="field"><label for="pmScheduledDate">Scheduled Date</label><input id="pmScheduledDate" type="date"></div>
+          <div class="field"><label for="pmTechnician">Assigned Technician</label><input id="pmTechnician" type="text" autocomplete="off"></div>
+        </div>
+        <div class="field"><label for="pmNotes">Notes</label><textarea id="pmNotes" rows="2"></textarea></div>
+
+        <h3>Start the Project <span class="small" id="pmStartedProgress"></span></h3>
+        <div class="pm-checklist" id="pmStartedTasks"></div>
+
+        <h3>Project Completed <span class="small" id="pmCompletedProgress"></span></h3>
+        <div class="pm-checklist" id="pmCompletedTasks"></div>
+
+        <h3>Follow-up</h3>
+        <div class="form-grid two">
+          <div class="field"><label for="pmFollowUpDate">Follow-up Date</label><input id="pmFollowUpDate" type="date"></div>
+          <div class="field"><label for="pmFollowUpType">Type</label>
+            <select id="pmFollowUpType"><option value="client">Client follow-up</option><option value="personal">Personal follow-up</option></select>
+          </div>
+        </div>
+        <div class="field"><label for="pmFollowUpNotes">Follow-up Notes</label><textarea id="pmFollowUpNotes" rows="2"></textarea></div>
+        <label class="check"><input id="pmFollowUpCompleted" type="checkbox"> <span>Follow-up completed</span></label>
+      </section>
     </div>
 
-    <div id="companyTab" class="settings-tab-content" style="display:none">
-      <label>Company Name</label>
-      <input id="companyName" type="text" placeholder="EverCraft Home Improvement">
+    <h3>Photos</h3>
+    <p class="small" style="margin-top:-4px">Job photos, before / after, reports. Saved right away.</p>
+    <div class="photo-gallery" id="pmPhotos"></div>
 
-      <label>Company Email</label>
-      <input id="companyEmail" type="email">
+    <div class="btn-row between">
+      <button type="button" class="btn btn-danger" id="pmDelete">Delete</button>
+      <div class="btn-row">
+        <button type="button" class="btn btn-light" data-close="projectModal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </form>
+</div>
 
-      <label>Company Phone</label>
-      <input id="companyPhone" type="text">
+<div id="cloudLoginModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cloudLoginTitle">
+  <div class="modal-box login-box">
+    <div class="modal-head"><h2 id="cloudLoginTitle">Sign in to the shared CRM</h2><button type="button" class="btn-icon" data-close="cloudLoginModal" aria-label="Close">✕</button></div>
+    <form id="cloudLoginForm">
+      <div class="field"><label for="cloudLoginEmail">Email</label><input id="cloudLoginEmail" type="email" autocomplete="username" required></div>
+      <div class="field"><label for="cloudLoginPassword">Password</label><input id="cloudLoginPassword" type="password" autocomplete="current-password" required></div>
+      <p class="import-error" id="cloudLoginError" role="alert"></p>
+      <div class="btn-row"><button type="submit" class="btn btn-primary" id="cloudLoginSubmit">Sign in</button></div>
+    </form>
+    <p class="small">No password yet, or forgot it? Enter your email above and <button type="button" class="link-btn" id="cloudLoginReset">send me a link to set a password</button>.</p>
+    <div class="login-or"><span>or</span></div>
+    <button type="button" class="btn btn-light" id="cloudLoginGoogle">Continue with Google</button>
+    <p class="small">Continue with Google opens the Base44 sign-in page and then comes back here.</p>
+  </div>
+</div>
 
-      <label>Company Address</label>
-      <input id="companyAddress" type="text">
+<div id="importModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="importTitle">Import Leads &amp; Estimates</h2><button type="button" class="btn-icon" data-close="importModal" aria-label="Close">✕</button></div>
 
-      <label>Estimate Footer</label>
-      <input id="estimateFooter" type="text" placeholder="Thank you for choosing us.">
+    <div id="importStep1">
+      <p>Choose a spreadsheet exported from your previous system: <b>Excel (.xlsx)</b> or <b>CSV</b>. The first row must contain the column names.</p>
+      <ul class="small import-tips">
+        <li>One row per client / estimate, or one row per service line. Rows with the same <b>Estimate #</b> become one estimate.</li>
+        <li>Useful columns: Client Name, Email, Phone, Address, Estimate #, Date, Category, Service, Quantity, Price, Total, Status, Stage, Notes. Only one of Client Name / Address / Phone / Email is required.</li>
+        <li>Imported estimates keep their totals (0% markup and tax). Existing estimate numbers and existing CRM clients are not duplicated.</li>
+        <li>A <b>backup file (.json)</b> from this app can be restored here too.</li>
+      </ul>
+      <label class="btn btn-primary file-btn">Choose File…
+        <input type="file" id="importFile" accept=".csv,.txt,.xlsx,.xls,.json,text/csv" hidden>
+      </label>
+      <button type="button" class="btn btn-light" id="btnImportTemplate2">Download Template</button>
+      <p class="import-error" id="importError" role="alert"></p>
     </div>
 
-    <div class="settings-actions">
-      <button class="secondary" onclick="resetSettings()">Reset Defaults</button>
-      <button class="primary" onclick="saveSettings()">Save Settings</button>
+    <div id="importStep2" hidden>
+      <div class="small" id="importFileName"></div>
+      <h3>Match your columns</h3>
+      <div class="map-grid" id="importMapping"></div>
+      <label class="check"><input type="checkbox" id="importCreateLeads" checked> <span>Also create CRM leads for these clients</span></label>
+      <h3>Preview</h3>
+      <div class="imp-summary" id="importSummary"></div>
+      <div class="table-wrap import-preview">
+        <table class="table">
+          <thead><tr><th>Client</th><th>Address</th><th>Estimate #</th><th>Lines</th><th>Total</th><th>Will import as</th></tr></thead>
+          <tbody id="importPreviewBody"></tbody>
+        </table>
+      </div>
+      <div class="small" id="importMore"></div>
+      <div class="btn-row between">
+        <button type="button" class="btn btn-light" id="btnImportBack">← Choose another file</button>
+        <button type="button" class="btn btn-success" id="btnRunImport">Import</button>
+      </div>
     </div>
   </div>
 </div>
 
-<script>
-const STORAGE_KEY = "constructionEstimatorSettings";
+<div id="photoViewer" class="modal photo-viewer" role="dialog" aria-modal="true" aria-label="Photo">
+  <div class="photo-viewer-box">
+    <button type="button" class="btn-icon photo-viewer-close" data-close="photoViewer" aria-label="Close">✕</button>
+    <img id="photoViewerImg" alt="">
+    <div id="photoViewerCaption" class="photo-viewer-caption"></div>
+  </div>
+</div>
 
-const DEFAULT_DB = {
-  painting: [
-    {name:"Primer",unit:"gallon",coverage:300,price:35,waste:10,ignoreCoats:false},
-    {name:"Paint",unit:"gallon",coverage:350,price:45,waste:10,ignoreCoats:false},
-    {name:"Caulk",unit:"tube",coverage:100,price:8,waste:5,ignoreCoats:true},
-    {name:"Masking Tape",unit:"roll",coverage:400,price:9,waste:5,ignoreCoats:true}
-  ],
-  drywall: [
-    {name:"Drywall 4x8",unit:"sheet",coverage:32,price:16,waste:10,ignoreCoats:true},
-    {name:"Joint Compound",unit:"bucket",coverage:400,price:25,waste:10,ignoreCoats:true},
-    {name:"Drywall Tape",unit:"roll",coverage:500,price:7,waste:5,ignoreCoats:true},
-    {name:"Drywall Screws",unit:"box",coverage:500,price:12,waste:5,ignoreCoats:true}
-  ],
-  stucco: [
-    {name:"Stucco Base Coat",unit:"bag",coverage:100,price:25,waste:10,ignoreCoats:true},
-    {name:"Stucco Finish",unit:"bag",coverage:120,price:30,waste:10,ignoreCoats:true},
-    {name:"Lath",unit:"sheet",coverage:25,price:12,waste:10,ignoreCoats:true},
-    {name:"Primer",unit:"gallon",coverage:300,price:35,waste:10,ignoreCoats:false}
-  ]
-};
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-const DEFAULT_SETTINGS = {
-  db: DEFAULT_DB,
-  laborRate: 1.50,
-  markup: 25,
-  salesTax: 0,
-  // "materials": tax applies to material cost only (typical for contractors, e.g. CA)
-  // "all": tax applies to the whole subtotal (materials + labor + markup)
-  taxMode: "materials",
-  coats: 2,
-  nextEstimateNumber: 1001,
-  companyName: "EverCraft Home Improvement",
-  companyEmail: "",
-  companyPhone: "",
-  companyAddress: "",
-  estimateFooter: "Thank you for choosing us."
-};
+<!-- Printable estimate (only visible when printing) -->
+<div id="printView" class="print-view"></div>
 
-const MIN_COVERAGE = 1;
-
-function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
-
-function $(id){ return document.getElementById(id); }
-
-function num(value, fallback=0){
-  const n=Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-}
-
-function money(n){
-  return "$"+num(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-}
-
-function capitalize(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
-
-// Local calendar date (YYYY-MM-DD). toISOString() would give the UTC date,
-// which is already "tomorrow" in US evenings.
-function localISODate(d=new Date()){
-  const pad=n=>String(n).padStart(2,"0");
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-}
-
-/* ---------- Settings storage ---------- */
-
-function sanitizeMaterial(m){
-  return {
-    name:String(m.name ?? "Material"),
-    unit:String(m.unit ?? "unit"),
-    coverage:Math.max(MIN_COVERAGE,num(m.coverage,MIN_COVERAGE)),
-    price:Math.max(0,num(m.price)),
-    waste:Math.max(0,num(m.waste)),
-    ignoreCoats:!!m.ignoreCoats
-  };
-}
-
-function loadSettings(){
-  const settings=clone(DEFAULT_SETTINGS);
-  try{
-    const saved=localStorage.getItem(STORAGE_KEY);
-    if(saved){
-      const parsed=JSON.parse(saved);
-      const savedDb=parsed.db||{};
-      delete parsed.db;
-      Object.assign(settings,parsed);
-      // Merge per work type so a saved DB missing a type can't break the app.
-      for(const type of Object.keys(DEFAULT_DB)){
-        const list=Array.isArray(savedDb[type])&&savedDb[type].length ? savedDb[type] : DEFAULT_DB[type];
-        settings.db[type]=list.map(sanitizeMaterial);
-      }
-    }
-  }catch(e){}
-  settings.nextEstimateNumber=Math.max(1,Math.floor(num(settings.nextEstimateNumber,1001)));
-  if(!["materials","all"].includes(settings.taxMode)) settings.taxMode="materials";
-  return settings;
-}
-
-function persistSettings(){
-  try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(SETTINGS));
-  }catch(e){
-    alert("Could not save settings in this browser.");
-  }
-}
-
-let SETTINGS = loadSettings();
-// Draft copy of the materials database while the Settings dialog is open.
-// Changes only apply when "Save Settings" is pressed.
-let DRAFT_DB = null;
-
-/* ---------- Estimate numbers ---------- */
-
-function formatEstimateNumber(n){
-  return `EST-${new Date().getFullYear()}-${String(n).padStart(4,"0")}`;
-}
-
-// Called when an estimate is printed or emailed. If the estimate still carries
-// the auto-assigned number, reserve it so the next estimate gets a new one.
-function issueEstimateNumber(){
-  if($("estimateNumber").value.trim()===formatEstimateNumber(SETTINGS.nextEstimateNumber)){
-    SETTINGS.nextEstimateNumber++;
-    persistSettings();
-  }
-}
-
-/* ---------- Calculation ---------- */
-
-function readInputs(){
-  const type=$("projectType").value;
-  return {
-    type,
-    area:Math.max(0,num($("area").value)),
-    coats:Math.max(1,Math.floor(num($("coats").value,1))),
-    laborRate:Math.max(0,num($("laborRate").value)),
-    markup:Math.max(0,num($("markup").value)),
-    materials:SETTINGS.db[type].map((m,i)=>({
-      name:m.name,
-      unit:m.unit,
-      ignoreCoats:m.ignoreCoats,
-      coverage:Math.max(MIN_COVERAGE,num($(`coverage-${i}`)?.value,m.coverage)),
-      price:Math.max(0,num($(`price-${i}`)?.value,m.price)),
-      waste:Math.max(0,num($(`waste-${i}`)?.value,m.waste))
-    }))
-  };
-}
-
-// Single source of truth for all estimate math. Used by the screen, email and print.
-function computeEstimate(inp, settings){
-  let materialCost=0;
-  const materials=inp.materials.map(m=>{
-    const effectiveArea=inp.area*(m.ignoreCoats?1:inp.coats);
-    const qty=Math.ceil((effectiveArea/m.coverage)*(1+m.waste/100));
-    const total=qty*m.price;
-    materialCost+=total;
-    return {name:m.name,unit:m.unit,qty,price:m.price,total};
-  });
-
-  const labor=inp.area*inp.laborRate;
-  const direct=materialCost+labor;
-  const markupAmount=direct*(inp.markup/100);
-  const subtotal=direct+markupAmount;
-  const taxRate=Math.max(0,num(settings.salesTax));
-  const taxBase=settings.taxMode==="all" ? subtotal : materialCost;
-  const taxAmount=taxBase*(taxRate/100);
-  const customer=subtotal+taxAmount;
-
-  return {...inp,materials,materialCost,labor,direct,markupAmount,subtotal,taxRate,taxBase,taxAmount,customer};
-}
-
-function getEstimateData(){
-  return {
-    ...computeEstimate(readInputs(),SETTINGS),
-    clientName:$("clientName").value.trim(),
-    clientEmail:$("clientEmail").value.trim(),
-    address:$("projectAddress").value.trim(),
-    estimateNumber:$("estimateNumber").value.trim(),
-    date:$("estimateDate").value
-  };
-}
-
-/* ---------- Rendering ---------- */
-
-function renderMaterials(){
-  const type=$("projectType").value;
-  $("materials").innerHTML=SETTINGS.db[type].map((m,i)=>{
-    const unit=escapeHtml(m.unit);
-    return `
-    <div class="material">
-      <div class="material-head">
-        <div class="material-name">${escapeHtml(m.name)}</div>
-        <div class="small">${unit}</div>
-      </div>
-      <div class="row">
-        <div>
-          <label for="coverage-${i}">Coverage (sq ft / ${unit})</label>
-          <input id="coverage-${i}" type="number" value="${m.coverage}" min="${MIN_COVERAGE}" oninput="calculate()">
-        </div>
-        <div>
-          <label for="price-${i}">Price ($ / ${unit})</label>
-          <input id="price-${i}" type="number" value="${m.price}" min="0" step="0.01" oninput="calculate()">
-        </div>
-      </div>
-      <label for="waste-${i}">Waste (%)</label>
-      <input id="waste-${i}" type="number" value="${m.waste}" min="0" step="1" oninput="calculate()">
-      <div class="small" style="margin-top:10px">Required: <b id="qty-${i}">0</b> ${unit}</div>
-    </div>`;
-  }).join("");
-  calculate();
-}
-
-function taxLabel(d){
-  if(!d.taxRate) return "Sales Tax";
-  return `Sales Tax (${d.taxRate}% on ${SETTINGS.taxMode==="all"?"total":"materials"})`;
-}
-
-function calculate(){
-  const d=getEstimateData();
-
-  d.materials.forEach((m,i)=>{ $(`qty-${i}`).textContent=m.qty; });
-
-  $("mArea").textContent=d.area.toLocaleString()+" sq ft";
-  $("mMaterials").textContent=money(d.materialCost);
-  $("mLabor").textContent=money(d.labor);
-  $("mTotal").textContent=money(d.customer);
-  $("estimateTable").innerHTML=d.materials.map(m=>
-    `<tr><td>${escapeHtml(m.name)}</td><td>${m.qty}</td><td>${escapeHtml(m.unit)}</td><td>${money(m.price)}</td><td>${money(m.total)}</td></tr>`
-  ).join("");
-  $("rMaterial").textContent=money(d.materialCost);
-  $("rLabor").textContent=money(d.labor);
-  $("rDirect").textContent=money(d.direct);
-  $("rMarkup").textContent=money(d.markupAmount);
-  $("rTaxLabel").textContent=taxLabel(d);
-  $("rTax").textContent=money(d.taxAmount);
-  $("rTotal").textContent=money(d.customer);
-  updateClientPreview(d);
-}
-
-function updateClientPreview(d=getEstimateData()){
-  $("clientPreview").innerHTML =
-    `<b>${escapeHtml(d.clientName || "Client")}</b> · ${escapeHtml(d.clientEmail || "No email")}<br>`+
-    `${escapeHtml(d.address || "Project address not entered")} · Estimate #${escapeHtml(d.estimateNumber || "N/A")}`;
-}
-
-function applyDefaultsToForm(){
-  $("laborRate").value=SETTINGS.laborRate;
-  $("markup").value=SETTINGS.markup;
-  $("coats").value=SETTINGS.coats;
-}
-
-function startNewEstimate(){
-  $("estimateDate").value=localISODate();
-  $("estimateNumber").value=formatEstimateNumber(SETTINGS.nextEstimateNumber);
-}
-
-function resetProject(){
-  $("area").value=1000;
-  $("projectType").value="painting";
-  applyDefaultsToForm();
-  startNewEstimate();
-  renderMaterials();
-}
-
-/* ---------- Settings dialog ---------- */
-
-function openSettings(){
-  DRAFT_DB=clone(SETTINGS.db);
-  $("settingsType").value=$("projectType").value;
-  $("settingsModal").style.display="block";
-  loadSettingsForm();
-}
-
-function closeSettings(){
-  DRAFT_DB=null;
-  $("settingsModal").style.display="none";
-}
-
-function showSettingsTab(id,btn){
-  document.querySelectorAll(".settings-tab-content").forEach(x=>x.style.display="none");
-  $(id).style.display="block";
-  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
-  btn.classList.add("active");
-}
-
-function loadSettingsForm(){
-  $("defaultLaborRate").value=SETTINGS.laborRate;
-  $("defaultMarkup").value=SETTINGS.markup;
-  $("salesTax").value=SETTINGS.salesTax;
-  $("taxMode").value=SETTINGS.taxMode;
-  $("defaultCoats").value=SETTINGS.coats;
-  $("nextEstimateNumber").value=SETTINGS.nextEstimateNumber;
-  $("companyName").value=SETTINGS.companyName;
-  $("companyEmail").value=SETTINGS.companyEmail;
-  $("companyPhone").value=SETTINGS.companyPhone;
-  $("companyAddress").value=SETTINGS.companyAddress;
-  $("estimateFooter").value=SETTINGS.estimateFooter;
-  renderSettingsMaterials();
-}
-
-function renderSettingsMaterials(){
-  const type=$("settingsType").value;
-  $("settingsMaterials").innerHTML=DRAFT_DB[type].map((m,i)=>`
-    <div class="setting-material">
-      <div class="row">
-        <div>
-          <label>Material Name</label>
-          <input value="${escapeHtml(m.name)}" onchange="updateMaterial(${i},'name',this.value)">
-        </div>
-        <div>
-          <label>Unit</label>
-          <input value="${escapeHtml(m.unit)}" onchange="updateMaterial(${i},'unit',this.value)">
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>Coverage (sq ft / unit)</label>
-          <input type="number" min="${MIN_COVERAGE}" value="${m.coverage}" onchange="updateMaterial(${i},'coverage',this.value)">
-        </div>
-        <div>
-          <label>Price / unit ($)</label>
-          <input type="number" min="0" step="0.01" value="${m.price}" onchange="updateMaterial(${i},'price',this.value)">
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>Waste (%)</label>
-          <input type="number" min="0" step="1" value="${m.waste}" onchange="updateMaterial(${i},'waste',this.value)">
-        </div>
-        <div style="display:flex;align-items:end;gap:10px">
-          <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-            <input style="width:auto" type="checkbox" ${m.ignoreCoats?'checked':''} onchange="updateMaterial(${i},'ignoreCoats',this.checked)">
-            Do not multiply by coats
-          </label>
-          <button class="danger" onclick="removeMaterial(${i})">Delete</button>
-        </div>
-      </div>
-    </div>
-  `).join("");
-}
-
-function updateMaterial(i,key,value){
-  const type=$("settingsType").value;
-  const m=DRAFT_DB[type][i];
-  if(key==="coverage") value=Math.max(MIN_COVERAGE,num(value,MIN_COVERAGE));
-  else if(key==="price"||key==="waste") value=Math.max(0,num(value));
-  m[key]=value;
-}
-
-function addMaterial(){
-  const type=$("settingsType").value;
-  DRAFT_DB[type].push({name:"New Material",unit:"unit",coverage:100,price:0,waste:10,ignoreCoats:false});
-  renderSettingsMaterials();
-}
-
-function removeMaterial(i){
-  const type=$("settingsType").value;
-  if(DRAFT_DB[type].length<=1){alert("Each work type needs at least one material.");return;}
-  DRAFT_DB[type].splice(i,1);
-  renderSettingsMaterials();
-}
-
-function saveSettings(){
-  SETTINGS.db=DRAFT_DB;
-  SETTINGS.laborRate=Math.max(0,num($("defaultLaborRate").value));
-  SETTINGS.markup=Math.max(0,num($("defaultMarkup").value));
-  SETTINGS.salesTax=Math.max(0,num($("salesTax").value));
-  SETTINGS.taxMode=$("taxMode").value;
-  SETTINGS.coats=Math.max(1,Math.floor(num($("defaultCoats").value,1)));
-  const wasAutoNumber=$("estimateNumber").value.trim()===formatEstimateNumber(SETTINGS.nextEstimateNumber);
-  SETTINGS.nextEstimateNumber=Math.max(1,Math.floor(num($("nextEstimateNumber").value,SETTINGS.nextEstimateNumber)));
-  SETTINGS.companyName=$("companyName").value.trim();
-  SETTINGS.companyEmail=$("companyEmail").value.trim();
-  SETTINGS.companyPhone=$("companyPhone").value.trim();
-  SETTINGS.companyAddress=$("companyAddress").value.trim();
-  SETTINGS.estimateFooter=$("estimateFooter").value.trim();
-  persistSettings();
-
-  applyDefaultsToForm();
-  if(wasAutoNumber) $("estimateNumber").value=formatEstimateNumber(SETTINGS.nextEstimateNumber);
-  closeSettings();
-  renderMaterials();
-  alert("Settings saved.");
-}
-
-function resetSettings(){
-  if(!confirm("Reset all estimator settings and material prices to defaults? The estimate number counter is kept.")) return;
-  const nextEstimateNumber=SETTINGS.nextEstimateNumber;
-  SETTINGS=clone(DEFAULT_SETTINGS);
-  SETTINGS.nextEstimateNumber=nextEstimateNumber;
-  persistSettings();
-  DRAFT_DB=clone(SETTINGS.db);
-  loadSettingsForm();
-  applyDefaultsToForm();
-  renderMaterials();
-}
-
-/* ---------- Email & print ---------- */
-
-function companyName(){ return SETTINGS.companyName || "Construction"; }
-
-function emailEstimate(){
-  const d=getEstimateData();
-
-  if(!d.clientEmail){
-    alert("Please enter the client's email address.");
-    $("clientEmail").focus();
-    return;
-  }
-
-  const subject=`${companyName()} Estimate ${d.estimateNumber || ""} - ${d.address || "Construction Project"}`;
-  const signature=[SETTINGS.companyName,SETTINGS.companyPhone,SETTINGS.companyEmail,SETTINGS.companyAddress].filter(Boolean).join("\n");
-  const body=
-`Hello ${d.clientName || "there"},
-
-Please find your ${companyName()} estimate below.
-
-Estimate #: ${d.estimateNumber || "N/A"}
-Date: ${d.date || "N/A"}
-Project: ${capitalize(d.type)}
-Address: ${d.address || "N/A"}
-Area: ${d.area.toLocaleString()} sq ft
-
-Materials: ${money(d.materialCost)}
-Labor: ${money(d.labor)}
-Markup: ${money(d.markupAmount)}
-${taxLabel(d)}: ${money(d.taxAmount)}
-
-TOTAL ESTIMATE: ${money(d.customer)}
-
-Please let us know if you have any questions.
-${SETTINGS.estimateFooter ? "\n"+SETTINGS.estimateFooter+"\n" : ""}
-Best regards,
-${signature}`;
-
-  issueEstimateNumber();
-  window.location.href =
-    "mailto:"+encodeURIComponent(d.clientEmail)+
-    "?subject="+encodeURIComponent(subject)+
-    "&body="+encodeURIComponent(body);
-}
-
-function printEstimate(){
-  const d=getEstimateData();
-  const originalTitle=document.title;
-  document.title=`${companyName()} Estimate ${d.estimateNumber || ""}`.trim();
-  issueEstimateNumber();
-  window.print();
-  document.title=originalTitle;
-}
-
-/* ---------- Startup ---------- */
-
-document.querySelectorAll("#clientName,#clientEmail,#projectAddress,#estimateNumber,#estimateDate")
-  .forEach(el=>el.addEventListener("input",()=>updateClientPreview()));
-
-applyDefaultsToForm();
-startNewEstimate();
-renderMaterials();
-</script>
-
+<script src="js/config.js?v=2026.10.18h"></script>
+<script src="js/core.js?v=2026.10.18h"></script>
+<script src="js/calc.js?v=2026.10.18h"></script>
+<script src="js/settings.js?v=2026.10.18h"></script>
+<script src="js/address.js?v=2026.10.18h"></script>
+<script src="js/categories.js?v=2026.10.18h"></script>
+<script src="js/services.js?v=2026.10.18h"></script>
+<script src="js/photos.js?v=2026.10.18h"></script>
+<script src="js/cloud.js?v=2026.10.18h"></script>
+<script src="js/estimates.js?v=2026.10.18h"></script>
+<script src="js/crm.js?v=2026.10.18h"></script>
+<script src="js/importer.js?v=2026.10.18h"></script>
+<script src="js/app.js?v=2026.10.18h"></script>
 </body>
 </html>
