@@ -14,6 +14,13 @@ const CRM_STAGES = [
 ];
 const CRM_STAGE_KEYS = CRM_STAGES.map(s=>s.key);
 
+// Folders keep groups of leads apart on the board (e.g. leads imported from the old CRM).
+const CRM_FOLDERS = [
+  {key:"", label:"Current leads"},
+  {key:"old-crm", label:"Old CRM leads"}
+];
+const CRM_FOLDER_KEYS = CRM_FOLDERS.map(f=>f.key);
+
 const PROSPECT_STATUSES = [
   {key:"quote_sent", label:"Quote sent"},
   {key:"quote_accepted", label:"Quote accepted"},
@@ -66,6 +73,7 @@ function normalizeProject(p){
     estimateNumber:String(p.estimateNumber ?? ""),
     estimateTotal:round2(amount(p.estimateTotal)),
     stage:CRM_STAGE_KEYS.includes(p.stage) ? p.stage : "lead",
+    folder:CRM_FOLDER_KEYS.includes(p.folder) ? p.folder : "",
     prospectStatus:PROSPECT_STATUSES.some(s=>s.key===p.prospectStatus) ? p.prospectStatus : "needs_action",
     scheduledDate:String(p.scheduledDate ?? ""),
     assignedTechnician:String(p.assignedTechnician ?? ""),
@@ -431,7 +439,11 @@ function renderCrmBoard(){
   const all=loadProjects();
   const addressFilter=$("crmAddressFilter").value;
   $("crmAddressFilter").innerHTML=addressFilterOptions(all,addressFilter);
+  const folder=$("crmFolder").value || "";
+  $("crmFolder").innerHTML=CRM_FOLDERS.map(f=>`<option value="${f.key}"${f.key===folder?" selected":""}>${escapeHtml(f.label)} (${all.filter(p=>p.folder===f.key).length})</option>`).join("")+
+    `<option value="all"${folder==="all"?" selected":""}>All leads (${all.length})</option>`;
   const projects=all
+    .filter(p=>folder==="all" || p.folder===folder)
     .filter(p=>matchesAddressFilter(p,addressFilter))
     .filter(p=>!query || [p.clientName,p.clientEmail,p.clientPhone,p.address,p.estimateNumber].some(v=>v.toLowerCase().includes(query)))
     .sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
@@ -493,6 +505,7 @@ function openProjectModal(id, focusField){
   $("pmClientPhone").value=p.clientPhone;
   PROJECT_ADDRESS.setData(p);
   $("pmStage").value=p.stage;
+  $("pmFolder").value=p.folder;
   $("pmProspectStatus").value=p.prospectStatus;
   $("pmScheduledDate").value=p.scheduledDate;
   $("pmTechnician").value=p.assignedTechnician;
@@ -533,6 +546,7 @@ function saveProjectForm(){
     clientPhone:$("pmClientPhone").value.trim(),
     ...PROJECT_ADDRESS.getData(),
     stage:$("pmStage").value,
+    folder:$("pmFolder").value,
     prospectStatus:$("pmProspectStatus").value,
     scheduledDate:$("pmScheduledDate").value,
     assignedTechnician:$("pmTechnician").value.trim(),

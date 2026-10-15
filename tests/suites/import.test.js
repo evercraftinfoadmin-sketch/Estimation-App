@@ -46,6 +46,20 @@ const DIR=OUT;
   ok(mary.prospectStatus==='quote_accepted' && tom.stage==='lead' && !tom.estimateId && tom.notes==='Called about a quote','Mary quote accepted; Tom lead-only with notes');
   ok(mary.notes==='Wants "elastomeric" finish','quoted text with "" parsed');
 
+  // folder: imported leads go to "Old CRM leads", kept apart from current leads
+  ok(C.filter(x=>['Smith, John','Mary Lee','Tom Brown'].includes(x.clientName)).every(x=>x.folder==='old-crm'),'imported leads are in the folder "Old CRM leads"');
+  ok(await p.inputValue('#crmFolder')==='old-crm' && await p.locator('.kcard',{hasText:'Tom Brown'}).count()===1,'after the import the board shows the Old CRM leads folder');
+  await p.selectOption('#crmFolder','');
+  ok(await p.locator('.kcard',{hasText:'Tom Brown'}).count()===0,'"Current leads" does not show the old leads');
+  ok(/Old CRM leads \(5\)/.test(await p.innerText('#crmFolder')),'folder list shows the count of old leads');
+  await p.selectOption('#crmFolder','all');
+  ok(await p.locator('.kcard',{hasText:'Tom Brown'}).count()===1,'"All leads" shows everything');
+  await p.locator('.kcard',{hasText:'Tom Brown'}).locator('[data-action=open]').first().click();
+  ok(await p.inputValue('#pmFolder')==='old-crm','lead form shows its folder');
+  await p.selectOption('#pmFolder',''); await p.click('#projectForm button[type=submit]'); await p.waitForTimeout(300);
+  ok((await crm()).find(x=>x.clientName==='Tom Brown').folder==='','a lead can be moved to Current leads');
+  await p.selectOption('#crmFolder','');
+
   // re-import same file → no duplicates
   await p.click('#btnImportCrm'); await p.setInputFiles('#importFile',FIXTURES+'/old.csv'); await p.waitForSelector('#importStep2',{state:'visible'});
   ok(/already exists/.test(await p.innerText('#importPreviewBody')),'re-import preview: existing estimate numbers marked');
@@ -58,7 +72,8 @@ const DIR=OUT;
   await p.locator('#estimatesBody tr',{hasText:'Q-501'}).locator('[data-action=open]').click();
   ok(await p.textContent('#sumTotal')==='$5,000.00' && await p.inputValue('#estMarkup')==='0','imported estimate opens in builder with same total');
   await p.click('#mainNav [data-page=crm]');
-  ok(await p.locator('.kcard').count()===5,'CRM board shows 5 imported clients');
+  await p.selectOption('#crmFolder','all');
+  ok(await p.locator('.kcard').count()===5,'CRM board shows 5 imported clients (all folders)');
 
   // Excel file (sheet with different headers, numbers as numbers, real dates)
   const ws=XLSX.utils.aoa_to_sheet([['Name','Phone','Address','Estimate Number','Date','Service','Quantity','Price','Stage'],

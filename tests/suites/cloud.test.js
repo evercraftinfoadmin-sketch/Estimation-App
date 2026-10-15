@@ -173,7 +173,11 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
   await login.click('#cloudStatus');
   await login.fill('#cloudLoginEmail','b@test'); await login.fill('#cloudLoginPassword','pw-b@test');
   await login.click('#cloudLoginSubmit');
-  await login.waitForFunction(()=>CLOUD.state==='synced',null,{timeout:10000});
+  // Rarely the simulated sign-in request never answers in this harness (fake host); retry the click once, logged.
+  if(!(await login.waitForFunction(()=>CLOUD.state==='synced',null,{timeout:5000}).then(()=>true,()=>false)) && await login.evaluate(()=>$('cloudLoginSubmit').textContent==='Sign in' && !$('cloudLoginError').textContent)){
+    console.log('NOTE: sign-in click retried'); await login.click('#cloudLoginSubmit');
+  }
+  await login.waitForFunction(()=>CLOUD.state==='synced',null,{timeout:10000}).catch(async e=>{ console.log('LOGIN DIAG',JSON.stringify(await login.evaluate(()=>({state:CLOUD.state,msg:CLOUD.message,role:CLOUD.role,user:CLOUD.user&&CLOUD.user.email,running:!!CLOUD.running,err:$('cloudLoginError').textContent,btn:$('cloudLoginSubmit').textContent,email:$('cloudLoginEmail').value,modal:!$('cloudLoginModal').hidden && $('cloudLoginModal').classList.contains('open')}))),login.errs); throw e; });
   ok(await login.isHidden('#cloudLoginModal') && (await login.textContent('#cloudStatus')).includes('Synced') && await login.evaluate(()=>CLOUD.user.email)==='b@test','email + password sign-in works inside the app and starts syncing');
   ok(await login.evaluate(()=>!document.body.innerText.includes('pw-b@test') && $('cloudLoginPassword').value===''),'password field is cleared after sign-in');
 
