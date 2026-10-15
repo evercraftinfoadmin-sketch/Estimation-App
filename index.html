@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.18h">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.19p">
 </head>
 <body>
 
@@ -172,6 +172,7 @@
       </div>
       <div class="toolbar">
         <input id="crmSearch" type="search" placeholder="Search client, phone, address or estimate #" aria-label="Search CRM">
+        <select id="crmFolder" aria-label="Folder"><option value="">Current leads</option></select>
         <select id="crmAddressFilter" aria-label="Address filter"><option value="all">All addresses</option></select>
       </div>
       <div class="kanban" id="crmBoard"></div>
@@ -334,6 +335,12 @@
               <option value="followup">Follow-up</option>
             </select>
           </div>
+          <div class="field"><label for="pmFolder">Folder</label>
+            <select id="pmFolder">
+              <option value="">Current leads</option>
+              <option value="old-crm">Old CRM leads</option>
+            </select>
+          </div>
           <div class="field"><label for="pmProspectStatus">Prospect Status</label>
             <select id="pmProspectStatus">
               <option value="quote_sent">Quote sent</option>
@@ -424,6 +431,7 @@
       <h3>Match your columns</h3>
       <div class="map-grid" id="importMapping"></div>
       <label class="check"><input type="checkbox" id="importCreateLeads" checked> <span>Also create CRM leads for these clients</span></label>
+      <label class="check"><input type="checkbox" id="importOldFolder" checked> <span>Put the new leads in the folder <b>Old CRM leads</b> (kept apart from current leads)</span></label>
       <h3>Preview</h3>
       <div class="imp-summary" id="importSummary"></div>
       <div class="table-wrap import-preview">
@@ -454,18 +462,18 @@
 <!-- Printable estimate (only visible when printing) -->
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.10.18h"></script>
-<script src="js/core.js?v=2026.10.18h"></script>
-<script src="js/calc.js?v=2026.10.18h"></script>
-<script src="js/settings.js?v=2026.10.18h"></script>
-<script src="js/address.js?v=2026.10.18h"></script>
-<script src="js/categories.js?v=2026.10.18h"></script>
-<script src="js/services.js?v=2026.10.18h"></script>
-<script src="js/photos.js?v=2026.10.18h"></script>
-<script src="js/cloud.js?v=2026.10.18h"></script>
-<script src="js/estimates.js?v=2026.10.18h"></script>
-<script src="js/crm.js?v=2026.10.18h"></script>
-<script src="js/importer.js?v=2026.10.18h"></script>
-<script src="js/app.js?v=2026.10.18h"></script>
+<script src="js/config.js?v=2026.10.19p"></script>
+<script src="js/core.js?v=2026.10.19p"></script>
+<script src="js/calc.js?v=2026.10.19p"></script>
+<script src="js/settings.js?v=2026.10.19p"></script>
+<script src="js/address.js?v=2026.10.19p"></script>
+<script src="js/categories.js?v=2026.10.19p"></script>
+<script src="js/services.js?v=2026.10.19p"></script>
+<script src="js/photos.js?v=2026.10.19p"></script>
+<script src="js/cloud.js?v=2026.10.19p"></script>
+<script src="js/estimates.js?v=2026.10.19p"></script>
+<script src="js/crm.js?v=2026.10.19p"></script>
+<script src="js/importer.js?v=2026.10.19p"></script>
+<script src="js/app.js?v=2026.10.19p"></script>
 </body>
 </html>

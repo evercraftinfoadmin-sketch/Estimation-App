@@ -270,7 +270,7 @@ function sameClient(p, plan){
     (!plan.clientPhone && !plan.clientEmail && !plan.address);
 }
 
-function commitImport(plans){
+function commitImport(plans, folder=""){
   const estimates=loadEstimates();
   const projects=loadProjects();
   const usedNumbers=new Set(estimates.map(e=>e.estimateNumber.toLowerCase()));
@@ -337,7 +337,7 @@ function commitImport(plans){
           clientName:plan.clientName, clientEmail:plan.clientEmail, clientPhone:plan.clientPhone, address:plan.address,
           estimateId:est ? est.id : null, estimateNumber:est ? est.estimateNumber : "", estimateTotal:est ? est.customerTotal : 0,
           stage:stageForImport(plan), prospectStatus:prospectStatusForEstimate(est),
-          notes:plan.notes
+          notes:plan.notes, folder
         });
         project.createdAt=created;
         projects.push(project);
@@ -399,7 +399,7 @@ function renderImportMapping(){
 }
 
 function importOptions(){
-  return {createLeads:$("importCreateLeads").checked};
+  return {createLeads:$("importCreateLeads").checked, folder:$("importOldFolder").checked ? "old-crm" : ""};
 }
 
 function renderImportPreview(){
@@ -430,14 +430,16 @@ function renderImportPreview(){
 function runImport(){
   if(!IMPORT || !IMPORT.plans) return;
   const plans=planImport(IMPORT.rows,IMPORT.mapping,importOptions());
-  const result=commitImport(plans);
+  const opts=importOptions();
+  const result=commitImport(plans, opts.createLeads ? opts.folder : "");
   if(!result) return;
   closeModal("importModal");
   renderSavedEstimates();
+  if(opts.folder && result.leads && $("crmFolder")) $("crmFolder").value=opts.folder; // show where they went
   renderCrmBoard();
   renderServicesPage();
   updateBuilderMeta();
-  alert(`Import finished.\n\nEstimates created: ${result.estimates}\nCRM leads created: ${result.leads}\nLinked to existing leads: ${result.linked}\nSkipped: ${result.skipped}`);
+  alert(`Import finished.\n\nEstimates created: ${result.estimates}\nCRM leads created: ${result.leads}${opts.folder && result.leads ? " (folder: Old CRM leads)" : ""}\nLinked to existing leads: ${result.linked}\nSkipped: ${result.skipped}`);
 }
 
 function downloadFile(name, content, type){

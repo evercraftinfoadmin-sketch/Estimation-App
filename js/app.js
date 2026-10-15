@@ -75,6 +75,7 @@ function wireEvents(){
   // CRM
   $("crmSearch").addEventListener("input",renderCrmBoard);
   $("crmAddressFilter").addEventListener("change",renderCrmBoard);
+  $("crmFolder").addEventListener("change",renderCrmBoard);
   $("crmBoard").addEventListener("click",handleCrmBoard);
   $("crmBoard").addEventListener("change",handleCrmBoard);
   $("btnNewLead").addEventListener("click",()=>openProjectModal(null));
