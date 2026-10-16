@@ -21,6 +21,7 @@ function readBuilderInput(){
     clientName:$("clientName").value.trim(),
     clientEmail:$("clientEmail").value.trim(),
     clientPhone:$("clientPhone").value.trim(),
+    clientMessage:$("clientMessage").value.trim(),
     address:BUILDER_ADDRESS.getData().address,
     addressData:BUILDER_ADDRESS.getData(),
     items:BUILDER.items,
@@ -330,6 +331,7 @@ function newEstimate(prefill={}){
   $("clientName").value=prefill.clientName||"";
   $("clientEmail").value=prefill.clientEmail||"";
   $("clientPhone").value=prefill.clientPhone||"";
+  $("clientMessage").value=prefill.clientMessage||"";
   BUILDER_ADDRESS.setData(prefill.addressFields || {address:prefill.address||""});
   $("estimateNumber").value=nextAvailableEstimateNumber();
   $("estimateDate").value=localISODate();
@@ -364,6 +366,7 @@ function loadEstimateIntoBuilder(est){
   $("clientName").value=est.clientName;
   $("clientEmail").value=est.clientEmail;
   $("clientPhone").value=est.clientPhone;
+  $("clientMessage").value=est.clientMessage;
   BUILDER_ADDRESS.setData(est);
   $("estimateNumber").value=est.estimateNumber;
   $("estimateDate").value=est.date;
@@ -408,6 +411,7 @@ function normalizeEstimate(e){
     clientName:String(e.clientName ?? ""),
     clientEmail:String(e.clientEmail ?? ""),
     clientPhone:String(e.clientPhone ?? ""),
+    clientMessage:String(e.clientMessage ?? ""),
     address:String(e.address ?? ""),
     ...normalizeAddressFields(e),
     items,
@@ -464,6 +468,7 @@ function buildEstimateRecord(d, existing){
     clientName:d.clientName,
     clientEmail:d.clientEmail,
     clientPhone:d.clientPhone,
+    clientMessage:d.clientMessage,
     ...d.addressData,
     address:d.address,
     items:d.items.map(({id,category,serviceId,name,description,quantity,price,total})=>
@@ -736,6 +741,7 @@ function renderPrintView(d){
         </div>
         <div><h4>Project Address</h4><div>${escapeHtml(d.address||"—")}</div></div>
       </div>
+      ${d.clientMessage?`<section class="pv-message">${escapeHtml(d.clientMessage)}</section>`:""}
       ${sections || `<p class="pv-muted">No services added.</p>`}
       <table class="pv-totals">
         <tr><td>Subtotal</td><td class="num">${money(d.subtotal)}</td></tr>
@@ -777,6 +783,7 @@ function buildEmailBody(d){
   const lines=[];
   lines.push(`Hello ${d.clientName || "there"},`,"");
   lines.push(`Please find your estimate from ${companyName()} below.`,"");
+  if(d.clientMessage) lines.push(d.clientMessage,"");
   lines.push(`Estimate #: ${d.estimateNumber || "N/A"}`);
   lines.push(`Date: ${formatDate(d.date) || "N/A"}`);
   lines.push(`Client: ${d.clientName || "N/A"}`);
