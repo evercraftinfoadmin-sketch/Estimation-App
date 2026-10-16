@@ -4,12 +4,13 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const SUITES = ['crm', 'category', 'terms', 'photo', 'address', 'import', 'delete', 'invoice', 'cloud'];
-const SHARED_ONLY = new Set(['cloud']); // uses its own fake Base44 app
+const SUITES = ['crm', 'category', 'terms', 'photo', 'address', 'import', 'delete', 'invoice', 'cloud', 'mailsend', 'mailworker'];
+const SHARED_ONLY = new Set(['cloud', 'mailsend']); // use their own fake services
+const NODE_ONLY = new Set(['mailworker']); // the mail service, no browser
 const only = process.argv.slice(2);
 const runs = [];
 for (const s of SUITES.filter(s => !only.length || only.includes(s))) {
-  for (const mode of SHARED_ONLY.has(s) ? ['shared'] : ['local', 'shared']) runs.push([s, mode]);
+  for (const mode of NODE_ONLY.has(s) ? ['node'] : SHARED_ONLY.has(s) ? ['shared'] : ['local', 'shared']) runs.push([s, mode]);
 }
 
 let failed = 0;

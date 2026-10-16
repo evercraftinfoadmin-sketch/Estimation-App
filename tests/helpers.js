@@ -47,4 +47,4 @@ async function launch(opts = {}) {
   return browser;
 }
 
-module.exports = { MODE, ROOT, FILE, OUT, FIXTURES, TEST_APP_ID, launch };
+module.exports = { MODE, ROOT, FILE, OUT, FIXTURES, TEST_APP_ID, SIGNED_OUT_SDK, launch };

@@ -822,5 +822,13 @@ function emailEstimate(){
   }
   const subject=`${companyName()} Estimate ${d.estimateNumber} - ${d.address || d.clientName || "Project"}`;
   issueEstimateNumber(d.estimateNumber);
-  openMailto(d.clientEmail,subject,buildEmailBody(d),buildEmailBody(d,{withTerms:false}));
+  const viaGmail=(to=d.clientEmail,subj=subject)=>openMailto(to,subj,buildEmailBody(d),buildEmailBody(d,{withTerms:false}));
+  if(!canSendFromCrm()) return viaGmail();
+  openSendMail({
+    title:`Send estimate ${d.estimateNumber}`,
+    to:d.clientEmail, subject, text:buildEmailBody(d),
+    filename:`${companyName()} Estimate ${d.estimateNumber}.pdf`.trim(),
+    render:()=>renderPrintView(d),
+    fallback:({to,subject:subj})=>viaGmail(to,subj)
+  });
 }
