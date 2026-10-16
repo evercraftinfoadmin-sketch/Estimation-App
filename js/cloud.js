@@ -42,10 +42,14 @@ const CLOUD_LISTS = [
     "subtotal","markup","markupAmount","taxRate","taxMode","taxAmount","customerTotal","status","crmProjectId","createdAt","updatedAt"]},
   {key:STORAGE_KEYS.crm, entity:"CrmProject", fields:["client_id","clientName","clientEmail","clientPhone",...CLOUD_ADDRESS_FIELDS,
     "estimateId","estimateNumber","estimateTotal","stage","prospectStatus","scheduledDate","assignedTechnician","notes","tasks",
-    "followUpDate","followUpType","followUpNotes","followUpCompleted","createdAt","updatedAt"]}
+    "followUpDate","followUpType","followUpNotes","followUpCompleted","createdAt","updatedAt"]},
+  {key:STORAGE_KEYS.invoices, entity:"Invoice", fields:["invoiceNumber","date","dueDate","estimateId","estimateNumber","crmProjectId",
+    "clientName","clientEmail","clientPhone","address","items","markup","taxRate","taxMode","subtotal","markupAmount","taxAmount",
+    "total","payments","paid","balance","status","clientMessage","createdAt","updatedAt"]}
 ];
 const CLOUD_NUMBER_FIELDS = new Set(["addressLatitude","addressLongitude","defaultPrice","drywallTotal","stuccoTotal","paintingTotal",
-  "otherTotal","subtotal","markup","markupAmount","taxRate","taxAmount","customerTotal","estimateTotal","salesTax"]);
+  "otherTotal","subtotal","markup","markupAmount","taxRate","taxAmount","customerTotal","estimateTotal","salesTax",
+  "total","paid","balance"]);
 // Shared business settings. The Google Maps key and the local estimate counter are never uploaded.
 const CLOUD_SETTINGS_FIELDS = ["companyName","companyEmail","companyPhone","companyAddress","licenseNumber",
   "markup","salesTax","taxMode","estimateFooter","terms"];
@@ -116,7 +120,8 @@ const CLOUD_NORMALIZE = {
   Category:r=>normalizeCategory(r),
   Service:r=>normalizeService(r),
   Estimate:r=>normalizeEstimate(r),
-  CrmProject:r=>normalizeProject(r)
+  CrmProject:r=>normalizeProject(r),
+  Invoice:r=>normalizeInvoice(r)
 };
 function cloudRecordHash(def, rec){
   let r=rec;
@@ -579,6 +584,7 @@ function refreshVisibleData(){
   if(page==="estimates") renderSavedEstimates();
   else if(page==="services") renderServicesPage();
   else if(page==="crm") renderCrmBoard();
+  else if(page==="invoices") renderInvoicesPage();
   else if(page==="builder") updateBuilderMeta();
 }
 
@@ -744,9 +750,9 @@ async function handleTeamChange(e){
 
 // "3 CRM leads, 1 estimate, 21 services"
 function pendingSummary(){
-  const names={CrmProject:["CRM lead","CRM leads"],Estimate:["estimate","estimates"],Service:["service","services"],Category:["category","categories"]};
+  const names={CrmProject:["CRM lead","CRM leads"],Estimate:["estimate","estimates"],Invoice:["invoice","invoices"],Service:["service","services"],Category:["category","categories"]};
   const by=CLOUD.pendingBy || {};
-  const parts=["CrmProject","Estimate","Service","Category"].filter(k=>by[k]>0).map(k=>`${by[k]} ${names[k][by[k]===1 ? 0 : 1]}`);
+  const parts=["CrmProject","Estimate","Invoice","Service","Category"].filter(k=>by[k]>0).map(k=>`${by[k]} ${names[k][by[k]===1 ? 0 : 1]}`);
   return parts.join(", ") || `${CLOUD.pendingUpload} record(s)`;
 }
 

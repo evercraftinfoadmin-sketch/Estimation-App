@@ -363,6 +363,8 @@ function renderCard(p){
   const photoBadge=`<button type="button" class="kcard-photos" data-action="photos" data-photo-badge hidden></button>`;
 
   let body="", actions="";
+  const projectInvoice=invoicesForProject(p.id)[0];
+  const invoiceBtn=btn("invoice",projectInvoice ? `🧾 ${escapeHtml(projectInvoice.invoiceNumber)} · ${escapeHtml(invoicePaymentStatus(projectInvoice).label)}` : "Create Invoice");
   switch(p.stage){
     case "lead":
       body=`${p.clientEmail?`<div class="kcard-line">✉ ${escapeHtml(p.clientEmail)}</div>`:""}
@@ -391,7 +393,7 @@ function renderCard(p){
     case "completed": {
       const pr=taskProgress(p,"completed");
       body=progressBar(pr)+renderChecklist(p,"completed","task");
-      actions=btn("open","Open")+btn("to-followup","Move to Follow-up",pr.done===pr.total?"btn-primary":"btn-light");
+      actions=invoiceBtn+btn("open","Open")+btn("to-followup","Move to Follow-up",pr.done===pr.total?"btn-primary":"btn-light");
       break;
     }
     case "followup":
@@ -400,7 +402,7 @@ function renderCard(p){
         ${p.followUpNotes?`<div class="kcard-notes">${escapeHtml(p.followUpNotes)}</div>`:""}
         <span class="status-badge ${p.followUpCompleted?"status-completed":"status-draft"}">${p.followUpCompleted?"Completed":"Open"}</span>`;
       actions=(p.followUpCompleted ? btn("reopen-followup","Reopen") : btn("complete-followup","Complete Follow-up","btn-primary"))
-        +btn("open","Open");
+        +btn("open","Open")+invoiceBtn;
       break;
   }
 
@@ -479,6 +481,7 @@ function handleCrmBoard(event){
     edit:()=>openProjectModal(id,"pmClientName"),
     estimate:()=>createEstimateFromProject(id),
     "open-estimate":()=>openProjectEstimate(id),
+    invoice:()=>createOrOpenInvoiceForProject(id),
     "to-prospect":()=>moveProject(id,"prospect"),
     "to-job":()=>moveProject(id,"job"),
     "to-started":()=>moveProject(id,"started"),

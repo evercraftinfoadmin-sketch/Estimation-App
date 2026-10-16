@@ -1,0 +1,254 @@
+{
+ "name": "Invoice",
+ "type": "object",
+ "description": "Invoice for a job (usually from an estimate). legacy_id = app id (inv-xxxx). Payments received are recorded on the invoice.",
+ "properties": {
+  "legacy_id": {
+   "type": "string",
+   "description": "App id, e.g. inv-xxxx (unique)"
+  },
+  "invoiceNumber": {
+   "type": "string",
+   "description": "INV-YYYY-NNNN, unique"
+  },
+  "date": {
+   "type": "string"
+  },
+  "dueDate": {
+   "type": "string"
+  },
+  "estimateId": {
+   "type": "string",
+   "description": "Estimate.legacy_id"
+  },
+  "estimateNumber": {
+   "type": "string"
+  },
+  "crmProjectId": {
+   "type": "string",
+   "description": "CrmProject.legacy_id"
+  },
+  "clientName": {
+   "type": "string"
+  },
+  "clientEmail": {
+   "type": "string"
+  },
+  "clientPhone": {
+   "type": "string"
+  },
+  "address": {
+   "type": "string"
+  },
+  "items": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "category": {
+      "type": "string"
+     },
+     "categoryName": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "description": {
+      "type": "string"
+     },
+     "quantity": {
+      "type": "number"
+     },
+     "price": {
+      "type": "number"
+     },
+     "total": {
+      "type": "number"
+     }
+    }
+   }
+  },
+  "markup": {
+   "type": "number"
+  },
+  "taxRate": {
+   "type": "number"
+  },
+  "taxMode": {
+   "type": "string",
+   "enum": [
+    "all",
+    "subtotal"
+   ],
+   "default": "all"
+  },
+  "subtotal": {
+   "type": "number"
+  },
+  "markupAmount": {
+   "type": "number"
+  },
+  "taxAmount": {
+   "type": "number"
+  },
+  "total": {
+   "type": "number"
+  },
+  "payments": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "date": {
+      "type": "string"
+     },
+     "amount": {
+      "type": "number"
+     },
+     "method": {
+      "type": "string"
+     },
+     "note": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "paid": {
+   "type": "number"
+  },
+  "balance": {
+   "type": "number"
+  },
+  "status": {
+   "type": "string",
+   "enum": [
+    "draft",
+    "sent",
+    "void"
+   ],
+   "default": "draft"
+  },
+  "clientMessage": {
+   "type": "string"
+  },
+  "createdAt": {
+   "type": "string"
+  },
+  "updatedAt": {
+   "type": "string"
+  },
+  "extra": {
+   "type": "object",
+   "additionalProperties": true
+  },
+  "version": {
+   "type": "integer",
+   "default": 1
+  },
+  "deletedAt": {
+   "type": "string",
+   "description": "Soft delete timestamp (ISO). Admins only.",
+   "rls": {
+    "write": {
+     "$or": [
+      {
+       "user_condition": {
+        "data.crm_role": "owner"
+       }
+      },
+      {
+       "user_condition": {
+        "data.crm_role": "admin"
+       }
+      }
+     ]
+    }
+   }
+  }
+ },
+ "required": [
+  "legacy_id",
+  "invoiceNumber"
+ ],
+ "rls": {
+  "read": {
+   "$or": [
+    {
+     "user_condition": {
+      "data.crm_role": "owner"
+     }
+    },
+    {
+     "user_condition": {
+      "data.crm_role": "admin"
+     }
+    },
+    {
+     "user_condition": {
+      "data.crm_role": "member"
+     }
+    }
+   ]
+  },
+  "create": {
+   "$or": [
+    {
+     "user_condition": {
+      "data.crm_role": "owner"
+     }
+    },
+    {
+     "user_condition": {
+      "data.crm_role": "admin"
+     }
+    },
+    {
+     "user_condition": {
+      "data.crm_role": "member"
+     }
+    }
+   ]
+  },
+  "update": {
+   "$or": [
+    {
+     "user_condition": {
+      "data.crm_role": "owner"
+     }
+    },
+    {
+     "user_condition": {
+      "data.crm_role": "admin"
+     }
+    },
+    {
+     "user_condition": {
+      "data.crm_role": "member"
+     }
+    }
+   ]
+  },
+  "delete": {
+   "$or": [
+    {
+     "user_condition": {
+      "data.crm_role": "owner"
+     }
+    },
+    {
+     "user_condition": {
+      "data.crm_role": "admin"
+     }
+    }
+   ]
+  }
+ }
+}

@@ -2,7 +2,7 @@
 
 /* Navigation, event wiring and start-up. */
 
-const PAGES = ["builder","estimates","services","crm","settings"];
+const PAGES = ["builder","estimates","services","crm","invoices","settings"];
 
 function showPage(name){
   if(!PAGES.includes(name)) name="builder";
@@ -16,6 +16,7 @@ function showPage(name){
   if(name==="estimates") renderSavedEstimates();
   else if(name==="services") renderServicesPage();
   else if(name==="crm") renderCrmBoard();
+  else if(name==="invoices") renderInvoicesPage();
   else if(name==="settings") loadSettingsForm();
   else if(name==="builder") updateBuilderMeta();
   window.scrollTo(0,0);
@@ -114,6 +115,7 @@ function init(){
   wireEvents();
   wirePhotoEvents();
   wireImportEvents();
+  wireInvoiceEvents();
   wireCloudEvents();
   newEstimate();
   showPage(location.hash.slice(1) || "builder");
