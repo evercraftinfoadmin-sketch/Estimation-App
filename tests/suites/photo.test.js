@@ -34,6 +34,10 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   const viewerState=viewerOk ? '' : ' '+JSON.stringify(await p.evaluate(()=>({open:$('photoViewer').classList.contains('open'), caption:$('photoViewerCaption').textContent, input:document.querySelector('#pmPhotos .photo-caption')?.value, photos:document.querySelectorAll('#pmPhotos .photo').length})));
   ok(viewerOk,'photo opens large with caption'+viewerState);
   await p.click('#photoViewer [data-close=photoViewer]');
+  // a redraw while a caption is being typed keeps the text and saves it
+  await p.locator('#pmPhotos .photo-caption').nth(1).fill('Typing now');
+  const typed=await p.evaluate(async()=>{ const g=$('pmPhotos'); const pid=g.querySelectorAll('.photo')[1].dataset.photoId; await renderPhotoGallery(g); await new Promise(r=>setTimeout(r,200)); return {value:g.querySelectorAll('.photo-caption')[1].value, saved:(await getPhoto(pid)).caption}; });
+  ok(typed.value==='Typing now' && typed.saved==='Typing now','a caption being typed survives a redraw and is saved '+JSON.stringify(typed));
   await p.locator('#pmPhotos .photo-delete').last().click();
   ok(await waitPhotos('#pmPhotos',2) && dialogs.at(-1)==='Delete this photo?','delete one photo (with confirmation)');
   await p.click('#projectModal [data-close=projectModal]');
