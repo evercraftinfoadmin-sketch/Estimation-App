@@ -779,7 +779,7 @@ function printEstimate(){
 
 /* ---------- Email ---------- */
 
-function buildEmailBody(d){
+function buildEmailBody(d, {withTerms=true}={}){
   const lines=[];
   lines.push(`Hello ${d.clientName || "there"},`,"");
   lines.push(`Please find your estimate from ${companyName()} below.`,"");
@@ -803,7 +803,7 @@ function buildEmailBody(d){
   lines.push(`Markup (${formatQty(d.markup)}%): ${money(d.markupAmount)}`);
   lines.push(`Sales Tax (${formatQty(d.taxRate)}%): ${money(d.taxAmount)}`);
   lines.push(`TOTAL: ${money(d.grandTotal)}`,"");
-  if(SETTINGS.terms.trim()) lines.push("TERMS AND CONDITIONS","",SETTINGS.terms.trim(),"");
+  if(SETTINGS.terms.trim()) lines.push(...(withTerms ? ["TERMS AND CONDITIONS","",SETTINGS.terms.trim(),""] : ["Terms and Conditions: see the attached PDF estimate.",""]));
   if(SETTINGS.estimateFooter) lines.push(SETTINGS.estimateFooter,"");
   lines.push("Please let us know if you have any questions.","","Best regards,");
   lines.push(...[SETTINGS.companyName,...companyContactParts()]);
@@ -820,8 +820,5 @@ function emailEstimate(){
   }
   const subject=`${companyName()} Estimate ${d.estimateNumber} - ${d.address || d.clientName || "Project"}`;
   issueEstimateNumber(d.estimateNumber);
-  window.location.href=
-    "mailto:"+encodeURIComponent(d.clientEmail)+
-    "?subject="+encodeURIComponent(subject)+
-    "&body="+encodeURIComponent(buildEmailBody(d));
+  openMailto(d.clientEmail,subject,buildEmailBody(d),buildEmailBody(d,{withTerms:false}));
 }
