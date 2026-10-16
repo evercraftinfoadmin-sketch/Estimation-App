@@ -184,9 +184,19 @@ async function renderPhotoGallery(el){
   const grid=el.querySelector(".photo-grid");
   const type=el.dataset.ownerType, id=el.dataset.ownerId;
   // Old image addresses are released only after their images have left the page.
+  // A caption being typed (not saved yet) survives a redraw of the same photos.
   const show=(html,urls=[])=>{
     const old=GALLERY_URLS.get(el)||[];
+    const typing=new Map(), focused=document.activeElement;
+    grid.querySelectorAll(".photo-caption").forEach(inp=>{ if(inp.value!==inp.defaultValue) typing.set(inp.closest(".photo").dataset.photoId,{value:inp.value,focus:inp===focused}); });
     grid.innerHTML=html;
+    typing.forEach((t,pid)=>{
+      const inp=grid.querySelector(`.photo[data-photo-id="${CSS.escape(pid)}"] .photo-caption`);
+      if(!inp) return;
+      inp.value=t.value;
+      if(t.focus) inp.focus();
+      inp.dispatchEvent(new Event("change",{bubbles:true})); // save it: a restored value raises no change event later
+    });
     GALLERY_URLS.set(el,urls);
     old.forEach(u=>URL.revokeObjectURL(u));
   };
