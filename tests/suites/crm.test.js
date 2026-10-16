@@ -221,6 +221,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   // ---------- 21. Email ----------
   const body = await p.evaluate(() => buildEmailBody(getEstimateData()));
   ok(['Maria <b>Lopez</b>', '42 Elm St', 'EST-2026-1001', 'Drywall Repair: Qty 600 x $4.50 = $2,700.00', 'Subtotal:', 'Markup (10%)', 'Sales Tax (8%)', 'TOTAL:', 'EverCraft Home Improvement'].every(s => body.includes(s)), '21. email body: client, project, #, services qty×price, totals, company');
+  await p.evaluate(() => { window.__opened = []; window.__aclick = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function(){ window.__opened.push(this.href); }; });
   const mailto = await p.evaluate(() => new Promise(resolve => {
     const orig = window.emailEstimate;
     let captured = null;
@@ -229,7 +230,8 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
     document.getElementById('btnEmail').click();
     resolve(captured);
   }));
-  ok(mailto === null || String(mailto).startsWith('mailto:maria%40example.com'), '21. Email Client button runs without errors');
+  const opened = await p.evaluate(() => { HTMLAnchorElement.prototype.click = window.__aclick; return window.__opened; });
+  ok(mailto === null && opened.length === 1 && opened[0].startsWith('https://mail.google.com/mail/?authuser=EverCraft.pro%40gmail.com&view=cm&fs=1&to=maria%40example.com'), '21. Email Client button opens Gmail as the company address');
   await p.fill('#clientEmail', '');
   await p.click('#btnEmail');
   ok(lastDialog().includes("client's email"), '21. email requires client email');

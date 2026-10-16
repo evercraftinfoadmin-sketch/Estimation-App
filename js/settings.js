@@ -41,6 +41,8 @@ const DEFAULT_SETTINGS = {
   nextEstimateNumber: 1001,
   companyName: "EverCraft Home Improvement",
   companyEmail: "EverCraft.pro@gmail.com",
+  // Estimates and invoices are emailed from this Gmail account (empty = the device's mail app).
+  emailFrom: "EverCraft.pro@gmail.com",
   companyPhone: "+1 818 913 4820",
   companyAddress: "",
   licenseNumber: "#1133560",
@@ -67,7 +69,7 @@ function loadSettings(){
       if(!stored[key]) settings[key]=DEFAULT_SETTINGS[key];
     }
   }
-  for(const key of ["companyName","companyEmail","companyPhone","companyAddress","licenseNumber","estimateFooter","terms","googleMapsApiKey"]){
+  for(const key of ["companyName","companyEmail","emailFrom","companyPhone","companyAddress","licenseNumber","estimateFooter","terms","googleMapsApiKey"]){
     settings[key]=String(settings[key] ?? "");
   }
   return settings;
@@ -125,6 +127,7 @@ function takeEstimateNumber(){
 function loadSettingsForm(){
   $("setCompanyName").value=SETTINGS.companyName;
   $("setCompanyEmail").value=SETTINGS.companyEmail;
+  $("setEmailFrom").value=SETTINGS.emailFrom;
   $("setCompanyPhone").value=SETTINGS.companyPhone;
   $("setCompanyAddress").value=SETTINGS.companyAddress;
   $("setLicense").value=SETTINGS.licenseNumber;
@@ -141,6 +144,7 @@ function loadSettingsForm(){
 function saveSettings(){
   SETTINGS.companyName=$("setCompanyName").value.trim();
   SETTINGS.companyEmail=$("setCompanyEmail").value.trim();
+  SETTINGS.emailFrom=$("setEmailFrom").value.trim();
   SETTINGS.companyPhone=$("setCompanyPhone").value.trim();
   SETTINGS.companyAddress=$("setCompanyAddress").value.trim();
   SETTINGS.licenseNumber=$("setLicense").value.trim();

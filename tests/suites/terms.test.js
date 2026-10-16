@@ -37,16 +37,30 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   ok(await p.inputValue('#clientMessage')==='Thank you Ann!\nWork can start next Monday.','reopening the estimate shows its message');
   await p.locator('#clientMessage').scrollIntoViewIfNeeded(); await p.locator('.builder-main .card').first().screenshot({path:OUT+'/client-message.png'});
   await printAndWait(); await p.emulateMedia({media:'print'}); await p.locator('#printView').screenshot({path:OUT+'/client-message-pdf.png'}); await p.emulateMedia({media:'screen'});
-  // Email button: opens the mail app without leaving the page, short enough for mail apps
-  await p.evaluate(()=>{ window.__mailto=[]; HTMLAnchorElement.prototype.click=function(){ if(this.href.startsWith('mailto:')) window.__mailto.push({href:this.href,target:this.target}); }; });
+  // Email button: by default opens Gmail as the company sending address, without leaving the page
+  await p.evaluate(()=>{ window.__mailto=[]; HTMLAnchorElement.prototype.click=function(){ if(/^(mailto:|https:\/\/mail\.google\.com\/)/.test(this.href)) window.__mailto.push({href:this.href,target:this.target}); }; });
   const urlBefore=p.url(); const dialogsBefore=[];
   p.on('dialog',d=>dialogsBefore.push(d.type()));
   await p.click('#btnEmail'); await p.waitForTimeout(300);
-  const m=await p.evaluate(()=>window.__mailto);
-  ok(m.length===1 && m[0].target==='_blank' && p.url()===urlBefore && !dialogsBefore.includes('beforeunload'),'Email opens the mail app in a new window: the app page stays, no "Leave site?" warning');
+  let m=await p.evaluate(()=>window.__mailto);
+  ok(m.length===1 && m[0].target==='_blank' && p.url()===urlBefore && !dialogsBefore.includes('beforeunload'),'Email opens in a new window: the app page stays, no "Leave site?" warning');
+  const g=m.length ? new URL(m[0].href) : null, gBody=g ? g.searchParams.get('body')||'' : '';
+  ok(g && g.origin==='https://mail.google.com' && g.searchParams.get('authuser')==='EverCraft.pro@gmail.com' && g.searchParams.get('view')==='cm' && g.searchParams.get('to')==='ann@x.com' && /Estimate/.test(g.searchParams.get('su')||''),'Email opens Gmail as EverCraft.pro@gmail.com, to the client, with the subject');
+  ok(m[0].href.length<=8000 && gBody.includes('TOTAL:') && gBody.includes('Thank you Ann!') && gBody.includes('PAYMENT SCHEDULE'),'Gmail email keeps the estimate details and the full terms ('+m[0].href.length+')');
+  // empty "Send from" → the device's mail app, shortened to fit
+  await p.evaluate(()=>{ SETTINGS.emailFrom=''; window.__mailto=[]; });
+  await p.click('#btnEmail'); await p.waitForTimeout(300);
+  m=await p.evaluate(()=>window.__mailto);
   const mailBody=decodeURIComponent(m[0].href.split('&body=')[1]||'');
-  ok(m[0].href.length<=1900 && m[0].href.startsWith('mailto:ann%40x.com?subject=') && mailBody.includes('TOTAL:') && mailBody.includes('Thank you Ann!'),'mailto link stays under 1900 characters and keeps the estimate details ('+m[0].href.length+')');
+  ok(m[0].href.length<=1900 && m[0].href.startsWith('mailto:ann%40x.com?subject=') && mailBody.includes('TOTAL:') && mailBody.includes('Thank you Ann!'),'without a Gmail address: mailto link stays under 1900 characters and keeps the estimate details ('+m[0].href.length+')');
   ok(mailBody.includes('see the attached PDF') && (await p.innerText('.toast')).includes('shorter text'),'long terms are replaced by "see the attached PDF" and the user is told');
+  await p.evaluate(()=>{ SETTINGS=loadSettings(); });
+  // the setting is on the Settings page and is saved
+  await p.click('#mainNav [data-page=settings]');
+  ok(await p.inputValue('#setEmailFrom')==='EverCraft.pro@gmail.com','Settings shows "Send estimates & invoices from" = EverCraft.pro@gmail.com by default');
+  await p.fill('#setEmailFrom','office@example.com'); await p.click('#settingsForm button[type=submit] >> nth=0');
+  ok(await p.evaluate(()=>loadSettings().emailFrom)==='office@example.com','the sending address can be changed and is saved');
+  await p.fill('#setEmailFrom','EverCraft.pro@gmail.com'); await p.click('#settingsForm button[type=submit] >> nth=0');
   // edit terms in Settings
   await p.click('#mainNav [data-page=settings]');
   ok((await p.inputValue('#setTerms')).includes('Sherwin-Williams') && await p.inputValue('#setLicense')==='#1133560','Settings shows terms and license');

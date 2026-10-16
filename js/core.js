@@ -189,27 +189,38 @@ let STORAGE_COPY_FAILED = false;
 // some webmail handlers). The full text is tried first; then the version without the terms (they
 // are on the PDF); then a cut version. When the email is shortened the full text is copied to the
 // clipboard so it can be pasted.
-const MAILTO_MAX = 1900;
+const MAILTO_MAX = 1900;  // many mail apps cut longer mailto links
+const GMAIL_MAX = 8000;   // Gmail's compose link takes much more
 let MAILTO_OPENING = false; // the "unsaved changes" warning is not shown for the mail app
 
 function mailtoUrl(to, subject, body){
   return "mailto:"+encodeURIComponent(to)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
 }
 
+// Gmail compose window in the given account (authuser), so the email is sent from that address.
+function gmailComposeUrl(from, to, subject, body){
+  return "https://mail.google.com/mail/?authuser="+encodeURIComponent(from)+"&view=cm&fs=1&to="+encodeURIComponent(to)+
+    "&su="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+}
+
+// Opens a new email: in Gmail as Settings → "Send emails from", or in the device's mail app when that is empty.
 function openMailto(to, subject, fullBody, shortBody){
-  let url=mailtoUrl(to,subject,fullBody), shortened=false;
-  if(url.length>MAILTO_MAX && shortBody){ url=mailtoUrl(to,subject,shortBody); shortened=true; }
-  if(url.length>MAILTO_MAX){
+  const from=String((typeof SETTINGS!=="undefined" && SETTINGS.emailFrom) || "").trim();
+  const make=from ? (t,s,b)=>gmailComposeUrl(from,t,s,b) : mailtoUrl;
+  const max=from ? GMAIL_MAX : MAILTO_MAX;
+  let url=make(to,subject,fullBody), shortened=false;
+  if(url.length>max && shortBody){ url=make(to,subject,shortBody); shortened=true; }
+  if(url.length>max){
     let text=shortBody || fullBody;
     const note="\n\n(Shortened. The full estimate is in the attached PDF.)";
-    while(text.length>200 && mailtoUrl(to,subject,text+note).length>MAILTO_MAX) text=text.slice(0,Math.floor(text.length*0.9));
-    url=mailtoUrl(to,subject,text+note); shortened=true;
+    while(text.length>200 && make(to,subject,text+note).length>max) text=text.slice(0,Math.floor(text.length*0.9));
+    url=make(to,subject,text+note); shortened=true;
   }
   if(shortened){
     try{ navigator.clipboard && navigator.clipboard.writeText(fullBody).catch(()=>{}); }catch(e){}
-    showToast("Email opened with a shorter text (mail apps limit the length). The full text is copied: paste it if you need it. Attach the PDF.");
+    showToast("Email opened with a shorter text (email links limit the length). The full text is copied: paste it if you need it. Attach the PDF.");
   }
-  // Open the mail app without leaving this page (no "Leave site?" prompt, the CRM tab stays open).
+  // Open in a new window without leaving this page (no "Leave site?" prompt, the CRM tab stays open).
   MAILTO_OPENING=true;
   const a=document.createElement("a");
   a.href=url; a.target="_blank"; a.rel="noopener";
