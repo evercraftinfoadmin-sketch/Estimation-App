@@ -7,7 +7,8 @@ const STORAGE_BASE_KEYS = {
   services: "constructionEstimatorServices",
   estimates: "constructionEstimatorSavedEstimates",
   crm: "constructionEstimatorCRM",
-  categories: "constructionEstimatorCategories"
+  categories: "constructionEstimatorCategories",
+  invoices: "constructionEstimatorInvoices"
 };
 
 // With shared cloud data, each Base44 app (test / production) keeps its own copy of the data

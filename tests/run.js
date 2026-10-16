@@ -4,7 +4,7 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const SUITES = ['crm', 'category', 'terms', 'photo', 'address', 'import', 'delete', 'cloud'];
+const SUITES = ['crm', 'category', 'terms', 'photo', 'address', 'import', 'delete', 'invoice', 'cloud'];
 const SHARED_ONLY = new Set(['cloud']); // uses its own fake Base44 app
 const only = process.argv.slice(2);
 const runs = [];

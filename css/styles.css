@@ -327,3 +327,15 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .migration-result ul{margin:4px 0 0;padding-left:18px}
 .pv-message{margin:14px 0;padding:10px 12px;border-left:3px solid #2563eb;background:#f8fafc;white-space:pre-wrap}
 #clientMessage{width:100%;resize:vertical}
+/* Invoices */
+.invoice-box{max-width:1100px}
+.inv-items input{width:100%;min-width:60px}
+.inv-items td.num input{text-align:right;max-width:110px}
+.inv-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:24px;margin-top:14px}
+.inv-pay-form{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.inv-pay-form input,.inv-pay-form select{flex:1 1 120px}
+.inv-quick{align-items:center;margin-bottom:10px}
+.inv-actions{margin-top:16px}
+.inv-draft{background:#e5e7eb;color:#374151}.inv-sent{background:#dbeafe;color:#1d4ed8}
+.inv-partial{background:#fef3c7;color:#92400e}.inv-paid{background:#dcfce7;color:#166534}.inv-void{background:#fee2e2;color:#991b1b}
+@media(max-width:800px){.inv-grid{grid-template-columns:1fr}}

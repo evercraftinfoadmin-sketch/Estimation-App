@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.20a">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.21a">
 </head>
 <body>
 
@@ -21,6 +21,7 @@
         <button data-page="estimates">Saved Estimates</button>
         <button data-page="services">Services</button>
         <button data-page="crm">CRM</button>
+        <button data-page="invoices">Invoices</button>
         <button data-page="settings">Settings</button>
       </nav>
       <div class="cloud-bar">
@@ -177,6 +178,36 @@
         <select id="crmAddressFilter" aria-label="Address filter"><option value="all">All addresses</option></select>
       </div>
       <div class="kanban" id="crmBoard"></div>
+    </section>
+
+    <!-- ============ INVOICES ============ -->
+    <section id="page-invoices" class="page" hidden>
+      <div class="page-head">
+        <div><h1>Invoices</h1><div class="page-sub">Bill completed jobs, record payments, see what is still owed.</div></div>
+        <div class="btn-row"><button class="btn btn-primary" id="btnNewInvoice">+ New Invoice</button></div>
+      </div>
+      <section class="card">
+        <div class="imp-summary" id="invoicesSummary"></div>
+        <div class="toolbar">
+          <input id="invoiceSearch" type="search" placeholder="Search invoice #, client, address or estimate #" aria-label="Search invoices">
+          <select id="invoiceStatusFilter" aria-label="Status filter">
+            <option value="all">All invoices</option>
+            <option value="open">Not paid yet</option>
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="partial">Partially paid</option>
+            <option value="paid">Paid</option>
+            <option value="void">Void</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="table responsive-table">
+            <thead><tr><th>Invoice #</th><th>Client</th><th>Date</th><th>Status</th><th>Total</th><th>Paid</th><th>Balance</th><th>Actions</th></tr></thead>
+            <tbody id="invoicesBody"></tbody>
+          </table>
+        </div>
+        <div id="invoicesEmpty" class="empty" hidden></div>
+      </section>
     </section>
 
     <!-- ============ SETTINGS ============ -->
@@ -473,21 +504,77 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <!-- Printable estimate (only visible when printing) -->
+<div id="invoiceModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="invoiceModalTitle">
+  <form class="modal-box invoice-box" id="invoiceForm">
+    <div class="modal-head"><h2 id="invoiceModalTitle">Invoice</h2><button type="button" class="btn-icon" data-close="invoiceModal" aria-label="Close">✕</button></div>
+    <div class="small" id="invEstimateLink"></div>
+    <div class="form-grid">
+      <div class="field"><label for="invClientName">Client Name</label><input id="invClientName" type="text" autocomplete="off"></div>
+      <div class="field"><label for="invClientEmail">Client Email</label><input id="invClientEmail" type="email" autocomplete="off"></div>
+      <div class="field"><label for="invClientPhone">Client Phone</label><input id="invClientPhone" type="tel" autocomplete="off"></div>
+      <div class="field span-3"><label for="invAddress">Project Address</label><input id="invAddress" type="text" autocomplete="off"></div>
+      <div class="field"><label for="invNumber">Invoice #</label><input id="invNumber" type="text" autocomplete="off"></div>
+      <div class="field"><label for="invDate">Date</label><input id="invDate" type="date"></div>
+      <div class="field"><label for="invDueDate">Due date</label><input id="invDueDate" type="date"></div>
+    </div>
+    <h3>Services</h3>
+    <div class="table-wrap"><table class="table inv-items">
+      <thead><tr><th>Service</th><th>Description</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th><th></th></tr></thead>
+      <tbody id="invItems"></tbody>
+    </table></div>
+    <button type="button" class="btn btn-light btn-sm" data-inv="add-line">+ Add line</button>
+    <div class="inv-grid">
+      <div>
+        <h3>Payments received</h3>
+        <div class="table-wrap"><table class="table"><tbody id="invPayments"></tbody></table></div>
+        <div class="inv-pay-form">
+          <input id="invPayDate" type="date" aria-label="Payment date">
+          <input id="invPayAmount" type="number" step="0.01" min="0" placeholder="Amount" aria-label="Payment amount">
+          <select id="invPayMethod" aria-label="Payment method"></select>
+          <input id="invPayNote" type="text" placeholder="Note (optional)" aria-label="Payment note">
+          <button type="button" class="btn btn-primary btn-sm" data-inv="add-payment">Record payment</button>
+        </div>
+        <div class="btn-row inv-quick">
+          <span class="small">Fill amount:</span>
+          <button type="button" class="btn btn-light btn-sm" data-inv="pay-fill" data-share="10">Deposit 10%</button>
+          <button type="button" class="btn btn-light btn-sm" data-inv="pay-fill" data-share="40">Progress 40%</button>
+          <button type="button" class="btn btn-light btn-sm" data-inv="pay-fill" data-share="50">Final 50%</button>
+          <button type="button" class="btn btn-light btn-sm" data-inv="pay-fill" data-share="0">Full balance</button>
+        </div>
+        <div class="field"><label for="invMessage">Message to client <span class="small">(optional · on the PDF and in the email)</span></label><textarea id="invMessage" rows="2" maxlength="2000"></textarea></div>
+      </div>
+      <div>
+        <div class="sum-row"><label for="invMarkup" class="sum-label">Markup <span class="pct-input"><input id="invMarkup" type="number" min="0" step="0.1"> %</span></label></div>
+        <div class="sum-row"><label for="invTaxRate" class="sum-label">Sales Tax <span class="pct-input"><input id="invTaxRate" type="number" min="0" step="0.01"> %</span></label></div>
+        <div id="invTotals"></div>
+      </div>
+    </div>
+    <div class="btn-row end inv-actions">
+      <button type="button" class="btn btn-danger btn-sm" id="invDelete">Delete</button>
+      <button type="button" class="btn btn-light" data-inv="void" id="invVoid">Void</button>
+      <button type="button" class="btn btn-light" data-inv="print">Print / PDF</button>
+      <button type="button" class="btn btn-light" data-inv="email">Email Client</button>
+      <button type="submit" class="btn btn-success">Save Invoice</button>
+    </div>
+  </form>
+</div>
+
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.10.20a"></script>
-<script src="js/core.js?v=2026.10.20a"></script>
-<script src="js/calc.js?v=2026.10.20a"></script>
-<script src="js/settings.js?v=2026.10.20a"></script>
-<script src="js/address.js?v=2026.10.20a"></script>
-<script src="js/categories.js?v=2026.10.20a"></script>
-<script src="js/services.js?v=2026.10.20a"></script>
-<script src="js/photos.js?v=2026.10.20a"></script>
-<script src="js/cloud.js?v=2026.10.20a"></script>
-<script src="js/estimates.js?v=2026.10.20a"></script>
-<script src="js/crm.js?v=2026.10.20a"></script>
-<script src="js/importer.js?v=2026.10.20a"></script>
-<script src="js/migration.js?v=2026.10.20a"></script>
-<script src="js/app.js?v=2026.10.20a"></script>
+<script src="js/config.js?v=2026.10.21a"></script>
+<script src="js/core.js?v=2026.10.21a"></script>
+<script src="js/calc.js?v=2026.10.21a"></script>
+<script src="js/settings.js?v=2026.10.21a"></script>
+<script src="js/address.js?v=2026.10.21a"></script>
+<script src="js/categories.js?v=2026.10.21a"></script>
+<script src="js/services.js?v=2026.10.21a"></script>
+<script src="js/photos.js?v=2026.10.21a"></script>
+<script src="js/cloud.js?v=2026.10.21a"></script>
+<script src="js/estimates.js?v=2026.10.21a"></script>
+<script src="js/crm.js?v=2026.10.21a"></script>
+<script src="js/invoices.js?v=2026.10.21a"></script>
+<script src="js/importer.js?v=2026.10.21a"></script>
+<script src="js/migration.js?v=2026.10.21a"></script>
+<script src="js/app.js?v=2026.10.21a"></script>
 </body>
 </html>

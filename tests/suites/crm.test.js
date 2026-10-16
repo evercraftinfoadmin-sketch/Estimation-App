@@ -45,7 +45,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   await p.goto(FILE);
   ok(await p.isVisible('#page-builder'), '1. page load: builder visible');
   ok(await v('#estimateNumber') === 'EST-2026-1001', '1. page load: estimate # EST-2026-1001');
-  ok((await p.locator('#mainNav button').allTextContents()).join('|') === 'Estimate Builder|Saved Estimates|Services|CRM|Settings', '1. navigation has 5 pages');
+  ok((await p.locator('#mainNav button').allTextContents()).join('|') === 'Estimate Builder|Saved Estimates|Services|CRM|Invoices|Settings', '1. navigation has 6 pages (incl. Invoices)');
   ok((await services()).length === 22, '1. default services seeded (7+7+8)');
   ok(await p.locator('.category-card h2').allTextContents().then(x => x.join(',')) === 'DRYWALL,STUCCO,PAINTING', '1. 3 main categories');
   ok(await p.isVisible('[data-action=add-category]'), '1. + Add Category available');

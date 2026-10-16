@@ -653,6 +653,7 @@ function renderSavedEstimates(){
           <button class="btn btn-light btn-sm" data-action="print">Print</button>
           <button class="btn btn-light btn-sm" data-action="email">Email</button>
           <button class="btn btn-light btn-sm" data-action="crm">${hasProject?"Open CRM Project":"Create CRM Project"}</button>
+          <button class="btn btn-light btn-sm" data-action="invoice">${invoicesForEstimate(e.id).length?"Open Invoice":"Create Invoice"}</button>
           <button class="btn btn-danger btn-sm" data-action="delete">Delete</button>
         </div>
       </td>
@@ -680,6 +681,7 @@ function handleEstimatesAction(event){
     print:()=>printSavedEstimate(id),
     email:()=>emailSavedEstimate(id),
     crm:()=>createOrOpenCrmFromEstimate(id),
+    invoice:()=>createOrOpenInvoiceForEstimate(id),
     delete:()=>deleteEstimate(id)
   })[action]?.();
 }
