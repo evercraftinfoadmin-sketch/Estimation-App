@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.24c">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.25a">
 </head>
 <body>
 
@@ -561,22 +561,36 @@
   </form>
 </div>
 
+<div id="sendMailModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="smTitle">
+  <form class="modal-box send-mail-box" id="sendMailForm" novalidate>
+    <div class="modal-head"><h2 id="smTitle">Send email</h2><button type="button" class="btn-icon" data-close="sendMailModal" aria-label="Close">✕</button></div>
+    <p class="small" id="smFrom"></p>
+    <div class="field"><label for="smTo">To</label><input id="smTo" type="email" autocomplete="off" required></div>
+    <div class="field"><label for="smSubject">Subject</label><input id="smSubject" type="text" autocomplete="off" required></div>
+    <div class="field"><label for="smText">Message</label><textarea id="smText" rows="12"></textarea></div>
+    <label class="check-row"><input type="checkbox" id="smAttach" checked> Attach PDF: <span id="smFile"></span></label>
+    <p class="small" id="smStatus" role="status"></p>
+    <div class="btn-row end"><button type="button" class="btn btn-light" id="smGmail">Open in Gmail instead</button><button type="submit" class="btn btn-primary" id="smSend">Send</button></div>
+  </form>
+</div>
+
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.10.24c"></script>
-<script src="js/core.js?v=2026.10.24c"></script>
-<script src="js/calc.js?v=2026.10.24c"></script>
-<script src="js/settings.js?v=2026.10.24c"></script>
-<script src="js/address.js?v=2026.10.24c"></script>
-<script src="js/categories.js?v=2026.10.24c"></script>
-<script src="js/services.js?v=2026.10.24c"></script>
-<script src="js/photos.js?v=2026.10.24c"></script>
-<script src="js/cloud.js?v=2026.10.24c"></script>
-<script src="js/estimates.js?v=2026.10.24c"></script>
-<script src="js/crm.js?v=2026.10.24c"></script>
-<script src="js/invoices.js?v=2026.10.24c"></script>
-<script src="js/importer.js?v=2026.10.24c"></script>
-<script src="js/migration.js?v=2026.10.24c"></script>
-<script src="js/app.js?v=2026.10.24c"></script>
+<script src="js/config.js?v=2026.10.25a"></script>
+<script src="js/core.js?v=2026.10.25a"></script>
+<script src="js/calc.js?v=2026.10.25a"></script>
+<script src="js/settings.js?v=2026.10.25a"></script>
+<script src="js/address.js?v=2026.10.25a"></script>
+<script src="js/categories.js?v=2026.10.25a"></script>
+<script src="js/services.js?v=2026.10.25a"></script>
+<script src="js/photos.js?v=2026.10.25a"></script>
+<script src="js/cloud.js?v=2026.10.25a"></script>
+<script src="js/estimates.js?v=2026.10.25a"></script>
+<script src="js/crm.js?v=2026.10.25a"></script>
+<script src="js/invoices.js?v=2026.10.25a"></script>
+<script src="js/importer.js?v=2026.10.25a"></script>
+<script src="js/mail.js?v=2026.10.25a"></script>
+<script src="js/migration.js?v=2026.10.25a"></script>
+<script src="js/app.js?v=2026.10.25a"></script>
 </body>
 </html>

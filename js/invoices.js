@@ -427,8 +427,19 @@ function buildInvoiceEmailBody(inv, {withTerms=true}={}){
 
 function emailInvoice(inv){
   const subject=`${companyName()} Invoice ${inv.invoiceNumber} - ${inv.address || inv.clientName || "Project"}`;
-  markInvoiceSent();
-  openMailto(inv.clientEmail,subject,buildInvoiceEmailBody(inv),buildInvoiceEmailBody(inv,{withTerms:false}));
+  const viaGmail=(to=inv.clientEmail,subj=subject)=>{
+    markInvoiceSent();
+    openMailto(to,subj,buildInvoiceEmailBody(inv),buildInvoiceEmailBody(inv,{withTerms:false}));
+  };
+  if(!canSendFromCrm()) return viaGmail();
+  openSendMail({
+    title:`Send invoice ${inv.invoiceNumber}`,
+    to:inv.clientEmail, subject, text:buildInvoiceEmailBody(inv),
+    filename:`${companyName()} Invoice ${inv.invoiceNumber}.pdf`.trim(),
+    render:()=>renderInvoicePrint(inv),
+    fallback:({to,subject:subj})=>viaGmail(to,subj),
+    onSent:()=>markInvoiceSent()
+  });
 }
 
 /* ---------- Wiring ---------- */

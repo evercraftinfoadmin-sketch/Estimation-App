@@ -117,6 +117,7 @@ function init(){
   wireImportEvents();
   wireMigrationEvents();
   wireInvoiceEvents();
+  wireMailEvents();
   wireCloudEvents();
   newEstimate();
   showPage(location.hash.slice(1) || "builder");

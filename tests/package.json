@@ -6,6 +6,7 @@
     "test": "node run.js"
   },
   "devDependencies": {
+    "html2pdf.js": "0.14.0",
     "playwright": "1.63.0",
     "xlsx": "0.18.5"
   }
