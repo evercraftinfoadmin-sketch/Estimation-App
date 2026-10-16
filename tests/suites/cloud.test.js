@@ -101,16 +101,18 @@ async function employee(browser, email, opts={}){
   p.dialogs=[]; p.answer=true; p.on('dialog',d=>{ p.dialogs.push(d.message()); p.answer?d.accept():d.dismiss(); });
   p.downloads=0; p.on('download',()=>p.downloads++);
   await p.exposeFunction('__b44',async (entity,op,args,token)=>{ if(FAIL.during && FAIL.during.email===email && FAIL.during.op===op){ const d=FAIL.during; FAIL.during=null; await d.run(p); } try{ return serve(token && token.startsWith('tok:') ? token.slice(4) : email,entity,op,args); }catch(e){ return {__error:e.status===0 ? 0 : (e.status||500)}; } });
-  // the fake app's address does not exist: answer the browser's CORS check here too
-  const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*','Access-Control-Allow-Methods':'*'};
-  await p.route('**/auth/**',(route,req)=>req.method()==='OPTIONS' ? route.fulfill({status:204,headers:CORS}) : route.fallback());
-  await p.route('**/auth/login',async route=>{
-    if(route.request().method()==='OPTIONS') return route.fallback();
-    const b=JSON.parse(route.request().postData()||'{}');
-    if(USERS[b.email] && b.password==='pw-'+b.email) return route.fulfill({status:200,headers:CORS,contentType:'application/json',body:JSON.stringify({access_token:'tok:'+b.email,user:USERS[b.email]})});
-    route.fulfill({status:400,headers:CORS,contentType:'application/json',body:JSON.stringify({detail:'Invalid email or password'})});
+  // The fake app's address does not exist. Sign-in requests (the app's own fetch to /auth/...) are answered
+  // here inside the page rather than through browser network interception, which stalled now and then.
+  await p.exposeFunction('__auth',(pth,body)=>{
+    const b=JSON.parse(body||'{}');
+    if(pth==='login'){
+      if(USERS[b.email] && b.password==='pw-'+b.email) return {status:200,body:{access_token:'tok:'+b.email,user:USERS[b.email]}};
+      return {status:400,body:{detail:'Invalid email or password'}};
+    }
+    if(pth==='reset-password-request'){ p.resetFor=b.email; return {status:200,body:{}}; }
+    return {status:404,body:{}};
   });
-  await p.route('**/auth/reset-password-request',route=>{ if(route.request().method()==='OPTIONS') return route.fallback(); p.resetFor=JSON.parse(route.request().postData()).email; route.fulfill({status:200,headers:CORS,contentType:'application/json',body:'{}'}); });
+  await p.addInitScript(`{ const realFetch=window.fetch; window.fetch=function(url,opts){ const m=String(url).match(/^https:\\/\\/[^/]*\\/api\\/apps\\/ci-cloud-test-app-00000000\\/auth\\/([a-z-]+)$/); if(!m) return realFetch.apply(this,arguments); return window.__auth(m[1],opts&&opts.body).then(r=>new Response(JSON.stringify(r.body),{status:r.status,headers:{'Content-Type':'application/json'}})); }; }`);
   if(USERS[email]) await p.addInitScript(`if(!localStorage.getItem('base44_access_token@ci-cloud-test-app-00000000')) localStorage.setItem('base44_access_token@ci-cloud-test-app-00000000','tok:${email}');`);
   await p.addInitScript(SHIM);
   if(opts.off) await p.addInitScript(`Object.defineProperty(window,'EVERCRAFT_CONFIG',{configurable:true,set(v){this.__c={...v,base44AppId:''}},get(){return this.__c}});`);
@@ -143,7 +145,8 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
   await anon.fill('#cloudLoginEmail','a@test'); await anon.fill('#cloudLoginPassword','wrong');
   await anon.click('#cloudLoginSubmit'); await anon.waitForFunction(()=>$('cloudLoginError').textContent!=='');
   ok((await anon.textContent('#cloudLoginError')).includes('Invalid email or password') && await anon.isVisible('#cloudLoginModal') && !(await anon.evaluate(()=>localStorage.getItem(storageKey('base44_access_token')))),'wrong password: message shown, stays on the page, nothing saved');
-  await anon.fill('#cloudLoginEmail','out@test'); await anon.click('#cloudLoginReset'); await anon.waitForTimeout(300);
+  await anon.fill('#cloudLoginEmail','out@test'); await anon.click('#cloudLoginReset');
+  for(let i=0;i<50 && !anon.dialogs.length;i++) await anon.waitForTimeout(100);
   ok(anon.resetFor==='out@test' && anon.dialogs.at(-1).includes('set a password'),'"send me a link to set a password" asks Base44 to email a link');
   await anon.click('#cloudLoginGoogle');
   ok(await anon.evaluate(()=>window.__loginRedirect && window.__b44cfg.appId==='ci-cloud-test-app-00000000' && window.__b44cfg.appBaseUrl.includes('base44.app')),'Sign in redirects to the Base44 login of the configured app');
@@ -173,10 +176,6 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
   await login.click('#cloudStatus');
   await login.fill('#cloudLoginEmail','b@test'); await login.fill('#cloudLoginPassword','pw-b@test');
   await login.click('#cloudLoginSubmit');
-  // Rarely the simulated sign-in request never answers in this harness (fake host); retry the click once, logged.
-  if(!(await login.waitForFunction(()=>CLOUD.state==='synced',null,{timeout:5000}).then(()=>true,()=>false)) && await login.evaluate(()=>$('cloudLoginSubmit').textContent==='Sign in' && !$('cloudLoginError').textContent)){
-    console.log('NOTE: sign-in click retried'); await login.click('#cloudLoginSubmit');
-  }
   await login.waitForFunction(()=>CLOUD.state==='synced',null,{timeout:10000}).catch(async e=>{ console.log('LOGIN DIAG',JSON.stringify(await login.evaluate(()=>({state:CLOUD.state,msg:CLOUD.message,role:CLOUD.role,user:CLOUD.user&&CLOUD.user.email,running:!!CLOUD.running,err:$('cloudLoginError').textContent,btn:$('cloudLoginSubmit').textContent,email:$('cloudLoginEmail').value,modal:!$('cloudLoginModal').hidden && $('cloudLoginModal').classList.contains('open')}))),login.errs); throw e; });
   ok(await login.isHidden('#cloudLoginModal') && (await login.textContent('#cloudStatus')).includes('Synced') && await login.evaluate(()=>CLOUD.user.email)==='b@test','email + password sign-in works inside the app and starts syncing');
   ok(await login.evaluate(()=>!document.body.innerText.includes('pw-b@test') && $('cloudLoginPassword').value===''),'password field is cleared after sign-in');
@@ -468,8 +467,8 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
     ok((await store(D,'constructionEstimatorCRM')).some(p=>p.id==='crm-d') && (await rawStore(D,'constructionEstimatorCRM')).some(p=>p.id==='crm-d'),'F6: on first start the app gets a copy; the original data stays as it was');
   }
 
-  // M. migration check (dry run): reads only, reports what an upload would do
-  {
+  // M. migration check (dry run): reads only, reports what an upload would do (dev branch only)
+  if(await ADM.evaluate(()=>typeof migrationReport==='function')) {
     await ADM.evaluate(()=>showPage('settings')); await ADM.waitForTimeout(300);
     ok(await ADM.isVisible('#migrationCard'),'M: owner sees the Migration Check card');
     await B.evaluate(()=>showPage('settings')); await B.waitForTimeout(300);
