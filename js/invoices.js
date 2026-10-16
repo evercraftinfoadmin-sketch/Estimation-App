@@ -407,7 +407,7 @@ function printInvoice(inv){
   document.title=original;
 }
 
-function buildInvoiceEmailBody(inv){
+function buildInvoiceEmailBody(inv, {withTerms=true}={}){
   const lines=[`Hello ${inv.clientName || "there"},`,"",`Please find your invoice from ${companyName()} below.`,""];
   if(inv.clientMessage) lines.push(inv.clientMessage,"");
   lines.push(`Invoice #: ${inv.invoiceNumber}`,`Date: ${formatDate(inv.date)}`);
@@ -420,7 +420,7 @@ function buildInvoiceEmailBody(inv){
   lines.push(`Sales Tax (${formatQty(inv.taxRate)}%): ${money(inv.taxAmount)}`,`TOTAL: ${money(inv.total)}`);
   for(const p of inv.payments) lines.push(`Paid ${formatDate(p.date)} (${p.method}): ${money(p.amount)}`);
   lines.push(`BALANCE DUE: ${money(inv.status==="void"?0:inv.balance)}`,"");
-  if(SETTINGS.terms.trim()) lines.push("TERMS AND CONDITIONS","",SETTINGS.terms.trim(),"");
+  if(SETTINGS.terms.trim()) lines.push(...(withTerms ? ["TERMS AND CONDITIONS","",SETTINGS.terms.trim(),""] : ["Terms and Conditions: see the attached PDF invoice.",""]));
   lines.push("Thank you for your business!","","Best regards,",...[SETTINGS.companyName,...companyContactParts()]);
   return lines.join("\n");
 }
@@ -428,7 +428,7 @@ function buildInvoiceEmailBody(inv){
 function emailInvoice(inv){
   const subject=`${companyName()} Invoice ${inv.invoiceNumber} - ${inv.address || inv.clientName || "Project"}`;
   markInvoiceSent();
-  window.location.href="mailto:"+encodeURIComponent(inv.clientEmail)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(buildInvoiceEmailBody(inv));
+  openMailto(inv.clientEmail,subject,buildInvoiceEmailBody(inv),buildInvoiceEmailBody(inv,{withTerms:false}));
 }
 
 /* ---------- Wiring ---------- */

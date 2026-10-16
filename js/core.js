@@ -182,3 +182,38 @@ let STORAGE_COPY_FAILED = false;
     Object.assign(STORAGE_KEYS,STORAGE_BASE_KEYS);
   }
 })();
+
+/* ---------- Email (mailto) ---------- */
+
+// Mail apps refuse or cut long mailto links (about 2000 characters in Outlook, Windows Mail and
+// some webmail handlers). The full text is tried first; then the version without the terms (they
+// are on the PDF); then a cut version. When the email is shortened the full text is copied to the
+// clipboard so it can be pasted.
+const MAILTO_MAX = 1900;
+let MAILTO_OPENING = false; // the "unsaved changes" warning is not shown for the mail app
+
+function mailtoUrl(to, subject, body){
+  return "mailto:"+encodeURIComponent(to)+"?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+}
+
+function openMailto(to, subject, fullBody, shortBody){
+  let url=mailtoUrl(to,subject,fullBody), shortened=false;
+  if(url.length>MAILTO_MAX && shortBody){ url=mailtoUrl(to,subject,shortBody); shortened=true; }
+  if(url.length>MAILTO_MAX){
+    let text=shortBody || fullBody;
+    const note="\n\n(Shortened. The full estimate is in the attached PDF.)";
+    while(text.length>200 && mailtoUrl(to,subject,text+note).length>MAILTO_MAX) text=text.slice(0,Math.floor(text.length*0.9));
+    url=mailtoUrl(to,subject,text+note); shortened=true;
+  }
+  if(shortened){
+    try{ navigator.clipboard && navigator.clipboard.writeText(fullBody).catch(()=>{}); }catch(e){}
+    showToast("Email opened with a shorter text (mail apps limit the length). The full text is copied: paste it if you need it. Attach the PDF.");
+  }
+  // Open the mail app without leaving this page (no "Leave site?" prompt, the CRM tab stays open).
+  MAILTO_OPENING=true;
+  const a=document.createElement("a");
+  a.href=url; a.target="_blank"; a.rel="noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>{ MAILTO_OPENING=false; },1500);
+  return url;
+}
