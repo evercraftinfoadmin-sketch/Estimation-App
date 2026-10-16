@@ -97,7 +97,7 @@ function wireEvents(){
 
   window.addEventListener("hashchange",()=>showPage(location.hash.slice(1)));
   window.addEventListener("beforeunload",e=>{
-    if(hasUnsavedChanges()){ e.preventDefault(); e.returnValue=""; }
+    if(!MAILTO_OPENING && hasUnsavedChanges()){ e.preventDefault(); e.returnValue=""; }
   });
 }
 
