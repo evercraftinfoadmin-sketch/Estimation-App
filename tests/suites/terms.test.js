@@ -21,6 +21,22 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   ok(pv.indexOf('TERMS AND CONDITIONS')>pv.indexOf('TOTAL'),'terms appear after the totals');
   const body=await p.evaluate(()=>buildEmailBody(getEstimateData()));
   ok(must.every(s=>body.includes(s)),'email contains the full Terms & Conditions');
+  // client message: optional, saved with the estimate, on the PDF (before the services) and in the email
+  ok(await p.isVisible('#clientMessage') && !(await p.innerText('#printView')).includes('Thank you Ann'),'builder has an empty "Message to client" box; nothing extra on the PDF when empty');
+  await p.fill('#clientMessage','Thank you Ann!\nWork can start next Monday.');
+  await printAndWait();
+  const pv2=await p.innerText('#printView');
+  ok(pv2.includes('Thank you Ann!') && pv2.includes('Work can start next Monday.') && pv2.indexOf('Thank you Ann!')<pv2.indexOf('PAINTING'),'PDF shows the client message (with line breaks) before the services');
+  ok((await p.evaluate(()=>buildEmailBody(getEstimateData()))).includes('Thank you Ann!\nWork can start next Monday.'),'email contains the client message');
+  await p.evaluate(()=>saveEstimate());
+  const saved=await p.evaluate(()=>loadEstimates().find(e=>e.clientName==='Ann Lee'));
+  ok(saved && saved.clientMessage==='Thank you Ann!\nWork can start next Monday.','client message is saved with the estimate');
+  await p.evaluate(()=>newEstimate());
+  ok(await p.inputValue('#clientMessage')==='','a new estimate starts with an empty message');
+  await p.evaluate(id=>openEstimate(id),saved.id);
+  ok(await p.inputValue('#clientMessage')==='Thank you Ann!\nWork can start next Monday.','reopening the estimate shows its message');
+  await p.locator('#clientMessage').scrollIntoViewIfNeeded(); await p.locator('.builder-main .card').first().screenshot({path:OUT+'/client-message.png'});
+  await printAndWait(); await p.emulateMedia({media:'print'}); await p.locator('#printView').screenshot({path:OUT+'/client-message-pdf.png'}); await p.emulateMedia({media:'screen'});
   // edit terms in Settings
   await p.click('#mainNav [data-page=settings]');
   ok((await p.inputValue('#setTerms')).includes('Sherwin-Williams') && await p.inputValue('#setLicense')==='#1133560','Settings shows terms and license');

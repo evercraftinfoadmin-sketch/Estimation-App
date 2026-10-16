@@ -325,3 +325,5 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
   .pv-footer{margin-top:28px;padding-top:10px;border-top:1px solid #ddd;color:#555;font-size:11px;text-align:center}
 }
 .migration-result ul{margin:4px 0 0;padding-left:18px}
+.pv-message{margin:14px 0;padding:10px 12px;border-left:3px solid #2563eb;background:#f8fafc;white-space:pre-wrap}
+#clientMessage{width:100%;resize:vertical}
