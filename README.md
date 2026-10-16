@@ -4,6 +4,9 @@ A standalone web app for Drywall, Stucco and Painting contractors: build commerc
 estimates from a service list and track every client through a CRM pipeline.
 Plain HTML, CSS and JavaScript, with no frameworks and no build step.
 
+**Open the CRM:** https://evercraftinfoadmin-sketch.github.io/Estimation-App/ (published from `main`;
+see [docs/PRODUCTION_HOSTING.md](docs/PRODUCTION_HOSTING.md)).
+
 ## Features
 
 **Estimate Builder**: client details plus the three main categories (Drywall, Stucco, Painting).

@@ -1,0 +1,53 @@
+# Publishes the PRODUCTION app (branch main) to GitHub Pages:
+#   https://evercraftinfoadmin-sketch.github.io/Estimation-App/
+# Inactive until the owner turns on Pages (Settings → Pages → Source: GitHub Actions)
+# and this file is on main. Only main is ever published here; the dev branch stays on raw.githack.com,
+# so production and dev run on different web addresses and never share browser storage.
+name: Publish production site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Production Base44 app, no secrets
+        working-directory: tests
+        run: node check-config.js main
+      - name: Browser tests
+        working-directory: tests
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm test
+      - name: Site files only (no tests, docs or workflows)
+        run: |
+          mkdir _site
+          cp -r index.html css js _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
