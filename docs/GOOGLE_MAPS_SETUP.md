@@ -30,7 +30,8 @@ is a plain link (`https://www.google.com/maps/search/?api=1&query=<lat>,<lng>`).
 4. **Restrict the key.** This is required, because a browser key is visible to anyone using the page.
    - *Application restrictions* → **Websites (HTTP referrers)**, and add only your app's addresses, e.g.
      - `https://your-domain.com/*`
-     - `https://raw.githack.com/evercraftinfoadmin-sketch/Estimation-App/*` (test previews)
+     - `https://evercraftinfoadmin-sketch.github.io/*` (the CRM)
+     - `https://raw.githack.com/evercraftinfoadmin-sketch/Estimation-App/*` (test version)
      - `http://localhost/*` (local testing, optional)
    - *API restrictions* → **Restrict key** → select only **Maps JavaScript API** and **Places API (New)**.
 5. **Optional, quotas:** in *APIs & Services → Places API (New) → Quotas*, set a daily request cap

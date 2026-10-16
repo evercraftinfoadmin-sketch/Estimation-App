@@ -1,0 +1,9 @@
+Customer,E-mail,Cell Phone,Job Address,Quote #,Quote Date,Trade,Description,Qty,Unit Price,Amount,Status,Notes
+"Smith, John",john@x.com,(818) 555-0101,"123 Main St, Los Angeles, CA",Q-501,09/15/2026,Drywall,Drywall Repair,500,$4.00,"$2,000.00",Sent,Kitchen ceiling
+"Smith, John",john@x.com,(818) 555-0101,"123 Main St, Los Angeles, CA",Q-501,09/15/2026,Painting,Interior Painting,"1,200",$2.50,"$3,000.00",Sent,
+Mary Lee,mary@x.com,818-555-0102,"9 Oak Ave, Glendale, CA",Q-502,9/20/26,,Exterior stucco repair,,,"$4,800.00",Approved,"Wants ""elastomeric"" finish"
+Ann Park,,818 555 0104,"7 Elm Ct, Burbank, CA",Q-503,2026-09-25,Roofing,Shingle replacement,20,45,,Lost,
+Tom Brown,,(818) 555-0103,"5 Pine Rd, Burbank, CA",,,,,,,,,Called about a quote
+,,,,,,,,,,,,
+Lee Wong,,,,Q-504,2026-09-26,,Mystery line,1,100,,,
+,,,,Q-505,2026-09-27,,No client line,1,50,,,
