@@ -1,0 +1,6 @@
+{
+  "name": "evercraft-mail",
+  "private": true,
+  "type": "module",
+  "description": "EverCraft CRM mail service (Cloudflare Worker). Tests: tests/suites/mailworker.test.js"
+}
