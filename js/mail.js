@@ -1,26 +1,21 @@
-/* Sending estimates and invoices from the company Gmail through the Base44 server function
-   "sendEmail" (base44/functions/sendEmail.js; Gmail connected in Base44). The PDF is made here from
-   the print layout and attached. When it is off (config emailFromCrm) or the person is signed out,
-   the Email button opens Gmail as before (openMailto). */
+/* Sending estimates and invoices from the company Gmail through the CRM mail service
+   (worker/ on Cloudflare). The PDF is made here from the print layout and attached.
+   Without the service (or signed out) the Email button opens Gmail as before (openMailto). */
 
 const HTML2PDF_CDN = "https://cdn.jsdelivr.net/npm/html2pdf.js@0.14.0/dist/html2pdf.bundle.min.js";
 let SEND_MAIL = null; // the email being sent: {to, subject, text, filename, render, fallback, onSent}
 
-// The CRM can send by itself when it is switched on and this person is signed in with CRM access.
-function canSendFromCrm(){
-  return !!((window.EVERCRAFT_CONFIG || {}).emailFromCrm && CLOUD.client && CLOUD.client.functions && CLOUD.role);
+function mailServiceUrl(){
+  return String((window.EVERCRAFT_CONFIG || {}).mailServiceUrl || "").trim().replace(/\/+$/,"");
 }
 
-// Calls the Base44 "sendEmail" function; returns its answer, or {error} with the reason.
-async function callSendEmail(payload){
-  try{
-    const r=await CLOUD.client.functions.invoke("sendEmail",payload);
-    return (r && r.data !== undefined) ? r.data : (r || {});
-  }catch(e){
-    const data=e && e.response && e.response.data;
-    const status=(e && (e.status || (e.response && e.response.status))) || 0;
-    return {error:(data && (data.error || data.message)) || (status ? `The email was not sent (${status}).` : "The email was not sent: Base44 could not be reached. Check the internet connection, or use \"Open in Gmail instead\".")};
-  }
+function cloudSignInToken(){
+  try{ return localStorage.getItem(CLOUD_TOKEN_KEY) || ""; }catch(e){ return ""; }
+}
+
+// The CRM can send by itself when the mail service is set up and this person is signed in with CRM access.
+function canSendFromCrm(){
+  return !!(mailServiceUrl() && cloudConfig().appId && CLOUD.role && cloudSignInToken());
 }
 
 // PDF of the print layout that render() puts into #printView, as base64.
@@ -64,7 +59,7 @@ function openSendMail(mail){
   $("smSend").disabled=false;
   setSendStatus("");
   openModal("sendMailModal");
-  callSendEmail({action:"status"}).then(s=>{
+  fetch(mailServiceUrl()+"/status").then(r=>r.json()).then(s=>{
     if(SEND_MAIL!==mail) return;
     if(s && s.connected){
       $("smFrom").textContent=`From: ${s.sender} (company Gmail)`;
@@ -73,6 +68,8 @@ function openSendMail(mail){
       $("smSend").disabled=true;
       setSendStatus("The company Gmail is not connected to the CRM yet. Use \"Open in Gmail instead\".",true);
     }
+  }).catch(()=>{
+    if(SEND_MAIL===mail) $("smFrom").textContent="From: the company Gmail";
   });
 }
 
@@ -92,14 +89,19 @@ async function submitSendMail(event){
       attachment={filename:mail.filename,base64:await makePdfBase64(mail.render)};
     }
     setSendStatus("Sending…");
-    const res=await callSendEmail({action:"send",to,subject,text,fromName:SETTINGS.companyName,attachment});
-    if(!res || !res.ok){ setSendStatus((res && res.error) || "The email was not sent.",true); return; }
+    const r=await fetch(mailServiceUrl()+"/send",{
+      method:"POST",
+      headers:{"Content-Type":"application/json",Authorization:"Bearer "+cloudSignInToken()},
+      body:JSON.stringify({appId:cloudConfig().appId,to,subject,text,fromName:SETTINGS.companyName,attachment})
+    });
+    const res=await r.json().catch(()=>({}));
+    if(!r.ok || !res.ok){ setSendStatus(res.error || `The email was not sent (${r.status}).`,true); return; }
     closeModal("sendMailModal");
     SEND_MAIL=null;
     showToast(`Sent to ${res.to || to} from ${res.from || "the company Gmail"}.`);
     if(mail.onSent) mail.onSent();
   }catch(e){
-    setSendStatus("The email was not sent: the PDF could not be made. Use \"Open in Gmail instead\".",true);
+    setSendStatus("The email was not sent: the mail service could not be reached. Check the internet connection, or use \"Open in Gmail instead\".",true);
   }finally{
     btn.disabled=false;
   }
