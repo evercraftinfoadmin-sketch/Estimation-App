@@ -1,0 +1,6 @@
+{
+  "name": "evercraft-base44-functions",
+  "private": true,
+  "type": "module",
+  "description": "Base44 backend functions of the EverCraft CRM. Tests: tests/suites/sendemail.test.js"
+}

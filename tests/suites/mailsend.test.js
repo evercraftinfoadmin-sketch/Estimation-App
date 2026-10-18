@@ -1,9 +1,8 @@
 // Sending from the CRM through the mail service: the Send window, the PDF, the request, errors,
-// the Gmail fallback, invoices. The mail service is faked inside the page (no network).
+// the Gmail fallback, invoices. Base44's sendEmail function is faked inside the page (no network).
 const { launch, FILE, OUT, TEST_APP_ID, SIGNED_OUT_SDK } = require('../helpers');
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+m);};
-const MAIL='https://mail.test.invalid';
-const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-test.base44.invalid', base44ServerUrl:'https://preview--ci-test.base44.invalid', mailServiceUrl:MAIL };
+const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-test.base44.invalid', base44ServerUrl:'https://preview--ci-test.base44.invalid', emailFromCrm:true };
 
 (async()=>{
   const b=await launch({config:CONFIG});
@@ -14,15 +13,14 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   const errs=[]; p.on('pageerror',e=>errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')errs.push(m.text());});
   p.on('dialog',d=>d.accept());
 
-  // fake mail service, answered inside the page
-  const svc={connected:true, reply:{status:200,body:null}, sent:[]};
-  await p.exposeFunction('__mail',(path,method,headers,body)=>{
-    if(path==='/status') return {status:200,body:{connected:svc.connected,sender:'evercraft.pro@gmail.com'}};
-    if(path==='/send'){ const req={headers,body:JSON.parse(body)}; svc.sent.push(req); return svc.reply.body ? svc.reply : {status:200,body:{ok:true,id:'m1',from:'evercraft.pro@gmail.com',to:req.body.to}}; }
-    return {status:404,body:{}};
+  // fake Base44 "sendEmail" function, answered inside the page
+  const svc={connected:true, reply:null, sent:[]};
+  await p.exposeFunction('__sendEmail',(payload,token)=>{
+    if(payload.action==='status') return {status:200,data:{connected:svc.connected,sender:'evercraft.pro@gmail.com'}};
+    svc.sent.push({token,body:payload});
+    return svc.reply || {status:200,data:{ok:true,id:'m1',from:'evercraft.pro@gmail.com',to:payload.to}};
   });
-  await p.addInitScript(MAIL=>{ const real=window.fetch; window.fetch=function(url,opts={}){ url=String(url); if(!url.startsWith(MAIL)) return real.apply(this,arguments);
-    return window.__mail(url.slice(MAIL.length),opts.method||'GET',opts.headers||{},opts.body||'').then(r=>new Response(JSON.stringify(r.body),{status:r.status,headers:{'Content-Type':'application/json'}})); }; },MAIL);
+  const withFunctions=()=>p.evaluate(()=>{ CLOUD.client.functions={ invoke:(name,payload)=>window.__sendEmail(payload,localStorage.getItem(CLOUD_TOKEN_KEY)).then(r=>{ if(name!=='sendEmail') throw new Error('wrong function'); if(r.status>=400){ const e=new Error('HTTP '+r.status); e.response={status:r.status,data:r.data}; throw e; } return {data:r.data}; }) }; });
   await p.addInitScript(()=>{ window.__opened=[]; window.__aclick=HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click=function(){ if(/^(mailto:|https:\/\/mail\.google\.com\/)/.test(this.href)) window.__opened.push(this.href); else window.__aclick.call(this); }; });
   await p.goto(FILE);
   await p.waitForFunction(()=>typeof CLOUD!=='undefined' && CLOUD.state!=='syncing');
@@ -40,6 +38,7 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
 
   // signed in with CRM access
   await p.evaluate(()=>{ CLOUD.role='member'; localStorage.setItem(CLOUD_TOKEN_KEY,'tok-ann'); window.__opened=[]; });
+  await withFunctions();
   await p.click('#btnEmail');
   await p.waitForFunction(()=>$('smFrom').textContent.includes('evercraft.pro@gmail.com'));
   const est=await p.evaluate(()=>getEstimateData());
@@ -50,8 +49,8 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.fill('#smText',(await p.inputValue('#smText'))+'\nP.S. edited here');
   await p.click('#smSend');
   await p.waitForFunction(()=>!document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:30000});
-  const s=svc.sent[0]||{body:{},headers:{}};
-  ok(svc.sent.length===1 && s.headers.Authorization==='Bearer tok-ann' && s.body.appId===CONFIG.base44AppId,'Send posts to the mail service with this person\'s CRM sign-in');
+  const s=svc.sent[0]||{body:{}};
+  ok(svc.sent.length===1 && s.token==='tok-ann' && s.body.action==='send','Send calls the Base44 sendEmail function as the signed-in person');
   ok(s.body.to==='ann@x.com' && s.body.subject.includes(est.estimateNumber) && s.body.text.endsWith('P.S. edited here') && s.body.fromName==='EverCraft Home Improvement','the edited message, subject and client address are sent');
   const pdf=Buffer.from((s.body.attachment||{}).base64||'','base64');
   ok(pdf.slice(0,5).toString()==='%PDF-' && pdf.length>20000 && pdf.length<5e6 && /Type\s*\/Page\b/.test(pdf.toString('latin1')) && s.body.attachment.filename.endsWith(`Estimate ${est.estimateNumber}.pdf`),'a real PDF of the estimate is attached ('+Math.round(pdf.length/1024)+' KB)');
@@ -59,7 +58,7 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   ok((await p.innerText('.toast')).includes('Sent to ann@x.com from evercraft.pro@gmail.com'),'the person is told it was sent, from the company address');
 
   // the service refuses
-  svc.reply={status:401,body:{error:'Sign in to the CRM again, then send.'}};
+  svc.reply={status:401,data:{error:'Sign in to the CRM again, then send.'}};
   await p.click('#btnEmail'); await p.waitForFunction(()=>$('smFrom').textContent.includes('evercraft'));
   await p.click('#smAttach'); await p.click('#smSend');
   await p.waitForFunction(()=>$('smStatus').textContent.includes('Sign in'));
@@ -68,7 +67,7 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.click('#smGmail');
   const opened=await p.evaluate(()=>window.__opened);
   ok(await p.isHidden('#sendMailModal') && opened.length===1 && opened[0].startsWith('https://mail.google.com/'),'"Open in Gmail instead" opens Gmail as before');
-  svc.reply={status:200,body:null};
+  svc.reply=null;
 
   // not connected yet
   svc.connected=false;

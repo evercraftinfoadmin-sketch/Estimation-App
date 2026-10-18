@@ -20,7 +20,7 @@ window.EVERCRAFT_CONFIG = {
   // API address. Empty = Base44's default (https://base44.app), which only serves published apps.
   // The dev app is not published, so its preview address is used.
   base44ServerUrl: "https://preview--ever-craft-crm-dev-6d7696b7.base44.app",
-  // CRM mail service (worker/ on Cloudflare): sends estimates and invoices from the company Gmail.
-  // Empty = the Email button opens Gmail instead. A public address, not a secret.
-  mailServiceUrl: ""
+  // true = the Email button opens the Send window: the Base44 function "sendEmail" sends from the
+  // company Gmail (needs the Base44 Builder plan and Gmail connected). false = it opens Gmail.
+  emailFromCrm: false
 };
