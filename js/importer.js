@@ -486,7 +486,11 @@ async function restoreBackupFile(file){
   if(!confirm(`Restore the backup from ${formatDateTime(backup.exportedAt)}?\n\n${n(d.estimates)} estimates, ${n(d.crm)} CRM projects, ${n(d.services)} services.\n\nALL current data in this browser will be replaced.`+
     (shared ? "\n\nShared CRM: the backup does not change or delete shared records. Where the shared CRM has a record, its version is kept; records only in the backup can then be added with \"Upload to shared CRM\"." : ""))) return;
   // Stop syncing first, so the restore can never be taken for changes made here.
-  if(shared) cloudPrepareRestore();
+  if(shared){
+    cloudPrepareRestore();
+    // A sync still running finishes first (it writes nothing more once paused).
+    if(CLOUD.running){ try{ await CLOUD.running; }catch(e){} }
+  }
   for(const [name,key] of Object.entries(STORAGE_KEYS)){
     if(d[name]===null || d[name]===undefined) localStorage.removeItem(key);
     else if(!writeStore(key,d[name])) return;

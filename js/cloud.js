@@ -198,7 +198,8 @@ function saveCloudConflict(entity, localRecord, reason){
 }
 
 // Writes made by the sync itself must not trigger another upload.
-let cloudWriteLocal = (key,value)=>writeStore(key,value);
+// While a backup restore is under way (sync paused), a sync still in flight writes nothing here.
+let cloudWriteLocal = (key,value)=>CLOUD.suspended ? false : writeStore(key,value);
 
 /* ---------- Base44 access ---------- */
 
@@ -907,7 +908,7 @@ async function startCloudSession(){
   // Every save in the app schedules an upload of the changed lists.
   const syncedKeys=new Set([...CLOUD_LISTS.map(d=>d.key),STORAGE_KEYS.settings]);
   const appWriteStore=writeStore;
-  cloudWriteLocal=(key,value)=>appWriteStore(key,value);
+  cloudWriteLocal=(key,value)=>CLOUD.suspended ? false : appWriteStore(key,value);
   writeStore=function(key,value){
     const ok=appWriteStore(key,value);
     if(ok && syncedKeys.has(key)){
