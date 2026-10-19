@@ -99,10 +99,19 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   fs.writeFileSync(OUT+'/signed-work-authorization.pdf',pdf);
   await card().screenshot({path:OUT+'/sign-card.png'});
 
-  // invoice email with the Certificate of Completion (CRM sends email itself)
-  await p.evaluate(()=>{ window.EVERCRAFT_CONFIG.mailServiceUrl='https://mail.test.invalid'; });
+  // invoice email with the Certificate of Completion, through Gmail (today: the CRM does not send email itself yet)
   await card().locator('[data-action=to-completed]').click(); await p.waitForTimeout(200);
   await card().locator('[data-action=invoice]').click();
+  const nDocs=docs.size;
+  await p.click('#invoiceModal [data-inv=email]');
+  await p.waitForFunction(()=>window.__opened.length===1,null,{timeout:10000});
+  let dc=[...docs.values()].at(-1); o=await opened();
+  ok(dialogs.at(-1).includes('Include the Certificate of Completion') && docs.size===nDocs+1 && dc.type==='completion' && dc.html.includes('CERTIFICATE OF COMPLETION'),'Gmail path: the invoice email asks to include the Certificate of Completion and creates it');
+  ok(o[0].includes('BALANCE DUE') && o[0].includes('Please also review and sign the Certificate of Completion') && o[0].includes('/s/token3'),'Gmail path: the invoice email opens in Gmail with the completion signing link');
+  ok((await card().locator('.sign-badge').allTextContents()).join('|').includes('Completion: waiting'),'Gmail path: the card shows the completion certificate is waiting');
+
+  // invoice email with the Certificate of Completion (CRM sends email itself)
+  await p.evaluate(()=>{ window.EVERCRAFT_CONFIG.mailServiceUrl='https://mail.test.invalid'; });
   await p.click('#invoiceModal [data-inv=email]');
   await p.waitForFunction(()=>document.getElementById('sendMailModal').classList.contains('open'));
   ok(await p.isVisible('#smSignRow') && await p.isChecked('#smSign') && (await p.textContent('#smSignLabel')).includes('Certificate of Completion'),'the invoice Send window offers the Certificate of Completion');
@@ -111,7 +120,7 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   await p.waitForFunction(()=>!document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:20000});
   d=[...docs.values()].at(-1); const invNo=await p.evaluate(()=>loadInvoices()[0].invoiceNumber);
   ok(d.type==='completion' && d.html.includes('CERTIFICATE OF COMPLETION') && d.html.includes(invNo) && d.html.includes('$3,750.00') && !d.html.includes('{{'),'Certificate of Completion: invoice number and balance filled in');
-  ok(mails.length===1 && mails[0].text.includes('BALANCE DUE') && mails[0].text.includes('Certificate of Completion') && mails[0].text.includes('/s/token3'),'the invoice email carries the completion signing link');
+  ok(mails.length===1 && mails[0].text.includes('BALANCE DUE') && mails[0].text.includes('Certificate of Completion') && mails[0].text.includes('/s/token4'),'the invoice email carries the completion signing link');
   ok((await card().locator('.sign-badge').allTextContents()).join('|').includes('Completion: waiting'),'the card shows the completion certificate is waiting');
 
   // the estimate gets signed too → Saved Estimates, Builder and the Signatures page show it
@@ -127,10 +136,10 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   ok((await p.textContent('#builderMeta')).includes('Signature: signed ✓'),'Estimate Builder shows the signature status of the open estimate');
   await p.click('#mainNav [data-page=signatures]');
   const srows=await p.locator('#signBody tr').allTextContents();
-  ok(srows.length===3 && srows.some(t=>t.includes('Estimate') && t.includes('signed ✓')) && srows.some(t=>t.includes('Work Authorization') && t.includes('signed ✓')) && srows.some(t=>t.includes('Certificate of Completion') && t.includes('waiting')),'Signatures page lists all three documents with their status');
-  ok((await p.textContent('#signSummary')).includes('2 signed · 1 waiting'),'Signatures page summary: 2 signed, 1 waiting');
+  ok(srows.length===4 && srows.some(t=>t.includes('Estimate') && t.includes('signed ✓')) && srows.some(t=>t.includes('Work Authorization') && t.includes('signed ✓')) && srows.some(t=>t.includes('Certificate of Completion') && t.includes('waiting')),'Signatures page lists all documents with their status');
+  ok((await p.textContent('#signSummary')).includes('2 signed · 2 waiting'),'Signatures page summary: 2 signed, 2 waiting');
   await p.selectOption('#signFilter','pending');
-  ok(await p.locator('#signBody tr').count()===1,'filter: waiting for the client');
+  ok(await p.locator('#signBody tr').count()===2,'filter: waiting for the client');
   await p.selectOption('#signFilter','all');
   dl2=p.waitForEvent('download',{timeout:30000});
   await p.locator('#signBody tr',{hasText:'Work Authorization'}).locator('text=Download signed PDF').click();
