@@ -491,7 +491,6 @@ function handleCrmBoard(event){
     "to-started":()=>moveProject(id,"started"),
     "to-completed":()=>moveProject(id,"completed"),
     "to-followup":()=>moveProject(id,"followup"),
-    "sign-doc":()=>handleSignBadge(el),
     "sign-wa":()=>sendProjectDocument(id,"work_authorization"),
     "sign-completion":()=>sendProjectDocument(id,"completion"),
     schedule:()=>openProjectModal(id,"pmScheduledDate"),

@@ -257,6 +257,9 @@ async function refreshSignatures(force){
       const signed=[...byId.values()].filter(i=>i.status==="signed");
       if(signed.length) showToast(signed.map(i=>`✍ ${i.signerName} signed ${i.title}`).join(" · "));
       if(!$("page-crm").hidden) renderCrmBoard();
+      if(!$("page-estimates").hidden) renderSavedEstimates();
+      if(!$("page-signatures").hidden) renderSignaturesPage();
+      if(!$("page-builder").hidden) updateBuilderMeta();
     }
     return any;
   }finally{
@@ -290,25 +293,80 @@ async function downloadSignedPdf(id){
   return downloadPdf(()=>{ $("printView").innerHTML=signedCopyHtml(rec); },name);
 }
 
+function signBadgeHtml(s, label){
+  if(!s) return "";
+  const signed=s.status==="signed";
+  return `<button type="button" class="sign-badge ${signed?"sign-done":"sign-wait"}" data-action="sign-doc" data-signed="${signed?1:0}" data-sign-id="${escapeHtml(s.id)}" data-sign-url="${escapeHtml(s.url)}"
+    title="${escapeHtml(signed?`Signed by ${s.signerName}. Click to download the signed PDF.`:"Waiting for the client's signature. Click to copy the link.")}">✍ ${escapeHtml(label)}: ${signed?`signed ✓${s.signedAt?` ${escapeHtml(formatDate(s.signedAt.slice(0,10)))}`:""}`:"waiting"}</button>`;
+}
+
 // Badges on a CRM card: estimate, Work Authorization, Certificate of Completion.
 function signBadgesHtml(p){
   const est=getEstimate(p.estimateId);
   const rows=[["estimate",est ? est.signatures : []],["work_authorization",p.signatures],["completion",p.signatures]]
-    .map(([type,list])=>{
-      const s=latestSignature(list,type);
-      if(!s) return "";
-      const signed=s.status==="signed";
-      return `<button type="button" class="sign-badge ${signed?"sign-done":"sign-wait"}" data-action="sign-doc" data-sign-id="${escapeHtml(s.id)}" data-sign-url="${escapeHtml(s.url)}"
-        title="${escapeHtml(signed?`Signed by ${s.signerName}. Click to download the signed PDF.`:"Waiting for the client's signature. Click to copy the link.")}">✍ ${escapeHtml(SIGN_TYPES[type].short)}: ${signed?"signed ✓":"waiting"}</button>`;
-    }).join("");
+    .map(([type,list])=>signBadgeHtml(latestSignature(list,type),SIGN_TYPES[type].short)).join("");
   return rows ? `<div class="kcard-signs">${rows}</div>` : "";
+}
+
+// Badge for a saved estimate (Saved Estimates row, Estimate Builder).
+function estimateSignBadgeHtml(e){
+  return e ? signBadgeHtml(latestSignature(e.signatures,"estimate"),"Signature") : "";
 }
 
 function handleSignBadge(btn){
   const id=btn.dataset.signId;
-  if(btn.classList.contains("sign-done")){ downloadSignedPdf(id); return; }
+  if(btn.dataset.signed==="1"){ downloadSignedPdf(id); return; }
   const url=btn.dataset.signUrl;
   try{ navigator.clipboard && navigator.clipboard.writeText(url).catch(()=>{}); }catch(e){}
   showToast("Signing link copied. Paste it in a message to the client if they did not get the email.");
   refreshSignatures(true);
+}
+
+/* ---------- Signatures page ---------- */
+
+// Every document sent for signature (from estimates and CRM projects), newest first.
+function allSignatureRows(){
+  const rows=new Map();
+  loadEstimates().forEach(e=>e.signatures.forEach(s=>rows.set(s.id,{...s,client:e.clientName,address:e.address,estimateId:e.id,projectId:e.crmProjectId||""})));
+  loadProjects().forEach(p=>p.signatures.forEach(s=>{ if(!rows.has(s.id)) rows.set(s.id,{...s,client:p.clientName,address:p.address,estimateId:p.estimateId||"",projectId:p.id}); }));
+  return [...rows.values()].sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+function renderSignaturesPage(){
+  refreshSignatures();
+  const filter=$("signFilter").value, q=$("signSearch").value.trim().toLowerCase();
+  const all=allSignatureRows();
+  const list=all.filter(r=>filter==="all" || r.status===filter)
+    .filter(r=>!q || [r.title,r.client,r.address,r.sentTo,r.signerName].some(v=>String(v||"").toLowerCase().includes(q)));
+  const signed=all.filter(r=>r.status==="signed").length, waiting=all.filter(r=>r.status==="pending").length;
+  $("signSummary").textContent=all.length ? `${signed} signed · ${waiting} waiting for the client` : "";
+  $("signBody").innerHTML=list.map(r=>`
+    <tr data-sign-row="${escapeHtml(r.id)}">
+      <td data-label="Document"><b>${escapeHtml(SIGN_TYPES[r.type].label)}</b><div class="small">${escapeHtml(r.title)}</div></td>
+      <td data-label="Client">${escapeHtml(r.client||"—")}<div class="small">${escapeHtml(r.sentTo)}</div></td>
+      <td data-label="Sent" class="small nowrap">${escapeHtml(formatDateTime(r.createdAt))}</td>
+      <td data-label="Status">${r.status==="signed"
+        ? `<span class="sign-badge sign-done">signed ✓</span><div class="small">${escapeHtml(r.signerName)} · ${escapeHtml(formatDateTime(r.signedAt))}</div>`
+        : r.status==="cancelled" ? `<span class="small">withdrawn</span>` : `<span class="sign-badge sign-wait">waiting</span>`}</td>
+      <td data-label="Actions"><div class="row-actions">
+        ${r.status==="signed"?`<button class="btn btn-primary btn-sm" data-action="sign-doc" data-signed="1" data-sign-id="${escapeHtml(r.id)}" data-sign-url="${escapeHtml(r.url)}">Download signed PDF</button>`:""}
+        <a class="btn btn-light btn-sm" href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer">${r.status==="signed"?"View online":"Open signing page"}</a>
+        ${r.status==="pending"?`<button class="btn btn-light btn-sm" data-action="sign-doc" data-signed="0" data-sign-id="${escapeHtml(r.id)}" data-sign-url="${escapeHtml(r.url)}">Copy link</button>`:""}
+      </div></td>
+    </tr>`).join("");
+  const empty=$("signEmpty");
+  empty.hidden=list.length>0;
+  empty.textContent=all.length ? "No documents match." : "No documents sent for signature yet. Use \"✍ Send for Signature\" in the Estimate Builder, or move a job to Start the Project.";
+}
+
+function wireSignEvents(){
+  // Badges and buttons with data-action="sign-doc" anywhere in the app.
+  document.addEventListener("click",e=>{
+    const btn=e.target.closest('[data-action="sign-doc"]');
+    if(btn){ e.preventDefault(); handleSignBadge(btn); }
+  });
+  $("signFilter").addEventListener("change",renderSignaturesPage);
+  $("signSearch").addEventListener("input",renderSignaturesPage);
+  $("btnSignRefresh").addEventListener("click",async()=>{ await refreshSignatures(true); renderSignaturesPage(); showToast("Signatures checked."); });
+  if(signServiceUrl()) setInterval(()=>refreshSignatures(),SIGN_REFRESH_MS);
 }
