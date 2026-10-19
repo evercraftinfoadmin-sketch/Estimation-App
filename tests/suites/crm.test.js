@@ -211,7 +211,11 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   ok(await p.evaluate(() => window.__prints) === 1, '20. print called');
   const pv = await p.innerText('#printView');
   ok(/EverCraft Home Improvement/.test(pv) && /EST-2026-1001/.test(pv) && /Maria <b>Lopez<\/b>/.test(pv) && /42 Elm St/.test(pv), '20. print: company, estimate #, client, address');
-  ok(/DRYWALL/.test(pv) && /STUCCO/.test(pv) && /PAINTING/.test(pv) && /Drywall Repair/.test(pv) && /Subtotal/.test(pv) && /Markup/.test(pv) && /Sales Tax/.test(pv) && /TOTAL/.test(pv), '20. print: 3 sections, services, totals');
+  ok(/DRYWALL/.test(pv) && /STUCCO/.test(pv) && /PAINTING/.test(pv) && /Drywall Repair/.test(pv) && /TOTAL/.test(pv) && /All taxes included/.test(pv), '20. print: 3 sections, services, total, "All taxes included"');
+  ok(!/Subtotal|Markup|Sales Tax/.test(pv), '20. print: the client does not see subtotal, markup or a tax line');
+  const client = await p.evaluate(() => { const d = getEstimateData(); const l = clientPricedLines(d.items, d.grandTotal); const dr = l.find(i => i.name === 'Drywall Repair'), base = d.items.find(i => i.name === 'Drywall Repair');
+    return { sum: Math.round(l.reduce((s, i) => s + i.total, 0) * 100), total: Math.round(d.grandTotal * 100), dr: dr.total, expected: Math.round(base.total * d.grandTotal / d.subtotal * 100) / 100, line: `Drywall Repair: Qty 600 x ${clientUnitPrice(dr)} = ${money(dr.total)}`, inPrint: document.getElementById('printView').textContent.includes(money(dr.total)) }; });
+  ok(client.sum === client.total && Math.abs(client.dr - client.expected) <= 0.01 && client.inPrint, '20. print: line prices include markup and tax, and add up exactly to the total (' + client.line + ')');
   ok(await p.locator('#printView button, #printView input, #printView select').count() === 0, '20. print: no buttons/inputs');
   ok(!(await p.innerHTML('#printView')).includes('<b>Lopez</b>'), 'security: print view escapes client name');
   await p.emulateMedia({ media: 'print' });
@@ -220,7 +224,8 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
 
   // ---------- 21. Email ----------
   const body = await p.evaluate(() => buildEmailBody(getEstimateData()));
-  ok(['Maria <b>Lopez</b>', '42 Elm St', 'EST-2026-1001', 'Drywall Repair: Qty 600 x $4.50 = $2,700.00', 'Subtotal:', 'Markup (10%)', 'Sales Tax (8%)', 'TOTAL:', 'EverCraft Home Improvement'].every(s => body.includes(s)), '21. email body: client, project, #, services qty×price, totals, company');
+  ok(['Maria <b>Lopez</b>', '42 Elm St', 'EST-2026-1001', client.line, 'TOTAL:', '(all taxes included)', 'EverCraft Home Improvement'].every(s => body.includes(s)), '21. email body: client, project, #, services qty×price (client prices), total, company');
+  ok(!/Subtotal|Markup|Sales Tax|\$4\.50/.test(body), '21. email body: no subtotal, markup, tax line or internal prices');
   await p.evaluate(() => { window.__opened = []; window.__aclick = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function(){ window.__opened.push(this.href); }; });
   const mailto = await p.evaluate(() => new Promise(resolve => {
     const orig = window.emailEstimate;
