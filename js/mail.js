@@ -40,6 +40,23 @@ async function makePdfBase64(render){
   }
 }
 
+// Saves the print layout that render() puts into #printView as a PDF file.
+async function downloadPdf(render, filename){
+  showToast("Making the PDF…");
+  try{
+    const base64=await makePdfBase64(render);
+    const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
+    const url=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));
+    const a=document.createElement("a");
+    a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+    showToast(`Saved ${filename}`);
+  }catch(e){
+    alert("The PDF could not be made. Use Print / PDF instead.");
+  }
+}
+
 function setSendStatus(text, isError){
   const el=$("smStatus");
   el.textContent=text || "";

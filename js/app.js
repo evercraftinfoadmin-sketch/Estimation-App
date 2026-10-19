@@ -45,6 +45,7 @@ function wireEvents(){
   });
   $("btnSaveEstimate").addEventListener("click",saveEstimate);
   $("btnPrint").addEventListener("click",printEstimate);
+  $("btnPdf").addEventListener("click",downloadEstimatePdf);
   $("btnEmail").addEventListener("click",emailEstimate);
   $("btnReset").addEventListener("click",resetBuilder);
   $("pmPhotos").addEventListener("photos-changed",()=>fillCrmPhotoCounts());

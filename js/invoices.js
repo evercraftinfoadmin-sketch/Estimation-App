@@ -304,6 +304,10 @@ function handleInvoiceModalClick(e){
   }else if(action==="print"){
     if(!saveInvoiceForm({quiet:true})) return;
     printInvoice(EDITING_INVOICE);
+  }else if(action==="pdf"){
+    if(!saveInvoiceForm({quiet:true})) return;
+    const inv2=EDITING_INVOICE;
+    downloadPdf(()=>renderInvoicePrint(inv2),invoicePdfName(inv2));
   }else if(action==="email"){
     if(!inv.clientEmail){ alert("Please enter the client's email address."); $("invClientEmail").focus(); return; }
     if(!saveInvoiceForm({quiet:true})) return;
@@ -398,6 +402,10 @@ function renderInvoicePrint(inv){
     </div>`;
 }
 
+function invoicePdfName(inv){
+  return `${companyName()} Invoice ${inv.invoiceNumber}.pdf`.trim();
+}
+
 function printInvoice(inv){
   renderInvoicePrint(inv);
   const original=document.title;
@@ -435,7 +443,7 @@ function emailInvoice(inv){
   openSendMail({
     title:`Send invoice ${inv.invoiceNumber}`,
     to:inv.clientEmail, subject, text:buildInvoiceEmailBody(inv),
-    filename:`${companyName()} Invoice ${inv.invoiceNumber}.pdf`.trim(),
+    filename:invoicePdfName(inv),
     render:()=>renderInvoicePrint(inv),
     fallback:({to,subject:subj})=>viaGmail(to,subj),
     onSent:()=>markInvoiceSent()

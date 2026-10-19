@@ -611,6 +611,20 @@ function printSavedEstimate(id){
   if(openEstimate(id)) printEstimate();
 }
 
+function estimatePdfName(d){
+  return `${companyName()} Estimate ${d.estimateNumber}.pdf`.trim();
+}
+
+function downloadEstimatePdf(){
+  const d=getEstimateData();
+  issueEstimateNumber(d.estimateNumber);
+  return downloadPdf(()=>renderPrintView(d),estimatePdfName(d));
+}
+
+function pdfSavedEstimate(id){
+  if(openEstimate(id)) downloadEstimatePdf();
+}
+
 function emailSavedEstimate(id){
   if(openEstimate(id)) emailEstimate();
 }
@@ -651,6 +665,7 @@ function renderSavedEstimates(){
           <button class="btn btn-primary btn-sm" data-action="open">Open / Edit</button>
           <button class="btn btn-light btn-sm" data-action="duplicate">Duplicate</button>
           <button class="btn btn-light btn-sm" data-action="print">Print</button>
+          <button class="btn btn-light btn-sm" data-action="pdf">PDF</button>
           <button class="btn btn-light btn-sm" data-action="email">Email</button>
           <button class="btn btn-light btn-sm" data-action="crm">${hasProject?"Open CRM Project":"Create CRM Project"}</button>
           <button class="btn btn-light btn-sm" data-action="invoice">${invoicesForEstimate(e.id).length?"Open Invoice":"Create Invoice"}</button>
@@ -679,6 +694,7 @@ function handleEstimatesAction(event){
     open:()=>openEstimate(id),
     duplicate:()=>duplicateEstimate(id),
     print:()=>printSavedEstimate(id),
+    pdf:()=>pdfSavedEstimate(id),
     email:()=>emailSavedEstimate(id),
     crm:()=>createOrOpenCrmFromEstimate(id),
     invoice:()=>createOrOpenInvoiceForEstimate(id),
@@ -827,7 +843,7 @@ function emailEstimate(){
   openSendMail({
     title:`Send estimate ${d.estimateNumber}`,
     to:d.clientEmail, subject, text:buildEmailBody(d),
-    filename:`${companyName()} Estimate ${d.estimateNumber}.pdf`.trim(),
+    filename:estimatePdfName(d),
     render:()=>renderPrintView(d),
     fallback:({to,subject:subj})=>viaGmail(to,subj)
   });
