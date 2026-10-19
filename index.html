@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.26a">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.27a">
 </head>
 <body>
 
@@ -90,6 +90,7 @@
                 <button class="btn btn-light" id="btnPrint">Print / PDF</button>
                 <button class="btn btn-light" id="btnPdf">Download PDF</button>
                 <button class="btn btn-light" id="btnEmail">Email Client</button>
+                <button class="btn btn-light" id="btnSign" hidden>✍ Send for Signature</button>
               </div>
               <button class="btn btn-danger-soft btn-block" id="btnReset">Reset</button>
             </div>
@@ -290,6 +291,24 @@
             <button type="button" class="btn btn-light" id="btnDefaultTerms">Restore Default</button>
           </div>
           <textarea id="setTerms" rows="22" aria-label="Terms and Conditions"></textarea>
+          <div class="btn-row end">
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </div>
+        </section>
+        <section class="card terms-card" id="signTextsCard">
+          <div class="categories-head">
+            <div>
+              <h2>Signature Documents</h2>
+              <div class="small">Texts the client signs electronically. Filled in automatically: {{client}} {{address}} {{company}} {{license}} {{phone}} {{email}} {{estimateNumber}} {{estimateDate}} {{total}} {{startDate}} {{invoiceNumber}} {{balance}} {{date}}. Have them reviewed by your lawyer.</div>
+            </div>
+            <button type="button" class="btn btn-light" id="btnDefaultSignTexts">Restore Defaults</button>
+          </div>
+          <label for="setSignEstimate">Estimate acceptance (added under the estimate)</label>
+          <textarea id="setSignEstimate" rows="8"></textarea>
+          <label for="setSignWork">Work Authorization (sent when the job moves to Start the Project)</label>
+          <textarea id="setSignWork" rows="14"></textarea>
+          <label for="setSignCompletion">Certificate of Completion (sent with the invoice)</label>
+          <textarea id="setSignCompletion" rows="12"></textarea>
           <div class="btn-row end">
             <button type="submit" class="btn btn-primary">Save Settings</button>
           </div>
@@ -571,6 +590,7 @@
     <div class="field"><label for="smSubject">Subject</label><input id="smSubject" type="text" autocomplete="off" required></div>
     <div class="field"><label for="smText">Message</label><textarea id="smText" rows="12"></textarea></div>
     <label class="check-row"><input type="checkbox" id="smAttach" checked> Attach PDF: <span id="smFile"></span></label>
+    <label class="check-row" id="smSignRow" hidden><input type="checkbox" id="smSign" checked> <span id="smSignLabel"></span></label>
     <p class="small" id="smStatus" role="status"></p>
     <div class="btn-row end"><button type="button" class="btn btn-light" id="smGmail">Open in Gmail instead</button><button type="submit" class="btn btn-primary" id="smSend">Send</button></div>
   </form>
@@ -578,21 +598,23 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.10.26a"></script>
-<script src="js/core.js?v=2026.10.26a"></script>
-<script src="js/calc.js?v=2026.10.26a"></script>
-<script src="js/settings.js?v=2026.10.26a"></script>
-<script src="js/address.js?v=2026.10.26a"></script>
-<script src="js/categories.js?v=2026.10.26a"></script>
-<script src="js/services.js?v=2026.10.26a"></script>
-<script src="js/photos.js?v=2026.10.26a"></script>
-<script src="js/cloud.js?v=2026.10.26a"></script>
-<script src="js/estimates.js?v=2026.10.26a"></script>
-<script src="js/crm.js?v=2026.10.26a"></script>
-<script src="js/invoices.js?v=2026.10.26a"></script>
-<script src="js/importer.js?v=2026.10.26a"></script>
-<script src="js/mail.js?v=2026.10.26a"></script>
-<script src="js/migration.js?v=2026.10.26a"></script>
-<script src="js/app.js?v=2026.10.26a"></script>
+<script src="js/config.js?v=2026.10.27a"></script>
+<script src="js/docstyles.js?v=2026.10.27a"></script>
+<script src="js/core.js?v=2026.10.27a"></script>
+<script src="js/calc.js?v=2026.10.27a"></script>
+<script src="js/settings.js?v=2026.10.27a"></script>
+<script src="js/address.js?v=2026.10.27a"></script>
+<script src="js/categories.js?v=2026.10.27a"></script>
+<script src="js/services.js?v=2026.10.27a"></script>
+<script src="js/photos.js?v=2026.10.27a"></script>
+<script src="js/cloud.js?v=2026.10.27a"></script>
+<script src="js/estimates.js?v=2026.10.27a"></script>
+<script src="js/crm.js?v=2026.10.27a"></script>
+<script src="js/invoices.js?v=2026.10.27a"></script>
+<script src="js/importer.js?v=2026.10.27a"></script>
+<script src="js/mail.js?v=2026.10.27a"></script>
+<script src="js/signing.js?v=2026.10.27a"></script>
+<script src="js/migration.js?v=2026.10.27a"></script>
+<script src="js/app.js?v=2026.10.27a"></script>
 </body>
 </html>
