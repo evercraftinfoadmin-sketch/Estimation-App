@@ -44,7 +44,7 @@ jobs:
       - name: Site files only (no tests, docs or workflows)
         run: |
           mkdir _site
-          cp -r index.html css js _site/
+          cp -r index.html privacy.html css js _site/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
