@@ -3,7 +3,8 @@
    Without the service (or signed out) the Email button opens Gmail as before (openMailto). */
 
 const HTML2PDF_CDN = "https://cdn.jsdelivr.net/npm/html2pdf.js@0.14.0/dist/html2pdf.bundle.min.js";
-let SEND_MAIL = null; // the email being sent: {to, subject, text, filename, render, fallback, onSent}
+let SEND_MAIL = null; // the email being sent: {to, subject, text, filename, render, attach, sign, fallback, onSent}
+// mail.sign (optional): {label, create:async()=>({url}|{error}), text:url=>string} adds a document to sign.
 
 function mailServiceUrl(){
   return String((window.EVERCRAFT_CONFIG || {}).mailServiceUrl || "").trim().replace(/\/+$/,"");
@@ -40,6 +41,23 @@ async function makePdfBase64(render){
   }
 }
 
+// Saves the print layout that render() puts into #printView as a PDF file.
+async function downloadPdf(render, filename){
+  showToast("Making the PDF…");
+  try{
+    const base64=await makePdfBase64(render);
+    const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));
+    const url=URL.createObjectURL(new Blob([bytes],{type:"application/pdf"}));
+    const a=document.createElement("a");
+    a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+    showToast(`Saved ${filename}`);
+  }catch(e){
+    alert("The PDF could not be made. Use Print / PDF instead.");
+  }
+}
+
 function setSendStatus(text, isError){
   const el=$("smStatus");
   el.textContent=text || "";
@@ -53,7 +71,9 @@ function openSendMail(mail){
   $("smTo").value=mail.to || "";
   $("smSubject").value=mail.subject || "";
   $("smText").value=mail.text || "";
-  $("smAttach").checked=true;
+  $("smAttach").checked=mail.attach!==false;
+  $("smSignRow").hidden=!mail.sign;
+  if(mail.sign){ $("smSignLabel").textContent=mail.sign.label; $("smSign").checked=true; }
   $("smFile").textContent=mail.filename;
   $("smFrom").textContent="From: the company Gmail (checking…)";
   $("smSend").disabled=false;
@@ -73,16 +93,29 @@ function openSendMail(mail){
   });
 }
 
+// Creates the signing link when "include for signature" is ticked; returns the text to add, or null (status shown).
+async function sendMailSignText(mail){
+  if(!mail.sign || !$("smSign").checked) return "";
+  setSendStatus("Preparing the document for signature…");
+  const res=await mail.sign.create();
+  if(!res || !res.url){ setSendStatus((res && res.error) || "The document for signature could not be prepared.",true); return null; }
+  return mail.sign.text(res.url);
+}
+
 async function submitSendMail(event){
   event.preventDefault();
   const mail=SEND_MAIL;
   if(!mail) return;
-  const to=$("smTo").value.trim(), subject=$("smSubject").value.trim(), text=$("smText").value;
+  const to=$("smTo").value.trim(), subject=$("smSubject").value.trim();
+  let text=$("smText").value;
   if(!to || !$("smTo").checkValidity()){ setSendStatus("Enter the client's email address.",true); $("smTo").focus(); return; }
   if(!subject){ setSendStatus("Enter a subject.",true); $("smSubject").focus(); return; }
   const btn=$("smSend");
   btn.disabled=true;
   try{
+    const signText=await sendMailSignText(mail);
+    if(signText===null) return;
+    text+=signText;
     let attachment=null;
     if($("smAttach").checked){
       setSendStatus("Making the PDF…");
@@ -109,10 +142,13 @@ async function submitSendMail(event){
 
 function wireMailEvents(){
   $("sendMailForm").addEventListener("submit",submitSendMail);
-  $("smGmail").addEventListener("click",()=>{
+  $("smGmail").addEventListener("click",async()=>{
     const mail=SEND_MAIL;
+    if(!mail) return;
+    const signText=await sendMailSignText(mail);
+    if(signText===null) return;
     closeModal("sendMailModal");
     SEND_MAIL=null;
-    if(mail && mail.fallback) mail.fallback({to:$("smTo").value.trim(),subject:$("smSubject").value.trim()});
+    if(mail.fallback) mail.fallback({to:$("smTo").value.trim(),subject:$("smSubject").value.trim(),extraText:signText});
   });
 }

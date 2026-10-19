@@ -70,6 +70,8 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   ok(await p.evaluate(()=>window.__prints)===n0+1 && pv.includes('INVOICE') && pv.includes(`INV-${year}-1001`) && pv.includes('Extra: patch ceiling') && pv.includes('BALANCE DUE') && pv.includes('Zelle') && pv.includes('Thanks Ann!') && pv.includes('TERMS AND CONDITIONS'),'PDF: INVOICE, number, lines, payments, balance, message, terms');
   const body=await p.evaluate(()=>buildInvoiceEmailBody(computeInvoice(normalizeInvoice(EDITING_INVOICE))));
   ok(body.includes(`Invoice #: INV-${year}-1001`) && body.includes('TOTAL: $4,000.00') && body.includes('BALANCE DUE: $0.00') && body.includes('Thanks Ann!'),'email body: number, total, balance, message');
+  const sums=await p.evaluate(()=>{ const inv=computeInvoice(normalizeInvoice(EDITING_INVOICE)); return Math.round(clientPricedLines(inv.items,inv.total).reduce((t,i)=>t+i.total,0)*100)===Math.round(inv.total*100); });
+  ok(!/Subtotal|Markup|Sales Tax/.test(pv) && !/Subtotal|Markup|Sales Tax/.test(body) && pv.includes('All taxes included') && body.includes('(all taxes included)') && sums,'invoice for the client: no subtotal, markup or tax line; prices add up to the total, all taxes included');
   await p.click('#invoiceForm button[type=submit]');
   list=await invoices();
   ok(list.length===1 && list[0].balance===0 && list[0].paid===4000,'still one invoice; paid in full');

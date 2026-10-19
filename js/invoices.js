@@ -304,6 +304,10 @@ function handleInvoiceModalClick(e){
   }else if(action==="print"){
     if(!saveInvoiceForm({quiet:true})) return;
     printInvoice(EDITING_INVOICE);
+  }else if(action==="pdf"){
+    if(!saveInvoiceForm({quiet:true})) return;
+    const inv2=EDITING_INVOICE;
+    downloadPdf(()=>renderInvoicePrint(inv2),invoicePdfName(inv2));
   }else if(action==="email"){
     if(!inv.clientEmail){ alert("Please enter the client's email address."); $("invClientEmail").focus(); return; }
     if(!saveInvoiceForm({quiet:true})) return;
@@ -381,21 +385,23 @@ function renderInvoicePrint(inv){
       <section class="pv-section">
         <table class="pv-table">
           <thead><tr><th>Service</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Total</th></tr></thead>
-          <tbody>${inv.items.map(it=>`<tr><td>${escapeHtml(it.name||"Service")}${it.description?`<div class="pv-desc">${escapeHtml(it.description)}</div>`:""}</td>
-            <td class="num">${formatQty(it.quantity)}</td><td class="num">${money(it.price)}</td><td class="num">${money(it.total)}</td></tr>`).join("")}</tbody>
+          <tbody>${clientPricedLines(inv.items,inv.total).map(it=>`<tr><td>${escapeHtml(it.name||"Service")}${it.description?`<div class="pv-desc">${escapeHtml(it.description)}</div>`:""}</td>
+            <td class="num">${formatQty(it.quantity)}</td><td class="num">${clientUnitPrice(it)}</td><td class="num">${money(it.total)}</td></tr>`).join("")}</tbody>
         </table>
       </section>
       <table class="pv-totals">
-        <tr><td>Subtotal</td><td class="num">${money(inv.subtotal)}</td></tr>
-        ${inv.markupAmount?`<tr><td>Markup (${formatQty(inv.markup)}%)</td><td class="num">${money(inv.markupAmount)}</td></tr>`:""}
-        <tr><td>Sales Tax (${formatQty(inv.taxRate)}%)</td><td class="num">${money(inv.taxAmount)}</td></tr>
         <tr class="pv-grand"><td>TOTAL</td><td class="num">${money(inv.total)}</td></tr>
+        <tr><td colspan="2" class="pv-muted">All taxes included</td></tr>
         ${inv.payments.map(p=>`<tr><td>Paid ${escapeHtml(formatDate(p.date))} · ${escapeHtml(p.method)}</td><td class="num">−${money(p.amount)}</td></tr>`).join("")}
         <tr class="pv-grand"><td>${st.key==="void"?"VOID":"BALANCE DUE"}</td><td class="num">${money(st.key==="void"?0:inv.balance)}</td></tr>
       </table>
       ${SETTINGS.terms.trim()?`<section class="pv-terms"><h3>TERMS AND CONDITIONS</h3><div class="pv-terms-text">${formatTermsHtml(SETTINGS.terms.trim())}</div></section>`:""}
       ${SETTINGS.estimateFooter?`<footer class="pv-footer">${escapeHtml(SETTINGS.estimateFooter)}</footer>`:""}
     </div>`;
+}
+
+function invoicePdfName(inv){
+  return `${companyName()} Invoice ${inv.invoiceNumber}.pdf`.trim();
 }
 
 function printInvoice(inv){
@@ -414,10 +420,8 @@ function buildInvoiceEmailBody(inv, {withTerms=true}={}){
   if(inv.dueDate) lines.push(`Due date: ${formatDate(inv.dueDate)}`);
   if(inv.estimateNumber) lines.push(`Estimate #: ${inv.estimateNumber}`);
   lines.push(`Project: ${inv.address || "N/A"}`,"");
-  for(const it of inv.items) lines.push(`- ${it.name || "Service"}: Qty ${formatQty(it.quantity)} x ${money(it.price)} = ${money(it.total)}`);
-  lines.push("",`Subtotal: ${money(inv.subtotal)}`);
-  if(inv.markupAmount) lines.push(`Markup (${formatQty(inv.markup)}%): ${money(inv.markupAmount)}`);
-  lines.push(`Sales Tax (${formatQty(inv.taxRate)}%): ${money(inv.taxAmount)}`,`TOTAL: ${money(inv.total)}`);
+  for(const it of clientPricedLines(inv.items,inv.total)) lines.push(`- ${it.name || "Service"}: Qty ${formatQty(it.quantity)} x ${clientUnitPrice(it)} = ${money(it.total)}`);
+  lines.push("",`TOTAL: ${money(inv.total)} (all taxes included)`);
   for(const p of inv.payments) lines.push(`Paid ${formatDate(p.date)} (${p.method}): ${money(p.amount)}`);
   lines.push(`BALANCE DUE: ${money(inv.status==="void"?0:inv.balance)}`,"");
   if(SETTINGS.terms.trim()) lines.push(...(withTerms ? ["TERMS AND CONDITIONS","",SETTINGS.terms.trim(),""] : ["Terms and Conditions: see the attached PDF invoice.",""]));
@@ -427,18 +431,28 @@ function buildInvoiceEmailBody(inv, {withTerms=true}={}){
 
 function emailInvoice(inv){
   const subject=`${companyName()} Invoice ${inv.invoiceNumber} - ${inv.address || inv.clientName || "Project"}`;
-  const viaGmail=(to=inv.clientEmail,subj=subject)=>{
+  const sign=completionSignOption(inv);
+  const viaGmail=(to=inv.clientEmail,subj=subject,extraText="")=>{
     markInvoiceSent();
-    openMailto(to,subj,buildInvoiceEmailBody(inv),buildInvoiceEmailBody(inv,{withTerms:false}));
+    openMailto(to,subj,buildInvoiceEmailBody(inv)+extraText,buildInvoiceEmailBody(inv,{withTerms:false})+extraText);
   };
-  if(!canSendFromCrm()) return viaGmail();
+  if(!canSendFromCrm()){
+    if(!sign || !confirm("Include the Certificate of Completion for the client to sign?")) return viaGmail();
+    showToast("Preparing the Certificate of Completion…");
+    return sign.create().then(res=>{
+      if(res.error){ alert(res.error); return viaGmail(); }
+      viaGmail(inv.clientEmail,subject,sign.text(res.url));
+      renderCrmBoard();
+    });
+  }
   openSendMail({
     title:`Send invoice ${inv.invoiceNumber}`,
     to:inv.clientEmail, subject, text:buildInvoiceEmailBody(inv),
-    filename:`${companyName()} Invoice ${inv.invoiceNumber}.pdf`.trim(),
+    filename:invoicePdfName(inv),
     render:()=>renderInvoicePrint(inv),
-    fallback:({to,subject:subj})=>viaGmail(to,subj),
-    onSent:()=>markInvoiceSent()
+    sign,
+    fallback:({to,subject:subj,extraText})=>viaGmail(to,subj,extraText||""),
+    onSent:()=>{ markInvoiceSent(); if(sign) renderCrmBoard(); }
   });
 }
 

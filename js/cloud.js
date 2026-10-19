@@ -53,6 +53,8 @@ const CLOUD_NUMBER_FIELDS = new Set(["addressLatitude","addressLongitude","defau
 // Shared business settings. The Google Maps key and the local estimate counter are never uploaded.
 const CLOUD_SETTINGS_FIELDS = ["companyName","companyEmail","companyPhone","companyAddress","licenseNumber",
   "markup","salesTax","taxMode","estimateFooter","terms"];
+// Settings kept in the CompanySettings record's "extra" field (no table change needed).
+const CLOUD_SETTINGS_EXTRA = ["signTextEstimate","signTextWork","signTextCompletion"];
 // Fields Base44 adds to every record.
 const CLOUD_SYSTEM_FIELDS = new Set(["id","legacy_id","version","extra","deletedAt","created_date","updated_date",
   "created_by_id","created_by","is_sample","app_id","entity_name"]);
@@ -196,7 +198,8 @@ function saveCloudConflict(entity, localRecord, reason){
 }
 
 // Writes made by the sync itself must not trigger another upload.
-let cloudWriteLocal = (key,value)=>writeStore(key,value);
+// While a backup restore is under way (sync paused), a sync still in flight writes nothing here.
+let cloudWriteLocal = (key,value)=>CLOUD.suspended ? false : writeStore(key,value);
 
 /* ---------- Base44 access ---------- */
 
@@ -445,14 +448,17 @@ async function cloudSyncSettings(meta){
   const rows=(await api.filter({legacy_id:"company"})).filter(r=>!r.deletedAt);
   const r=rows[0];
   const m=meta.records.CompanySettings || null;
-  const localData={};
+  const localData={extra:{}};
   for(const k of CLOUD_SETTINGS_FIELDS) localData[k]=SETTINGS[k];
+  for(const k of CLOUD_SETTINGS_EXTRA) localData.extra[k]=SETTINGS[k];
   const localHash=cloudHash(localData);
   let changed=false;
   if(r){
     const version=Number(r.version) || 1;
-    const remoteData={};
+    const remoteData={extra:{}};
     for(const k of CLOUD_SETTINGS_FIELDS) if(r[k]!==null && r[k]!==undefined) remoteData[k]=r[k];
+    const rx=(r.extra && typeof r.extra==="object") ? r.extra : {};
+    for(const k of CLOUD_SETTINGS_EXTRA) remoteData.extra[k]=typeof rx[k]==="string" ? rx[k] : DEFAULT_SETTINGS[k];
     const remoteHash=cloudHash(remoteData);
     const localChanged=!m || localHash!==m.hash;
     const remoteChanged=!m || m.version!==version;
@@ -465,7 +471,8 @@ async function cloudSyncSettings(meta){
     }else{
       // The cloud copy wins (changed by someone else, first sync, or not allowed to change it).
       if(localChanged && m) saveCloudConflict("CompanySettings",localData,remoteChanged ? "changed here and in the cloud" : "only admins can change settings");
-      Object.assign(SETTINGS,remoteData);
+      const {extra:remoteExtra,...remoteFields}=remoteData;
+      Object.assign(SETTINGS,remoteFields,remoteExtra);
       cloudWriteLocal(STORAGE_KEYS.settings,SETTINGS);
       changed=true;
       meta.records.CompanySettings={rid:r.id, version, hash:remoteHash};
@@ -901,7 +908,7 @@ async function startCloudSession(){
   // Every save in the app schedules an upload of the changed lists.
   const syncedKeys=new Set([...CLOUD_LISTS.map(d=>d.key),STORAGE_KEYS.settings]);
   const appWriteStore=writeStore;
-  cloudWriteLocal=(key,value)=>appWriteStore(key,value);
+  cloudWriteLocal=(key,value)=>CLOUD.suspended ? false : appWriteStore(key,value);
   writeStore=function(key,value){
     const ok=appWriteStore(key,value);
     if(ok && syncedKeys.has(key)){

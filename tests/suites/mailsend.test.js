@@ -34,6 +34,12 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.locator('#items-painting [data-field=quantity]').fill('1000'); await p.locator('#items-painting [data-field=price]').fill('3');
   await p.fill('#clientMessage','Thanks Ann!');
 
+  // Download PDF: a real PDF file, without the print window
+  const fs=require('fs');
+  const pdfOf=async click=>{ const dl=p.waitForEvent('download',{timeout:30000}); await click(); const f=await dl; return {name:f.suggestedFilename(), data:fs.readFileSync(await f.path())}; };
+  let got=await pdfOf(()=>p.click('#btnPdf'));
+  const estNo=await p.evaluate(()=>getEstimateData().estimateNumber);
+  ok(got.name===`EverCraft Home Improvement Estimate ${estNo}.pdf` && got.data.slice(0,5).toString()==='%PDF-' && got.data.length>20000,'Download PDF saves the estimate as a PDF file ('+got.name+', '+Math.round(got.data.length/1024)+' KB)');
   // signed out: the Email button opens Gmail as before
   await p.click('#btnEmail'); await p.waitForTimeout(300);
   ok(await p.isHidden('#sendMailModal') && (await p.evaluate(()=>window.__opened.length))===1,'signed out: Email opens Gmail (no Send window)');
@@ -92,6 +98,13 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   const ipdf=Buffer.from((si.body.attachment||{}).base64||'','base64');
   ok(ipdf.slice(0,5).toString()==='%PDF-' && si.body.attachment.filename.endsWith(`Invoice ${invNo}.pdf`),'invoice PDF attached');
   ok(await p.evaluate(()=>EDITING_INVOICE.status)==='sent','a sent invoice is marked Sent');
+  await p.click('#sendMailModal [data-close=sendMailModal]').catch(()=>{});
+  got=await pdfOf(()=>p.click('#invoiceModal [data-inv=pdf]'));
+  ok(got.name===`EverCraft Home Improvement Invoice ${invNo}.pdf` && got.data.slice(0,5).toString()==='%PDF-','invoice Download PDF saves the invoice as a PDF file');
+  await p.click('[data-close=invoiceModal]');
+  await p.click('#mainNav [data-page=estimates]');
+  got=await pdfOf(()=>p.locator('#estimatesBody tr').first().locator('[data-action=pdf]').click());
+  ok(got.name.endsWith('.pdf') && got.data.slice(0,5).toString()==='%PDF-','Saved Estimates: the PDF button saves the estimate as a PDF file');
 
   ok(errs.length===0,'no console errors '+JSON.stringify(errs));
   await b.close();

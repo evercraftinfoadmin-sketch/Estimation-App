@@ -417,6 +417,7 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
   // F2. restoring an old backup while signed in does not delete or overwrite shared records
   {
     await sync(ADM);
+    ok(await ADM.evaluate(()=>{ const k=STORAGE_KEYS.crm, before=localStorage.getItem(k); CLOUD.suspended=true; const wrote=cloudWriteLocal(k,[]); CLOUD.suspended=false; return wrote===false && localStorage.getItem(k)===before; }),'F2: while a restore is under way, a sync in flight cannot write over the restored data');
     const before=table('CrmProject').filter(r=>!r.deletedAt).length;
     await ADM.evaluate(()=>{
       const data={}; for(const [n,k] of Object.entries(STORAGE_KEYS)) data[n]=readStore(k,null);
@@ -424,13 +425,16 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
       data.crm.push({id:'crm-only-backup',clientName:'TEST only in backup',stage:'lead'});
       window.__bk=new File([JSON.stringify({app:BACKUP_APP,version:1,exportedAt:new Date().toISOString(),data})],'b.json');
     });
-    await Promise.all([ADM.waitForNavigation(), ADM.evaluate(()=>restoreBackupFile(window.__bk))]);
+    // a sync is still running when the restore starts (it must not write over the restored data)
+    await Promise.all([ADM.waitForNavigation(), ADM.evaluate(()=>{ cloudSync(); return restoreBackupFile(window.__bk); })]);
     // after the reload: wait for the first sync to have run, not just for the page
     await ADM.waitForFunction(()=>typeof CLOUD!=='undefined' && CLOUD.started && CLOUD.state==='synced' && !CLOUD.running,null,{timeout:15000});
     ok(ADM.dialogs.some(d=>d.includes('Shared CRM: the backup does not change or delete shared records')),'F2: the restore warns how it treats shared data');
     ok(!pr('crm-good').deletedAt && table('CrmProject').filter(r=>!r.deletedAt).length===before,'F2: records missing from the backup are NOT deleted for everyone');
     ok(pr('crm-test-2').notes!=='from old backup' && (await store(ADM,'constructionEstimatorCRM')).find(p=>p.id==='crm-test-2').notes===pr('crm-test-2').notes,'F2: the shared version wins over the old backup copy');
-    ok((await store(ADM,'constructionEstimatorCloudConflicts')).some(c=>c.record && c.record.notes==='from old backup'),'F2: the backup copy is kept as a conflict copy');
+    const f2c=(await store(ADM,'constructionEstimatorCloudConflicts'))||[];
+    if(!f2c.some(c=>c.record && c.record.notes==='from old backup')) console.log('F2 DIAG',JSON.stringify({conflicts:f2c.map(c=>[c.entity,c.reason,c.record&&c.record.id]),pending:await ADM.evaluate(()=>CLOUD.pendingUpload),state:await ADM.evaluate(()=>[CLOUD.state,CLOUD.message]),local:((await store(ADM,'constructionEstimatorCRM'))||[]).map(p=>[p.id,p.notes]).slice(0,8),errs:ADM.errs,dialogs:ADM.dialogs.slice(-4)}).slice(0,3000));
+    ok(f2c.some(c=>c.record && c.record.notes==='from old backup'),'F2: the backup copy is kept as a conflict copy');
     ok(!pr('crm-only-backup') && await ADM.evaluate(()=>CLOUD.pendingUpload)>=1,'F2: records only in the backup wait for "Upload" instead of being uploaded silently');
   }
 

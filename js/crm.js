@@ -83,6 +83,7 @@ function normalizeProject(p){
     followUpType:FOLLOWUP_TYPES.some(t=>t.key===p.followUpType) ? p.followUpType : "client",
     followUpNotes:String(p.followUpNotes ?? ""),
     followUpCompleted:!!p.followUpCompleted,
+    signatures:normalizeSignatures(p.signatures),
     createdAt:p.createdAt || nowISO(),
     updatedAt:p.updatedAt || p.createdAt || nowISO()
   };
@@ -289,6 +290,7 @@ function moveProject(id, stage){
   renderCrmBoard();
   updateBuilderMeta();
   showToast(`Moved to ${stageLabel(stage)}.`);
+  if(stage==="started") setTimeout(()=>offerWorkAuthorization(id),50);
 }
 
 function setTask(id, key, done){
@@ -388,12 +390,12 @@ function renderCard(p){
       break;
     case "started":
       body=progressBar(taskProgress(p,"started"))+renderChecklist(p,"started","task");
-      actions=btn("open","Open")+btn("to-completed","Move to Completed","btn-primary");
+      actions=btn("open","Open")+(signServiceUrl()?btn("sign-wa","✍ Work Authorization"):"")+btn("to-completed","Move to Completed","btn-primary");
       break;
     case "completed": {
       const pr=taskProgress(p,"completed");
       body=progressBar(pr)+renderChecklist(p,"completed","task");
-      actions=invoiceBtn+btn("open","Open")+btn("to-followup","Move to Follow-up",pr.done===pr.total?"btn-primary":"btn-light");
+      actions=invoiceBtn+(signServiceUrl()?btn("sign-completion","✍ Completion Certificate"):"")+btn("open","Open")+btn("to-followup","Move to Follow-up",pr.done===pr.total?"btn-primary":"btn-light");
       break;
     }
     case "followup":
@@ -418,6 +420,7 @@ function renderCard(p){
       <div class="kcard-address">${addressBadgeHtml(p)}${hasCoordinates(p)?`<button type="button" class="btn-link" data-action="map">Open in Google Maps</button>`:""}</div>
       ${estimateLine}
       ${photoBadge}
+      ${signBadgesHtml(p)}
       ${body}
       <div class="kcard-actions">${actions}</div>
     </article>`;
@@ -437,6 +440,7 @@ async function fillCrmPhotoCounts(){
 }
 
 function renderCrmBoard(){
+  refreshSignatures();
   const query=$("crmSearch").value.trim().toLowerCase();
   const all=loadProjects();
   const addressFilter=$("crmAddressFilter").value;
@@ -487,6 +491,9 @@ function handleCrmBoard(event){
     "to-started":()=>moveProject(id,"started"),
     "to-completed":()=>moveProject(id,"completed"),
     "to-followup":()=>moveProject(id,"followup"),
+    "sign-doc":()=>handleSignBadge(el),
+    "sign-wa":()=>sendProjectDocument(id,"work_authorization"),
+    "sign-completion":()=>sendProjectDocument(id,"completion"),
     schedule:()=>openProjectModal(id,"pmScheduledDate"),
     assign:()=>openProjectModal(id,"pmTechnician"),
     "complete-followup":()=>setFollowUpCompleted(id,true),

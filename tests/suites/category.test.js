@@ -62,7 +62,9 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   const pv=await p.innerText('#printView');
   ok(/ROOFING/.test(pv) && /Shingle Replacement/.test(pv) && /FLOORING/.test(pv) && /Flooring total/.test(pv),'print shows custom category sections');
   const body=await p.evaluate(()=>buildEmailBody(getEstimateData()));
-  ok(body.includes('ROOFING') && body.includes('Shingle Replacement: Qty 20 x $45.00 = $900.00') && body.includes('Flooring total: $300.00'),'email includes custom categories');
+  const exp=await p.evaluate(()=>{ const d=getEstimateData(), l=clientPricedLines(d.items,d.grandTotal); const sh=l.find(i=>i.name==='Shingle Replacement');
+    return {line:`Shingle Replacement: Qty 20 x ${clientUnitPrice(sh)} = ${money(sh.total)}`, floor:`Flooring total: ${money(l.filter(i=>i.categoryName==='Flooring'||d.items.find(x=>x.id===i.id&&x.category===i.category&&builderCategoryLabel(x.category)==='Flooring')).reduce((t,i)=>t+i.total,0))}`}; });
+  ok(body.includes('ROOFING') && body.includes(exp.line) && body.includes(exp.floor),'email includes custom categories (client prices) '+exp.line+' · '+exp.floor);
 
   // new estimate: pick saved category
   await p.click('#btnReset');
