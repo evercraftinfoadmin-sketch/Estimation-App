@@ -718,8 +718,9 @@ function estimateCategories(d){
 
 function renderPrintView(d){
   const companyLine=companyContactParts().map(escapeHtml).join(" · ");
+  const clientItems=clientPricedLines(d.items,d.grandTotal); // markup and tax built into the prices
   const sections=estimateCategories(d).map(c=>{
-    const lines=d.items.filter(it=>it.category===c.key);
+    const lines=clientItems.filter(it=>it.category===c.key);
     if(!lines.length) return "";
     return `
       <section class="pv-section">
@@ -730,11 +731,11 @@ function renderPrintView(d){
             <tr>
               <td>${escapeHtml(it.name||"Service")}${it.description?`<div class="pv-desc">${escapeHtml(it.description)}</div>`:""}</td>
               <td class="num">${formatQty(it.quantity)}</td>
-              <td class="num">${money(it.price)}</td>
+              <td class="num">${clientUnitPrice(it)}</td>
               <td class="num">${money(it.total)}</td>
             </tr>`).join("")}
           </tbody>
-          <tfoot><tr><td colspan="3">${escapeHtml(c.label)} total</td><td class="num">${money(d.categoryTotals[c.key])}</td></tr></tfoot>
+          <tfoot><tr><td colspan="3">${escapeHtml(c.label)} total</td><td class="num">${money(lines.reduce((t,it)=>t+it.total,0))}</td></tr></tfoot>
         </table>
       </section>`;
   }).join("");
@@ -765,10 +766,8 @@ function renderPrintView(d){
       ${d.clientMessage?`<section class="pv-message">${escapeHtml(d.clientMessage)}</section>`:""}
       ${sections || `<p class="pv-muted">No services added.</p>`}
       <table class="pv-totals">
-        <tr><td>Subtotal</td><td class="num">${money(d.subtotal)}</td></tr>
-        <tr><td>Markup (${formatQty(d.markup)}%)</td><td class="num">${money(d.markupAmount)}</td></tr>
-        <tr><td>Sales Tax (${formatQty(d.taxRate)}%)</td><td class="num">${money(d.taxAmount)}</td></tr>
         <tr class="pv-grand"><td>TOTAL</td><td class="num">${money(d.grandTotal)}</td></tr>
+        <tr><td colspan="2" class="pv-muted">All taxes included</td></tr>
       </table>
       ${SETTINGS.terms.trim()?`
       <section class="pv-terms">
@@ -810,20 +809,18 @@ function buildEmailBody(d, {withTerms=true}={}){
   lines.push(`Client: ${d.clientName || "N/A"}`);
   lines.push(`Project: ${d.address || "N/A"}`,"");
 
+  const clientItems=clientPricedLines(d.items,d.grandTotal); // markup and tax built into the prices
   for(const c of estimateCategories(d)){
-    const items=d.items.filter(it=>it.category===c.key);
+    const items=clientItems.filter(it=>it.category===c.key);
     if(!items.length) continue;
     lines.push(c.label.toUpperCase());
     for(const it of items){
-      lines.push(`- ${it.name || "Service"}: Qty ${formatQty(it.quantity)} x ${money(it.price)} = ${money(it.total)}`);
+      lines.push(`- ${it.name || "Service"}: Qty ${formatQty(it.quantity)} x ${clientUnitPrice(it)} = ${money(it.total)}`);
     }
-    lines.push(`${c.label} total: ${money(d.categoryTotals[c.key])}`,"");
+    lines.push(`${c.label} total: ${money(items.reduce((t,it)=>t+it.total,0))}`,"");
   }
 
-  lines.push(`Subtotal: ${money(d.subtotal)}`);
-  lines.push(`Markup (${formatQty(d.markup)}%): ${money(d.markupAmount)}`);
-  lines.push(`Sales Tax (${formatQty(d.taxRate)}%): ${money(d.taxAmount)}`);
-  lines.push(`TOTAL: ${money(d.grandTotal)}`,"");
+  lines.push(`TOTAL: ${money(d.grandTotal)} (all taxes included)`,"");
   if(SETTINGS.terms.trim()) lines.push(...(withTerms ? ["TERMS AND CONDITIONS","",SETTINGS.terms.trim(),""] : ["Terms and Conditions: see the attached PDF estimate.",""]));
   if(SETTINGS.estimateFooter) lines.push(SETTINGS.estimateFooter,"");
   lines.push("Please let us know if you have any questions.","","Best regards,");
