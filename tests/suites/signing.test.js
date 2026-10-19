@@ -114,6 +114,29 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   ok(mails.length===1 && mails[0].text.includes('BALANCE DUE') && mails[0].text.includes('Certificate of Completion') && mails[0].text.includes('/s/token3'),'the invoice email carries the completion signing link');
   ok((await card().locator('.sign-badge').allTextContents()).join('|').includes('Completion: waiting'),'the card shows the completion certificate is waiting');
 
+  // the estimate gets signed too → Saved Estimates, Builder and the Signatures page show it
+  for(const v of docs.values()) if(v.type==='estimate'){ Object.assign(v,{status:'signed',signedAt:new Date().toISOString(),signerName:'Ann Lee',signature:[...docs.values()].find(x=>x.type==='work_authorization').signature,ip:'198.51.100.2',userAgent:'Test',consent:'I agree.'}); }
+  await p.evaluate(()=>refreshSignatures(true)); await p.waitForTimeout(300);
+  if(await p.isVisible('#invoiceModal')) await p.click('#invoiceModal [data-close=invoiceModal]');
+  await p.click('#mainNav [data-page=estimates]');
+  ok((await p.locator('#estimatesBody tr').first().locator('.sign-badge').textContent()).includes('Signature: signed ✓'),'Saved Estimates: the row shows the estimate is signed');
+  let dl2=p.waitForEvent('download',{timeout:30000});
+  await p.locator('#estimatesBody tr').first().locator('.sign-done').click();
+  ok((await dl2).suggestedFilename().endsWith('- signed.pdf'),'Saved Estimates: clicking it downloads the signed PDF');
+  await p.locator('#estimatesBody tr').first().locator('[data-action=open]').click();
+  ok((await p.textContent('#builderMeta')).includes('Signature: signed ✓'),'Estimate Builder shows the signature status of the open estimate');
+  await p.click('#mainNav [data-page=signatures]');
+  const srows=await p.locator('#signBody tr').allTextContents();
+  ok(srows.length===3 && srows.some(t=>t.includes('Estimate') && t.includes('signed ✓')) && srows.some(t=>t.includes('Work Authorization') && t.includes('signed ✓')) && srows.some(t=>t.includes('Certificate of Completion') && t.includes('waiting')),'Signatures page lists all three documents with their status');
+  ok((await p.textContent('#signSummary')).includes('2 signed · 1 waiting'),'Signatures page summary: 2 signed, 1 waiting');
+  await p.selectOption('#signFilter','pending');
+  ok(await p.locator('#signBody tr').count()===1,'filter: waiting for the client');
+  await p.selectOption('#signFilter','all');
+  dl2=p.waitForEvent('download',{timeout:30000});
+  await p.locator('#signBody tr',{hasText:'Work Authorization'}).locator('text=Download signed PDF').click();
+  ok((await dl2).suggestedFilename().startsWith('Work Authorization'),'Signatures page: Download signed PDF');
+  await p.screenshot({path:OUT+'/signatures-page.png'});
+
   // a card button sends it again; the estimate badge still waits
   ok(await card().locator('[data-action=sign-completion]').count()===1,'Project Completed cards have a "Completion Certificate" button');
   ok(errs.length===0,'no console errors '+JSON.stringify(errs));

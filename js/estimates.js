@@ -220,6 +220,7 @@ function updateBuilderMeta(){
   }else if(saved){
     html=`<button class="btn btn-link" data-action="create-crm">+ Create CRM Project</button>`;
   }
+  if(saved) html+=estimateSignBadgeHtml(saved);
   $("builderMeta").innerHTML=html;
 }
 
@@ -635,6 +636,7 @@ function emailSavedEstimate(id){
 /* ---------- Saved estimates page ---------- */
 
 function renderSavedEstimates(){
+  refreshSignatures();
   const all=loadEstimates();
   const query=$("estimateSearch").value.trim().toLowerCase();
   const status=$("estimateStatusFilter").value;
@@ -660,6 +662,7 @@ function renderSavedEstimates(){
         <select data-action="status" aria-label="Status" class="status-select status-${e.status}">
           ${ESTIMATE_STATUSES.map(s=>`<option value="${s}" ${s===e.status?"selected":""}>${capitalize(s)}</option>`).join("")}
         </select>
+        ${estimateSignBadgeHtml(e)}
       </td>
       <td data-label="Total" class="nowrap"><b>${money(e.customerTotal)}</b></td>
       <td data-label="Updated" class="small nowrap">${escapeHtml(formatDateTime(e.updatedAt))}</td>
