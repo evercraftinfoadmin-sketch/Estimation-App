@@ -33,6 +33,38 @@ Number to contact: +1 818 913 4820
 Email: EverCraft.pro@gmail.com
 License number: #1133560`;
 
+// Documents the client signs electronically. {{placeholders}} are filled in from the CRM
+// (list in Settings → Signature Documents). Drafts: have them reviewed before relying on them.
+const DEFAULT_SIGN_TEXT_ESTIMATE = `ACCEPTANCE OF ESTIMATE
+
+By signing below, I accept Estimate {{estimateNumber}} dated {{estimateDate}} from {{company}} for the work at {{address}}, for a total price of {{total}}.
+
+I have read the services, prices, terms and conditions and the payment schedule above, and I agree to them. I authorize {{company}} to schedule the work. The work starts after the Work Authorization is signed and the deposit is paid.`;
+
+const DEFAULT_SIGN_TEXT_WORK = `WORK AUTHORIZATION
+
+I, the undersigned owner of the property (or the owner's authorized agent), authorize {{company}} (License {{license}}) to begin and perform the work described in Estimate {{estimateNumber}} at {{address}}, for a total price of {{total}}, under the terms and conditions and payment schedule of that estimate.
+
+1. Start of work. Scheduled start: {{startDate}}. Dates may move because of weather, material delivery or other causes outside the contractor's control; the client will be told as soon as possible.
+2. Access. The client gives access to the work areas, water and electricity during working hours, and keeps children, pets and valuables away from the work areas.
+3. Changes. Any change to the scope, materials or price is agreed in writing (signed change order or email) before the changed work is done.
+4. Hidden conditions. Damage or conditions that could not be seen before the work started (for example rot, mold, water damage, code issues) are not included; they are described and priced before any extra work is done.
+5. Payments. Payments are due as stated in the payment schedule of the estimate.
+
+By signing, I confirm that I have read and accept the estimate, its terms and conditions, and this Work Authorization.`;
+
+const DEFAULT_SIGN_TEXT_COMPLETION = `CERTIFICATE OF COMPLETION AND ACCEPTANCE
+
+I, the undersigned client, confirm that:
+
+1. The work described in Estimate {{estimateNumber}} (and any changes agreed in writing) at {{address}} has been completed by {{company}}.
+2. I have inspected the completed work and accept it as complete and satisfactory.
+3. The work areas have been cleaned and the leftover materials and debris removed.
+4. The balance due on Invoice {{invoiceNumber}} ({{balance}}) is payable as stated on the invoice.
+5. The workmanship warranty described in the estimate's terms and conditions starts on {{date}}.
+
+If anything is not complete or not satisfactory, please do not sign and contact us at {{phone}} or {{email}} so we can take care of it.`;
+
 const DEFAULT_SETTINGS = {
   markup: 25,
   salesTax: 0,
@@ -49,7 +81,10 @@ const DEFAULT_SETTINGS = {
   // Browser key for address verification; stored only in this browser (never in the code).
   googleMapsApiKey: "",
   estimateFooter: "Thank you for choosing us.",
-  terms: DEFAULT_TERMS
+  terms: DEFAULT_TERMS,
+  signTextEstimate: DEFAULT_SIGN_TEXT_ESTIMATE,
+  signTextWork: DEFAULT_SIGN_TEXT_WORK,
+  signTextCompletion: DEFAULT_SIGN_TEXT_COMPLETION
 };
 
 function loadSettings(){
@@ -69,7 +104,7 @@ function loadSettings(){
       if(!stored[key]) settings[key]=DEFAULT_SETTINGS[key];
     }
   }
-  for(const key of ["companyName","companyEmail","emailFrom","companyPhone","companyAddress","licenseNumber","estimateFooter","terms","googleMapsApiKey"]){
+  for(const key of ["companyName","companyEmail","emailFrom","companyPhone","companyAddress","licenseNumber","estimateFooter","terms","googleMapsApiKey","signTextEstimate","signTextWork","signTextCompletion"]){
     settings[key]=String(settings[key] ?? "");
   }
   return settings;
@@ -135,6 +170,9 @@ function loadSettingsForm(){
   renderMapsKeyStatus();
   $("setEstimateFooter").value=SETTINGS.estimateFooter;
   $("setTerms").value=SETTINGS.terms;
+  $("setSignEstimate").value=SETTINGS.signTextEstimate;
+  $("setSignWork").value=SETTINGS.signTextWork;
+  $("setSignCompletion").value=SETTINGS.signTextCompletion;
   $("setMarkup").value=SETTINGS.markup;
   $("setSalesTax").value=SETTINGS.salesTax;
   $("setTaxMode").value=SETTINGS.taxMode;
@@ -152,6 +190,9 @@ function saveSettings(){
   SETTINGS.googleMapsApiKey=$("setMapsKey").value.trim();
   SETTINGS.estimateFooter=$("setEstimateFooter").value.trim();
   SETTINGS.terms=$("setTerms").value.replace(/\s+$/,"");
+  SETTINGS.signTextEstimate=$("setSignEstimate").value.replace(/\s+$/,"") || DEFAULT_SIGN_TEXT_ESTIMATE;
+  SETTINGS.signTextWork=$("setSignWork").value.replace(/\s+$/,"") || DEFAULT_SIGN_TEXT_WORK;
+  SETTINGS.signTextCompletion=$("setSignCompletion").value.replace(/\s+$/,"") || DEFAULT_SIGN_TEXT_COMPLETION;
   SETTINGS.markup=amount($("setMarkup").value);
   SETTINGS.salesTax=amount($("setSalesTax").value);
   SETTINGS.taxMode=$("setTaxMode").value==="subtotal" ? "subtotal" : "all";
@@ -177,6 +218,13 @@ function resetSettings(){
   loadSettingsForm();
   renderBrand();
   updateBuilderTotals();
+}
+
+function restoreDefaultSignTexts(){
+  if(!confirm("Replace the three document texts with the defaults? Press Save Settings to keep them.")) return;
+  $("setSignEstimate").value=DEFAULT_SIGN_TEXT_ESTIMATE;
+  $("setSignWork").value=DEFAULT_SIGN_TEXT_WORK;
+  $("setSignCompletion").value=DEFAULT_SIGN_TEXT_COMPLETION;
 }
 
 function restoreDefaultTerms(){

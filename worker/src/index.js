@@ -7,9 +7,12 @@
 //   GET  /oauth/start     connect the company Gmail (needs ?key=MAIL_SETUP_KEY)
 //   GET  /oauth/callback  Google returns here; only ALLOWED_SENDER is accepted
 //   POST /send            send one email (Authorization: Bearer <Base44 sign-in token>)
+//   /sign/*, /s/<token>   electronic signatures (see sign.js)
 //
 // Only signed-in CRM team members (Base44 crm_role owner/admin/member) can send. The Gmail
 // permission (refresh token) is kept in this Worker's KV storage and never reaches the browser.
+
+import { signRoutes } from "./sign.js";
 
 const GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN = "https://oauth2.googleapis.com/token";
@@ -44,6 +47,8 @@ async function route(request, env) {
   if (url.pathname === "/oauth/start" && request.method === "GET") return oauthStart(url, env);
   if (url.pathname === "/oauth/callback" && request.method === "GET") return oauthCallback(url, env);
   if (url.pathname === "/send" && request.method === "POST") return send(request, env, cors);
+  const signed = await signRoutes(request, env, url, cors, { json, esc, teamMember, gmailSend, EMAIL_RE });
+  if (signed) return signed;
   return json({ error: "Not found" }, 404, cors);
 }
 
@@ -234,14 +239,11 @@ function buildMessage({ from, fromName, to, replyTo, subject, text, filename, pd
 
 async function send(request, env, cors) {
   if (!cors) return json({ error: "This site may not use the mail service." }, 403, null);
-  const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
   let body;
   try { body = await request.json(); } catch (e) { return json({ error: "Bad request." }, 400, cors); }
-  const appId = String(body.appId || "");
-  const user = await base44User(appId, token, env);
-  const role = user && (user.crm_role || (user.data && user.data.crm_role));
-  if (!user) return json({ error: "Sign in to the CRM again, then send." }, 401, cors);
-  if (!ROLES.includes(role)) return json({ error: "Your account has no CRM access." }, 403, cors);
+  const who = await teamMember(request, env, body);
+  if (who.error) return json({ error: who.error }, who.status, cors);
+  const { user, appId } = who;
 
   const to = String(body.to || "").trim();
   const subject = String(body.subject || "").replace(/[\r\n]+/g, " ").trim();
@@ -266,20 +268,37 @@ async function send(request, env, cors) {
   const sent = Number(await env.MAIL_KV.get(countKey)) || 0;
   if (sent >= (Number(env.DAILY_LIMIT) || 300)) return json({ error: "Too many emails sent today from this account." }, 429, cors);
 
-  const saved = await savedGmail(env);
-  if (!saved) return json({ error: "The company Gmail is not connected to the CRM yet." }, 503, cors);
-  const access = await gmailAccessToken(env, saved);
-  if (!access) return json({ error: "The Gmail connection expired. An admin must connect it again." }, 503, cors);
+  const g = await gmailSend(env, { fromName, to, replyTo, subject, text, filename, pdfBase64 });
+  if (g.error) return json({ error: g.error }, g.status, cors);
+  await env.MAIL_KV.put(countKey, String(sent + 1), { expirationTtl: 2 * 86400 });
+  return json({ ok: true, id: g.id, from: g.from, to }, 200, cors);
+}
 
-  const raw = buildMessage({ from: saved.email, fromName, to, replyTo, subject, text, filename, pdfBase64 });
+// Is the caller a signed-in CRM team member? {user, appId} or {error, status}.
+async function teamMember(request, env, body) {
+  const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  const appId = String((body && body.appId) || "");
+  const user = await base44User(appId, token, env);
+  const role = user && (user.crm_role || (user.data && user.data.crm_role));
+  if (!user) return { error: "Sign in to the CRM again, then try again.", status: 401 };
+  if (!ROLES.includes(role)) return { error: "Your account has no CRM access.", status: 403 };
+  return { user, appId };
+}
+
+// Sends one email from the connected company Gmail. {id, from} or {error, status}.
+async function gmailSend(env, { fromName, to, replyTo, subject, text, filename, pdfBase64 }) {
+  const saved = await savedGmail(env);
+  if (!saved) return { error: "The company Gmail is not connected to the CRM yet.", status: 503 };
+  const access = await gmailAccessToken(env, saved);
+  if (!access) return { error: "The Gmail connection expired. An admin must connect it again.", status: 503 };
+  const raw = buildMessage({ from: saved.email, fromName: fromName || env.SENDER_NAME || "", to, replyTo, subject, text, filename, pdfBase64 });
   const r = await fetch(GMAIL_SEND, { method: "POST", headers: { Authorization: "Bearer " + access, "Content-Type": "message/rfc822" }, body: raw });
   if (!r.ok) {
     if (r.status === 401) ACCESS = { token: "", exp: 0 };
-    return json({ error: `Gmail did not send the email (${r.status}). Try again.` }, 502, cors);
+    return { error: `Gmail did not send the email (${r.status}). Try again.`, status: 502 };
   }
   const g = await r.json().catch(() => ({}));
-  await env.MAIL_KV.put(countKey, String(sent + 1), { expirationTtl: 2 * 86400 });
-  return json({ ok: true, id: g.id || "", from: saved.email, to }, 200, cors);
+  return { id: g.id || "", from: saved.email };
 }
 
 export { buildMessage, encodeHeader };

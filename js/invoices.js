@@ -435,18 +435,28 @@ function buildInvoiceEmailBody(inv, {withTerms=true}={}){
 
 function emailInvoice(inv){
   const subject=`${companyName()} Invoice ${inv.invoiceNumber} - ${inv.address || inv.clientName || "Project"}`;
-  const viaGmail=(to=inv.clientEmail,subj=subject)=>{
+  const sign=completionSignOption(inv);
+  const viaGmail=(to=inv.clientEmail,subj=subject,extraText="")=>{
     markInvoiceSent();
-    openMailto(to,subj,buildInvoiceEmailBody(inv),buildInvoiceEmailBody(inv,{withTerms:false}));
+    openMailto(to,subj,buildInvoiceEmailBody(inv)+extraText,buildInvoiceEmailBody(inv,{withTerms:false})+extraText);
   };
-  if(!canSendFromCrm()) return viaGmail();
+  if(!canSendFromCrm()){
+    if(!sign || !confirm("Include the Certificate of Completion for the client to sign?")) return viaGmail();
+    showToast("Preparing the Certificate of Completion…");
+    return sign.create().then(res=>{
+      if(res.error){ alert(res.error); return viaGmail(); }
+      viaGmail(inv.clientEmail,subject,sign.text(res.url));
+      renderCrmBoard();
+    });
+  }
   openSendMail({
     title:`Send invoice ${inv.invoiceNumber}`,
     to:inv.clientEmail, subject, text:buildInvoiceEmailBody(inv),
     filename:invoicePdfName(inv),
     render:()=>renderInvoicePrint(inv),
-    fallback:({to,subject:subj})=>viaGmail(to,subj),
-    onSent:()=>markInvoiceSent()
+    sign,
+    fallback:({to,subject:subj,extraText})=>viaGmail(to,subj,extraText||""),
+    onSent:()=>{ markInvoiceSent(); if(sign) renderCrmBoard(); }
   });
 }
 

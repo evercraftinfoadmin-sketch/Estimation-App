@@ -46,6 +46,8 @@ function wireEvents(){
   $("btnSaveEstimate").addEventListener("click",saveEstimate);
   $("btnPrint").addEventListener("click",printEstimate);
   $("btnPdf").addEventListener("click",downloadEstimatePdf);
+  $("btnSign").hidden=!signServiceUrl();
+  $("btnSign").addEventListener("click",sendEstimateForSignature);
   $("btnEmail").addEventListener("click",emailEstimate);
   $("btnReset").addEventListener("click",resetBuilder);
   $("pmPhotos").addEventListener("photos-changed",()=>fillCrmPhotoCounts());
@@ -90,6 +92,7 @@ function wireEvents(){
   $("settingsForm").addEventListener("submit",e=>{ e.preventDefault(); saveSettings(); });
   $("btnResetSettings").addEventListener("click",resetSettings);
   $("btnDefaultTerms").addEventListener("click",restoreDefaultTerms);
+  $("btnDefaultSignTexts").addEventListener("click",restoreDefaultSignTexts);
 
   // Modals: close buttons and Escape
   document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("click",()=>closeModal(btn.dataset.close)));

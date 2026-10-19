@@ -432,6 +432,7 @@ function normalizeEstimate(e){
     customerTotal:round2(amount(e.customerTotal ?? e.customer)),
     status:ESTIMATE_STATUSES.includes(e.status) ? e.status : "draft",
     crmProjectId:e.crmProjectId || null,
+    signatures:normalizeSignatures(e.signatures),
     createdAt:e.createdAt || nowISO(),
     updatedAt:e.updatedAt || e.createdAt || nowISO(),
     legacy
@@ -489,6 +490,7 @@ function buildEstimateRecord(d, existing){
     customerTotal:d.grandTotal,
     status:existing ? existing.status : "draft",
     crmProjectId:BUILDER.crmProjectId || (existing && existing.crmProjectId) || null,
+    signatures:existing ? existing.signatures : [],
     createdAt:existing ? existing.createdAt : now,
     updatedAt:now
   };
@@ -560,6 +562,7 @@ function duplicateEstimate(id){
     estimateNumber:number,
     status:"draft",
     crmProjectId:null,
+    signatures:[],
     items:original.items.map(it=>({...it,id:uid("li")})),
     createdAt:now,
     updatedAt:now
