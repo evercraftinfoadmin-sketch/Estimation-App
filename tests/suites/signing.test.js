@@ -60,6 +60,7 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   ok(dialogs.at(-1).includes('saved first') && d.type==='estimate' && d.clientEmail==='ann@x.com','the estimate is saved first, then a signing request is created');
   ok(d.html.includes('ESTIMATE') && d.html.includes('Interior Painting') && d.html.includes('ACCEPTANCE OF ESTIMATE') && d.html.includes(`Estimate ${estNo}`) && d.html.includes('$3,750.00') && !d.html.includes('{{'),'the signed document is the estimate plus the acceptance text, filled in');
   ok(/\.pv-doc/.test(d.css) && !/\.kcard/.test(d.css),'the print styles go with it (and nothing else)');
+  ok(d.html.includes('<img class="pv-logo" src="data:image/png;base64,') && /\.pv-logo/.test(d.css) && d.html.length<600*1024,'the company logo goes with the document (embedded, within the size limit)');
   let o=await opened();
   ok(o.length===1 && o[0].includes('ann@x.com') && o[0].includes('Please sign') && o[0].includes('https://sign.test.invalid/s/token1'),'the client is emailed the signing link (Gmail, while the CRM does not send email itself)');
   let est=await p.evaluate(()=>loadEstimates()[0]);
@@ -80,6 +81,7 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   await p.waitForFunction(n=>window.__opened.length===1,before,{timeout:10000});
   d=[...docs.values()].at(-1);
   ok(dialogs.at(-1).includes('Send the Work Authorization to Ann Lee') && d.type==='work_authorization','moving to Start the Project offers the Work Authorization');
+  ok(d.html.includes('class="pv-logo"'),'the Work Authorization has the company logo too');
   ok(d.html.includes('WORK AUTHORIZATION') && d.html.includes('1 Main St') && d.html.includes('$3,750.00') && d.html.includes('Nov 2, 2026') && d.html.includes('Our custom clause for Ann Lee') && !d.html.includes('{{'),'Work Authorization: client, address, total, start date and the edited text');
   o=await opened(); ok(o[0].includes('Work Authorization') && o[0].includes('/s/token2'),'the Work Authorization link is emailed');
   ok((await card().locator('.sign-badge').allTextContents()).join('|').includes('Work Auth.: waiting'),'the card shows the Work Authorization is waiting');

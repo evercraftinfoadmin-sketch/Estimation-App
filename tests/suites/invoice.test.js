@@ -67,6 +67,7 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   const n0=await p.evaluate(()=>window.__prints);
   await p.click('[data-inv=print]');
   const pv=await p.innerText('#printView');
+  ok(await p.evaluate(()=>{ const i=document.querySelector('#printView .pv-header .pv-logo'); return !!i && i.complete && i.naturalWidth>0; }),'PDF: company logo at the top');
   ok(await p.evaluate(()=>window.__prints)===n0+1 && pv.includes('INVOICE') && pv.includes(`INV-${year}-1001`) && pv.includes('Extra: patch ceiling') && pv.includes('BALANCE DUE') && pv.includes('Zelle') && pv.includes('Thanks Ann!') && pv.includes('TERMS AND CONDITIONS'),'PDF: INVOICE, number, lines, payments, balance, message, terms');
   const body=await p.evaluate(()=>buildInvoiceEmailBody(computeInvoice(normalizeInvoice(EDITING_INVOICE))));
   ok(body.includes(`Invoice #: INV-${year}-1001`) && body.includes('TOTAL: $4,000.00') && body.includes('BALANCE DUE: $0.00') && body.includes('Thanks Ann!'),'email body: number, total, balance, message');
