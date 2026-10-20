@@ -17,7 +17,8 @@ import { signRoutes } from "./sign.js";
 const GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN = "https://oauth2.googleapis.com/token";
 const GMAIL_SEND = "https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media";
-const SCOPES = "openid email https://www.googleapis.com/auth/gmail.send";
+const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
+const SCOPES = "openid email " + GMAIL_SEND_SCOPE;
 const ROLES = ["owner", "admin", "member"];
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_TEXT = 100000;
@@ -176,6 +177,10 @@ async function oauthCallback(url, env) {
   if (!claims.email_verified || email.toLowerCase() !== String(env.ALLOWED_SENDER).toLowerCase()) {
     return html(`<h2>Wrong account</h2><p>You signed in as <b>${esc(email || "unknown")}</b>. Sign in as <b>${esc(env.ALLOWED_SENDER)}</b>.</p>`, 403);
   }
+  // Google lets the user untick "Send email on your behalf"; without it every send fails with 403.
+  if (!String(t.scope || "").split(/\s+/).includes(GMAIL_SEND_SCOPE)) {
+    return html("<h2>Not connected</h2><p>Google did not give permission to send email. Start again from the setup link and tick <b>Send email on your behalf</b> before pressing Continue.</p>", 400);
+  }
   if (!t.refresh_token) return html("<h2>Not connected</h2><p>Google did not give a lasting permission. In the Google account, remove this app's access (Security → Third-party connections), then start again.</p>", 400);
   await env.MAIL_KV.put("gmail", JSON.stringify({ refresh_token: t.refresh_token, email, connectedAt: new Date().toISOString() }));
   ACCESS = { token: "", exp: 0 };
@@ -295,7 +300,11 @@ async function gmailSend(env, { fromName, to, replyTo, subject, text, filename, 
   const r = await fetch(GMAIL_SEND, { method: "POST", headers: { Authorization: "Bearer " + access, "Content-Type": "message/rfc822" }, body: raw });
   if (!r.ok) {
     if (r.status === 401) ACCESS = { token: "", exp: 0 };
-    return { error: `Gmail did not send the email (${r.status}). Try again.`, status: 502 };
+    const reason = String(((await r.json().catch(() => ({}))).error || {}).message || "").slice(0, 200);
+    if (r.status === 403) {
+      return { error: `Gmail refused to send (403${reason ? ": " + reason : ""}). An admin must connect the company Gmail again and allow "Send email on your behalf".`, status: 502 };
+    }
+    return { error: `Gmail did not send the email (${r.status}${reason ? ": " + reason : ""}). Try again.`, status: 502 };
   }
   const g = await r.json().catch(() => ({}));
   return { id: g.id || "", from: saved.email };
