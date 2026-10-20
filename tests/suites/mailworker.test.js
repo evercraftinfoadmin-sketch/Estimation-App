@@ -17,7 +17,7 @@ const env=()=>({ MAIL_KV:kv(), ALLOWED_SENDER:'EverCraft.pro@gmail.com', SENDER_
 
 // fake network
 const USERS={ 'tok-member':{id:'u1',email:'m@x.com',crm_role:'member'}, 'tok-none':{id:'u2',email:'n@x.com',crm_role:'none'}, 'tok-data':{id:'u3',email:'d@x.com',data:{crm_role:'admin'}} };
-let calls=[], gmailStatus=200, googleIdEmail='EverCraft.pro@gmail.com', refreshOk=true;
+let calls=[], gmailStatus=200, googleIdEmail='EverCraft.pro@gmail.com', refreshOk=true, grantedScope='openid email https://www.googleapis.com/auth/gmail.send';
 const idToken=email=>'h.'+Buffer.from(JSON.stringify({email,email_verified:true})).toString('base64url')+'.s';
 global.fetch=async(url,opts={})=>{
   url=String(url); calls.push({url,opts});
@@ -26,10 +26,10 @@ global.fetch=async(url,opts={})=>{
   if(m){ const u=USERS[(opts.headers.Authorization||'').replace('Bearer ','')]; return u ? res(200,u) : res(401,{message:'no'}); }
   if(url==='https://oauth2.googleapis.com/token'){
     const p=new URLSearchParams(opts.body);
-    if(p.get('grant_type')==='authorization_code') return res(200,{access_token:'a1',refresh_token:'r1',expires_in:3600,id_token:idToken(googleIdEmail)});
+    if(p.get('grant_type')==='authorization_code') return res(200,{access_token:'a1',refresh_token:'r1',expires_in:3600,scope:grantedScope,id_token:idToken(googleIdEmail)});
     return refreshOk ? res(200,{access_token:'a2',expires_in:3600}) : res(400,{error:'invalid_grant'});
   }
-  if(url.startsWith('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send')) return gmailStatus===200 ? res(200,{id:'msg1'}) : res(gmailStatus,{error:{}});
+  if(url.startsWith('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send')) return gmailStatus===200 ? res(200,{id:'msg1'}) : res(gmailStatus,{error:{message:gmailStatus===403?'Request had insufficient authentication scopes.':'Backend Error'}});
   throw new Error('unexpected fetch '+url);
 };
 
@@ -60,8 +60,13 @@ global.fetch=async(url,opts={})=>{
   googleIdEmail='someone.personal@gmail.com';
   r=await call('/oauth/callback?code=c&state='+state);
   ok(r.status===403 && (await r.text()).includes('Wrong account') && !(await E.MAIL_KV.get('gmail')),'signing in with another Google account is refused (only EverCraft.pro@gmail.com)');
+  // right account, but "Send email on your behalf" left unticked
+  googleIdEmail='evercraft.pro@gmail.com'; grantedScope='openid email';
+  r=await call('/oauth/start?key=setup-key-123',{redirect:'manual'});
+  r=await call('/oauth/callback?code=c&state='+new URL(r.headers.get('Location')).searchParams.get('state'));
+  ok(r.status===400 && (await r.text()).includes('Send email on your behalf') && !(await E.MAIL_KV.get('gmail')),'connecting without the send permission is refused and says which box to tick');
+  grantedScope='openid email https://www.googleapis.com/auth/gmail.send';
   // right account (new state)
-  googleIdEmail='evercraft.pro@gmail.com';
   r=await call('/oauth/start?key=setup-key-123',{redirect:'manual'});
   const state2=new URL(r.headers.get('Location')).searchParams.get('state');
   r=await call('/oauth/callback?code=c&state='+state2);
@@ -111,7 +116,9 @@ global.fetch=async(url,opts={})=>{
 
   // Gmail errors
   gmailStatus=500; r=await sendReq(good,{token:'tok-data'}); j=await r.json();
-  ok(r.status===502 && /did not send/.test(j.error),'a Gmail failure is reported, not hidden');
+  ok(r.status===502 && /did not send/.test(j.error) && j.error.includes('Backend Error'),'a Gmail failure is reported with Google\'s reason, not hidden');
+  gmailStatus=403; r=await sendReq(good,{token:'tok-data'}); j=await r.json();
+  ok(r.status===502 && j.error.includes('insufficient authentication scopes') && j.error.includes('Send email on your behalf'),'a missing send permission (403) says to connect the Gmail again and allow sending');
   gmailStatus=200;
   const E2=env(); await E2.MAIL_KV.put('gmail',JSON.stringify({refresh_token:'old',email:'evercraft.pro@gmail.com'}));
   refreshOk=false;
