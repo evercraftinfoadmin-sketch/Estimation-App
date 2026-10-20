@@ -365,7 +365,7 @@ function renderInvoicePrint(inv){
   $("printView").innerHTML=`
     <div class="pv">
       <header class="pv-header">
-        <div><div class="pv-company">${escapeHtml(companyName())}</div><div class="pv-muted">${companyLine}</div></div>
+        ${docBrandHtml(companyLine)}
         <div class="pv-title">
           <div class="pv-doc">INVOICE</div>
           <table class="pv-meta">

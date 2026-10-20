@@ -217,6 +217,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
     return { sum: Math.round(l.reduce((s, i) => s + i.total, 0) * 100), total: Math.round(d.grandTotal * 100), dr: dr.total, expected: Math.round(base.total * d.grandTotal / d.subtotal * 100) / 100, line: `Drywall Repair: Qty 600 x ${clientUnitPrice(dr)} = ${money(dr.total)}`, inPrint: document.getElementById('printView').textContent.includes(money(dr.total)) }; });
   ok(client.sum === client.total && Math.abs(client.dr - client.expected) <= 0.01 && client.inPrint, '20. print: line prices include markup and tax, and add up exactly to the total (' + client.line + ')');
   ok(await p.locator('#printView button, #printView input, #printView select').count() === 0, '20. print: no buttons/inputs');
+  ok(await p.evaluate(() => { const i = document.querySelector('#printView .pv-header .pv-logo'); return !!i && i.complete && i.naturalWidth > 0 && i.src.startsWith('data:image/png;base64,'); }), '20. print: company logo at the top (embedded, loaded)');
   ok(!(await p.innerHTML('#printView')).includes('<b>Lopez</b>'), 'security: print view escapes client name');
   await p.emulateMedia({ media: 'print' });
   ok(!(await p.isVisible('.app')) && await p.isVisible('#printView'), '20. print media: only the estimate document is shown');

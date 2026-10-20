@@ -80,7 +80,7 @@ function signDocHtml(docTitle, values, metaRows, text){
   const contact=companyContactParts().map(escapeHtml).join(" · ");
   return `<div class="pv pv-signdoc">
     <header class="pv-header">
-      <div><div class="pv-company">${escapeHtml(companyName())}</div><div class="pv-muted">${contact}</div></div>
+      ${docBrandHtml(contact)}
       <div class="pv-title"><div class="pv-doc">${escapeHtml(docTitle.toUpperCase())}</div>
         <table class="pv-meta">${metaRows.filter(r=>r[1]).map(([k,v])=>`<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join("")}</table></div>
     </header>
