@@ -21,7 +21,7 @@ window.EVERCRAFT_CONFIG = {
   base44ServerUrl: "",
   // CRM mail service (worker/ on Cloudflare): sends estimates and invoices from the company Gmail.
   // Empty = the Email button opens Gmail instead. A public address, not a secret.
-  mailServiceUrl: "",
+  mailServiceUrl: "https://evercraft-mail.moldevercraft.workers.dev",
   // CRM signing service (same Cloudflare service): clients sign estimates, Work Authorizations and
   // Certificates of Completion online. Empty = off. A public address, not a secret.
   signServiceUrl: "https://evercraft-mail.moldevercraft.workers.dev"
