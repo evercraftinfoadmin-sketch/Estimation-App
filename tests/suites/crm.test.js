@@ -346,11 +346,39 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   ok((await projects()).find(x => x.id === tom.id).followUpCompleted === false, 'Reopen follow-up');
   await tomCard().locator('[data-action=complete-followup]').click();
 
+  // ---------- Payment status and materials ----------
+  ok(await tomCard().locator('[data-action=payment-status]').inputValue() === 'not_paid', 'payment: a card starts as "Not paid"');
+  await tomCard().locator('[data-action=payment-status]').selectOption('deposit');
+  ok((await projects()).find(x => x.id === tom.id).paymentStatus === 'deposit' && await tomCard().locator('[data-action=payment-status]').inputValue() === 'deposit', 'payment: status set from the card is saved');
+  await tomCard().locator('[data-action=open]').click();
+  ok(await v('#pmPaymentStatus') === 'deposit' && await p.locator('#pmMaterialRows tr').count() === 1 && await t('#pmMaterialsTotal') === '$0.00', 'materials: the project window shows the payment status and an empty materials row');
+  const row = n => p.locator('#pmMaterialRows tr').nth(n);
+  await row(0).locator('.mat-name').fill('SW Duration 5 gal'); await row(0).locator('.mat-store').fill('Sherwin-Williams');
+  await row(0).locator('.mat-qty').fill('3'); await row(0).locator('.mat-price').fill('78.50');
+  await p.click('#pmMaterials [data-mat-action=add]');
+  await row(1).locator('.mat-name').fill('Tape'); await row(1).locator('.mat-qty').fill('4'); await row(1).locator('.mat-price').fill('6.25');
+  await p.click('#pmMaterials [data-mat-action=add]');
+  await row(2).locator('.mat-name').fill('Remove me'); await row(2).locator('.mat-qty').fill('1'); await row(2).locator('.mat-price').fill('1000');
+  ok(await t('#pmMaterialsTotal') === '$1,260.50' && (await row(0).locator('.mat-total').textContent()) === '$235.50', 'materials: line totals and the materials total update while typing');
+  await row(2).locator('[data-mat-action=remove]').click();
+  const jobTotal = (await projects()).find(x => x.id === tom.id).estimateTotal;
+  const fmt = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  ok(await t('#pmMaterialsTotal') === '$260.50' && await t('#pmMaterialsLeft') === fmt(jobTotal - 260.5), 'materials: removing a line updates the total; "left after materials" = job total − materials');
+  await p.selectOption('#pmPaymentStatus', 'paid');
+  await p.click('#projectForm button[type=submit]');
+  tp = (await projects()).find(x => x.id === tom.id);
+  ok(tp.paymentStatus === 'paid' && tp.materials.length === 2 && tp.materials[0].name === 'SW Duration 5 gal' && tp.materials[0].store === 'Sherwin-Williams' && tp.materials[0].qty === 3 && tp.materials[0].unitPrice === 78.5, 'materials: saved with the project (item, store, qty, price) together with the payment status');
+  ok((await tomCard().locator('[data-action=materials]').textContent()).includes('$260.50') && await tomCard().locator('[data-action=payment-status]').inputValue() === 'paid', 'materials: the card shows the materials total and "Paid in full"');
+  await tomCard().locator('[data-action=materials]').click();
+  ok(await p.isVisible('#projectModal') && await p.locator('#pmMaterialRows tr').count() === 2, 'materials: clicking the card line opens the job with its materials');
+  await p.click('#projectModal [data-close=projectModal]');
+
   // ---------- 34–35. Reload CRM ----------
   await p.reload();
   ok(await p.isVisible('#page-crm'), '34. reload CRM page');
   tp = (await projects()).find(x => x.id === tom.id);
   ok(tp.stage === 'followup' && tp.followUpCompleted && tp.tasks.every(x => x.done) && tp.assignedTechnician === 'Alex Rivera', '35. CRM data persists after reload');
+  ok(tp.paymentStatus === 'paid' && tp.materials.length === 2 && (await tomCard().locator('[data-action=materials]').textContent()).includes('$260.50'), 'payment status and materials persist after reload');
   ok(await p.locator('.kanban-col[data-stage=followup] .kcard', { hasText: 'Tom Brown' }).count() === 1 && await p.locator('.kanban-col[data-stage=prospect] .kcard', { hasText: 'Maria' }).count() === 1, '35. cards in correct columns after reload');
   ok((await p.locator('.kanban-col .kanban-head span:first-child').allTextContents()).join('|') === 'Leads / Clients|Prospects|Client / Job|Start the Project|Project Completed|Follow-up', 'Kanban has the 6 pipeline columns');
 

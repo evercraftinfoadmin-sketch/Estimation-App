@@ -87,6 +87,8 @@ function wireEvents(){
   $("projectForm").addEventListener("submit",e=>{ e.preventDefault(); saveProjectForm(); });
   $("projectModal").addEventListener("click",handleProjectModalClick);
   $("projectModal").addEventListener("change",handleProjectModalChange);
+  $("pmMaterials").addEventListener("click",handleMaterialsClick);
+  $("pmMaterials").addEventListener("input",updateMaterialTotals);
   $("pmDelete").addEventListener("click",()=>{ if(EDITING_PROJECT_ID) deleteProject(EDITING_PROJECT_ID); });
 
   // Settings

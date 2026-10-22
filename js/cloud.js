@@ -663,7 +663,8 @@ function cloudApiUrl(pth){
 function openCloudLogin(){
   $("cloudLoginError").textContent="";
   openModal("cloudLoginModal");
-  setTimeout(()=>$("cloudLoginEmail").focus(),50);
+  // Only if the person has not already started typing in the window (slow phones, password managers).
+  setTimeout(()=>{ if(!$("cloudLoginModal").contains(document.activeElement)) $("cloudLoginEmail").focus(); },50);
 }
 
 // Email + password sign-in happens inside the app, so it works wherever the app is hosted.

@@ -141,6 +141,9 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
   ok((await chip(anon)).includes('Sign in'),'signed out: chip says Sign in');
   await anon.click('#cloudStatus');
   ok(await anon.isVisible('#cloudLoginModal'),'Sign in opens the sign-in window');
+  await anon.evaluate(()=>{ closeModal('cloudLoginModal'); openCloudLogin(); $('cloudLoginPassword').focus(); });
+  await anon.waitForTimeout(200);
+  ok(await anon.evaluate(()=>document.activeElement.id)==='cloudLoginPassword','sign-in window does not pull the cursor away from a field the person already clicked into');
   ok(!calls.some(c=>c.email==='nobody@test'),'signed out: no request to the server at all');
   await anon.fill('#cloudLoginEmail','a@test'); await anon.fill('#cloudLoginPassword','wrong');
   await anon.click('#cloudLoginSubmit'); await anon.waitForFunction(()=>$('cloudLoginError').textContent!=='');
@@ -231,6 +234,11 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
   const up=remote('Estimate','est-local-1');
   ok(up && up.estimateNumber==='EST-2026-1001' && up.version===1 && up.extra && up.extra.myOldField==='keep me','uploaded estimate keeps id, number; unknown fields kept in "extra"');
   ok(remote('CrmProject','crm-local-1').stage==='lead','uploaded CRM project keeps its stage key');
+  ok(await A.evaluate(()=>{
+    const def=CLOUD_LISTS.find(d=>d.entity==='CrmProject');
+    const back=normalizeProject(cloudToLocal(cloudToRemote(normalizeProject({id:'x',clientName:'Pay',paymentStatus:'deposit',materials:[{id:'m1',name:'Paint',store:'SW',qty:2,unitPrice:50}]}),def.fields),def.fields));
+    return back.paymentStatus==='deposit' && back.materials.length===1 && back.materials[0].unitPrice===50;
+  }),'CRM payment status and materials go to the shared cloud and come back intact');
   ok(await A.isHidden('#cloudUpload') && await A.isHidden('#cloudPendingBar'),'upload button and bar hidden afterwards');
 
   // 6. member B sees everything

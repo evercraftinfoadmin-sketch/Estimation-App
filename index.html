@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.10.30a">
+<link rel="stylesheet" href="css/styles.css?v=2026.10.31a">
 </head>
 <body>
 
@@ -429,6 +429,14 @@
               <option value="needs_action">Unconfirmed / needs action</option>
             </select>
           </div>
+          <div class="field"><label for="pmPaymentStatus">Payment Status</label>
+            <select id="pmPaymentStatus">
+              <option value="not_paid">Not paid</option>
+              <option value="deposit">Deposit paid</option>
+              <option value="partial">Partially paid</option>
+              <option value="paid">Paid in full</option>
+            </select>
+          </div>
         </div>
       </section>
 
@@ -456,6 +464,23 @@
         <div class="field"><label for="pmFollowUpNotes">Follow-up Notes</label><textarea id="pmFollowUpNotes" rows="2"></textarea></div>
         <label class="check"><input id="pmFollowUpCompleted" type="checkbox"> <span>Follow-up completed</span></label>
       </section>
+    </div>
+
+    <h3>Materials</h3>
+    <p class="small" style="margin-top:-4px">What was bought for this job. Saved with the project. Only your team sees this; it is never on client documents.</p>
+    <div class="pm-materials" id="pmMaterials">
+      <div class="table-wrap">
+        <table class="mat-table">
+          <thead><tr><th>Item</th><th>Store</th><th>Qty</th><th>Unit price</th><th class="num">Total</th><th></th></tr></thead>
+          <tbody id="pmMaterialRows"></tbody>
+        </table>
+      </div>
+      <button type="button" class="btn btn-light btn-sm" data-mat-action="add">+ Add Material</button>
+      <div class="mat-summary">
+        <div><span>Materials total</span><b id="pmMaterialsTotal">$0.00</b></div>
+        <div><span>Job total (estimate)</span><b id="pmMaterialsJob">—</b></div>
+        <div><span>Left after materials</span><b id="pmMaterialsLeft">—</b></div>
+      </div>
     </div>
 
     <h3>Photos</h3>
@@ -613,22 +638,22 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.10.30a"></script>
-<script src="js/docstyles.js?v=2026.10.30a"></script>
-<script src="js/core.js?v=2026.10.30a"></script>
-<script src="js/calc.js?v=2026.10.30a"></script>
-<script src="js/settings.js?v=2026.10.30a"></script>
-<script src="js/address.js?v=2026.10.30a"></script>
-<script src="js/categories.js?v=2026.10.30a"></script>
-<script src="js/services.js?v=2026.10.30a"></script>
-<script src="js/photos.js?v=2026.10.30a"></script>
-<script src="js/cloud.js?v=2026.10.30a"></script>
-<script src="js/estimates.js?v=2026.10.30a"></script>
-<script src="js/crm.js?v=2026.10.30a"></script>
-<script src="js/invoices.js?v=2026.10.30a"></script>
-<script src="js/importer.js?v=2026.10.30a"></script>
-<script src="js/mail.js?v=2026.10.30a"></script>
-<script src="js/signing.js?v=2026.10.30a"></script>
-<script src="js/app.js?v=2026.10.30a"></script>
+<script src="js/config.js?v=2026.10.31a"></script>
+<script src="js/docstyles.js?v=2026.10.31a"></script>
+<script src="js/core.js?v=2026.10.31a"></script>
+<script src="js/calc.js?v=2026.10.31a"></script>
+<script src="js/settings.js?v=2026.10.31a"></script>
+<script src="js/address.js?v=2026.10.31a"></script>
+<script src="js/categories.js?v=2026.10.31a"></script>
+<script src="js/services.js?v=2026.10.31a"></script>
+<script src="js/photos.js?v=2026.10.31a"></script>
+<script src="js/cloud.js?v=2026.10.31a"></script>
+<script src="js/estimates.js?v=2026.10.31a"></script>
+<script src="js/crm.js?v=2026.10.31a"></script>
+<script src="js/invoices.js?v=2026.10.31a"></script>
+<script src="js/importer.js?v=2026.10.31a"></script>
+<script src="js/mail.js?v=2026.10.31a"></script>
+<script src="js/signing.js?v=2026.10.31a"></script>
+<script src="js/app.js?v=2026.10.31a"></script>
 </body>
 </html>
