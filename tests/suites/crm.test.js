@@ -381,6 +381,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   ok(tp.paymentStatus === 'paid' && tp.materials.length === 2 && (await tomCard().locator('[data-action=materials]').textContent()).includes('$260.50'), 'payment status and materials persist after reload');
   ok(await p.locator('.kanban-col[data-stage=followup] .kcard', { hasText: 'Tom Brown' }).count() === 1 && await p.locator('.kanban-col[data-stage=prospect] .kcard', { hasText: 'Maria' }).count() === 1, '35. cards in correct columns after reload');
   ok((await p.locator('.kanban-col .kanban-head span:first-child').allTextContents()).join('|') === 'Leads / Clients|Prospects|Client / Job|Start the Project|Project Completed|Follow-up', 'Kanban has the 6 pipeline columns');
+  ok((await p.evaluate(() => [...document.querySelectorAll('.kanban-col .kanban-head')].map(h => getComputedStyle(h).backgroundColor))).join('|') === 'rgb(234, 179, 8)|rgb(249, 115, 22)|rgb(37, 99, 235)|rgb(134, 239, 172)|rgb(22, 163, 74)|rgb(220, 38, 38)' && await p.evaluate(() => getComputedStyle(document.querySelector('.kanban-col[data-stage=followup] .kcard')).borderLeftColor) === 'rgb(220, 38, 38)', 'stage colors: yellow, mandarin, blue, light green, green, red (column headers and card edges)');
 
   // Open estimate from CRM card
   await tomCard().locator('[data-action=open-estimate]').click();
