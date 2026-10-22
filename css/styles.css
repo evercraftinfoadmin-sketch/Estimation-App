@@ -156,7 +156,7 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .kanban-col[data-stage=prospect]{--stage:#f97316;--stage-bg:#fff7ed;--stage-ink:#fff}
 .kanban-col[data-stage=job]{--stage:#2563eb;--stage-bg:#eff6ff;--stage-ink:#fff}
 .kanban-col[data-stage=started]{--stage:#86efac;--stage-bg:#f0fdf4;--stage-ink:#14532d}
-.kanban-col[data-stage=completed]{--stage:#16a34a;--stage-bg:#dcfce7;--stage-ink:#fff}
+.kanban-col[data-stage=completed]{--stage:#4f57ff;--stage-bg:#eef0ff;--stage-ink:#fff}
 .kanban-col[data-stage=followup]{--stage:#dc2626;--stage-bg:#fef2f2;--stage-ink:#fff}
 .kanban-col[data-stage]{background:var(--stage-bg);border-top:4px solid var(--stage)}
 .kanban-col[data-stage] .kanban-head{background:var(--stage);color:var(--stage-ink);border-radius:8px;padding:7px 10px;margin-bottom:10px}
