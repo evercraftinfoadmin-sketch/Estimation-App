@@ -52,10 +52,18 @@ const TASK_TEMPLATE = [
   {key:"askReview", group:"completion", label:"Ask for review"}
 ];
 
+const PAYMENT_STATUSES = [
+  {key:"not_paid", label:"Not paid"},
+  {key:"deposit", label:"Deposit paid"},
+  {key:"partial", label:"Partially paid"},
+  {key:"paid", label:"Paid in full"}
+];
+
 let EDITING_PROJECT_ID = null;
 
 function stageLabel(key){ return (CRM_STAGES.find(s=>s.key===key)||{}).label || ""; }
 function prospectLabel(key){ return (PROSPECT_STATUSES.find(s=>s.key===key)||{}).label || ""; }
+function paymentLabel(key){ return (PAYMENT_STATUSES.find(s=>s.key===key)||PAYMENT_STATUSES[0]).label; }
 function followUpTypeLabel(key){ return (FOLLOWUP_TYPES.find(s=>s.key===key)||{}).label || ""; }
 
 /* ---------- Storage ---------- */
@@ -84,10 +92,26 @@ function normalizeProject(p){
     followUpNotes:String(p.followUpNotes ?? ""),
     followUpCompleted:!!p.followUpCompleted,
     signatures:normalizeSignatures(p.signatures),
+    paymentStatus:PAYMENT_STATUSES.some(s=>s.key===p.paymentStatus) ? p.paymentStatus : "not_paid",
+    materials:normalizeMaterials(p.materials),
     createdAt:p.createdAt || nowISO(),
     updatedAt:p.updatedAt || p.createdAt || nowISO()
   };
 }
+
+// Materials bought for a job: item, store, quantity and price per unit.
+function normalizeMaterials(list){
+  return (Array.isArray(list) ? list : []).filter(m=>m && typeof m==="object").map(m=>({
+    id:String(m.id || uid("mat")),
+    name:String(m.name ?? ""),
+    store:String(m.store ?? ""),
+    qty:round2(amount(m.qty)),
+    unitPrice:round2(amount(m.unitPrice))
+  })).filter(m=>m.name || m.qty || m.unitPrice);
+}
+
+function materialLineTotal(m){ return round2(amount(m.qty)*amount(m.unitPrice)); }
+function materialsTotal(list){ return round2(list.reduce((t,m)=>t+materialLineTotal(m),0)); }
 
 function loadProjects(){
   const list=readStore(STORAGE_KEYS.crm,[]);
@@ -421,6 +445,12 @@ function renderCard(p){
       ${estimateLine}
       ${photoBadge}
       ${signBadgesHtml(p)}
+      <div class="kcard-pay">
+        <select class="kcard-select pay-${p.paymentStatus}" data-action="payment-status" aria-label="Payment status">
+          ${PAYMENT_STATUSES.map(s=>`<option value="${s.key}" ${s.key===p.paymentStatus?"selected":""}>💵 ${s.label}</option>`).join("")}
+        </select>
+      </div>
+      ${p.materials.length ? `<button type="button" class="kcard-materials" data-action="materials">🧱 Materials <b>${money(materialsTotal(p.materials))}</b>${p.estimateTotal?` · left ${money(p.estimateTotal-materialsTotal(p.materials))}`:""}</button>` : ""}
       ${body}
       <div class="kcard-actions">${actions}</div>
     </article>`;
@@ -473,15 +503,17 @@ function handleCrmBoard(event){
 
   if(event.type==="change"){
     if(action==="prospect-status"){ updateProject(id,{prospectStatus:el.value}); renderCrmBoard(); }
+    else if(action==="payment-status"){ updateProject(id,{paymentStatus:el.value}); renderCrmBoard(); }
     else if(action==="task") setTask(id,el.dataset.task,el.checked);
     return;
   }
-  if(action==="prospect-status" || action==="task") return;
+  if(action==="prospect-status" || action==="payment-status" || action==="task") return;
 
   ({
     open:()=>openProjectModal(id),
     map:()=>openAddressMap(getProject(id)),
     photos:()=>{ openProjectModal(id); $("pmPhotos").scrollIntoView({block:"center"}); },
+    materials:()=>{ openProjectModal(id); $("pmMaterials").scrollIntoView({block:"center"}); },
     edit:()=>openProjectModal(id,"pmClientName"),
     estimate:()=>createEstimateFromProject(id),
     "open-estimate":()=>openProjectEstimate(id),
@@ -516,6 +548,9 @@ function openProjectModal(id, focusField){
   $("pmStage").value=p.stage;
   $("pmFolder").value=p.folder;
   $("pmProspectStatus").value=p.prospectStatus;
+  $("pmPaymentStatus").value=p.paymentStatus;
+  PM_JOB_TOTAL=p.estimateTotal;
+  renderMaterialRows(p.materials.length ? p.materials : [blankMaterial()]);
   $("pmScheduledDate").value=p.scheduledDate;
   $("pmTechnician").value=p.assignedTechnician;
   $("pmNotes").value=p.notes;
@@ -543,6 +578,62 @@ function openProjectModal(id, focusField){
   (focusField ? $(focusField) : $("pmClientName")).focus();
 }
 
+/* ---------- Materials (project modal) ---------- */
+
+let PM_JOB_TOTAL = 0;
+
+function blankMaterial(){ return {id:uid("mat"),name:"",store:"",qty:"",unitPrice:""}; }
+
+function materialRowHtml(m){
+  const v=x=>escapeHtml(String(x ?? ""));
+  return `<tr data-mat="${v(m.id)}">
+    <td data-label="Item"><input type="text" class="mat-name" value="${v(m.name)}" placeholder="e.g. SW Duration 5 gal" aria-label="Material"></td>
+    <td data-label="Store"><input type="text" class="mat-store" value="${v(m.store)}" placeholder="Home Depot" aria-label="Store"></td>
+    <td data-label="Qty"><input type="number" class="mat-qty" value="${v(m.qty)}" min="0" step="any" inputmode="decimal" aria-label="Quantity"></td>
+    <td data-label="Unit price"><input type="number" class="mat-price" value="${v(m.unitPrice)}" min="0" step="0.01" inputmode="decimal" aria-label="Price per unit"></td>
+    <td data-label="Total" class="num mat-total">${money(materialLineTotal(m))}</td>
+    <td><button type="button" class="btn-icon" data-mat-action="remove" aria-label="Remove material">✕</button></td>
+  </tr>`;
+}
+
+function renderMaterialRows(list){
+  $("pmMaterialRows").innerHTML=list.map(materialRowHtml).join("");
+  updateMaterialTotals();
+}
+
+function readMaterialRows(){
+  return normalizeMaterials([...$("pmMaterialRows").querySelectorAll("tr[data-mat]")].map(tr=>({
+    id:tr.dataset.mat,
+    name:tr.querySelector(".mat-name").value.trim(),
+    store:tr.querySelector(".mat-store").value.trim(),
+    qty:tr.querySelector(".mat-qty").value,
+    unitPrice:tr.querySelector(".mat-price").value
+  })));
+}
+
+function updateMaterialTotals(){
+  $("pmMaterialRows").querySelectorAll("tr[data-mat]").forEach(tr=>{
+    tr.querySelector(".mat-total").textContent=money(materialLineTotal({qty:tr.querySelector(".mat-qty").value,unitPrice:tr.querySelector(".mat-price").value}));
+  });
+  const total=materialsTotal(readMaterialRows());
+  $("pmMaterialsTotal").textContent=money(total);
+  $("pmMaterialsJob").textContent=PM_JOB_TOTAL ? money(PM_JOB_TOTAL) : "No estimate";
+  $("pmMaterialsLeft").textContent=PM_JOB_TOTAL ? money(PM_JOB_TOTAL-total) : "—";
+}
+
+function handleMaterialsClick(event){
+  const el=event.target.closest("[data-mat-action]");
+  if(!el) return;
+  if(el.dataset.matAction==="add"){
+    $("pmMaterialRows").insertAdjacentHTML("beforeend",materialRowHtml(blankMaterial()));
+    $("pmMaterialRows").lastElementChild.querySelector(".mat-name").focus();
+  }else if(el.dataset.matAction==="remove"){
+    el.closest("tr").remove();
+    if(!$("pmMaterialRows").children.length) renderMaterialRows([blankMaterial()]);
+  }
+  updateMaterialTotals();
+}
+
 function readProjectChecklist(){
   const done=new Set([...document.querySelectorAll('#projectModal input[data-action="pm-task"]:checked')].map(el=>el.dataset.task));
   return TASK_TEMPLATE.map(t=>({...t,done:done.has(t.key)}));
@@ -557,6 +648,8 @@ function saveProjectForm(){
     stage:$("pmStage").value,
     folder:$("pmFolder").value,
     prospectStatus:$("pmProspectStatus").value,
+    paymentStatus:$("pmPaymentStatus").value,
+    materials:readMaterialRows(),
     scheduledDate:$("pmScheduledDate").value,
     assignedTechnician:$("pmTechnician").value.trim(),
     notes:$("pmNotes").value.trim(),

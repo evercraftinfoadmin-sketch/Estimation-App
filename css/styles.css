@@ -318,3 +318,30 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .inv-draft{background:#e5e7eb;color:#374151}.inv-sent{background:#dbeafe;color:#1d4ed8}
 .inv-partial{background:#fef3c7;color:#92400e}.inv-paid{background:#dcfce7;color:#166534}.inv-void{background:#fee2e2;color:#991b1b}
 @media(max-width:800px){.inv-grid{grid-template-columns:1fr}}
+
+/* CRM: payment status and materials */
+.kcard-pay .kcard-select{width:100%}
+.kcard-select.pay-not_paid{background:#fff;color:#475569}
+.kcard-select.pay-deposit{background:#fffbeb;border-color:#fde68a;color:#92400e}
+.kcard-select.pay-partial{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
+.kcard-select.pay-paid{background:#f0fdf4;border-color:#bbf7d0;color:#065f46;font-weight:700}
+.kcard-materials{display:block;width:100%;text-align:left;background:#f8fafc;border:1px solid #e2e8f0;color:#334155;border-radius:8px;padding:5px 8px;margin:6px 0 0;font:inherit;font-size:12px;cursor:pointer;overflow-wrap:anywhere}
+.pm-materials{margin-bottom:18px}
+.mat-table{width:100%;border-collapse:collapse;font-size:13px}
+.mat-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;padding:4px 6px}
+.mat-table td{padding:3px 4px;vertical-align:middle}
+.mat-table input{width:100%;min-width:0;padding:6px 8px}
+.mat-table .num{text-align:right;white-space:nowrap}
+.mat-table td:nth-child(3),.mat-table td:nth-child(4){width:90px}
+.mat-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.mat-summary div{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;font-size:12px;color:#475569}
+.mat-summary b{font-size:15px;color:#0f172a}
+@media (max-width:640px){
+  .mat-table thead{display:none}
+  .mat-table tr{display:grid;grid-template-columns:1fr 1fr;gap:4px 6px;border:1px solid #e2e8f0;border-radius:8px;padding:6px;margin-bottom:8px}
+  .mat-table td{display:block;padding:0;width:auto!important}
+  .mat-table td:first-child{grid-column:1 / -1}
+  .mat-table td[data-label]::before{content:attr(data-label);display:block;font-size:10px;color:#64748b;text-transform:uppercase}
+  .mat-table tbody{display:block}
+  .mat-summary{grid-template-columns:1fr}
+}
