@@ -823,6 +823,35 @@ function buildEmailBody(d, {withTerms=true}={}){
   return lines.join("\n");
 }
 
+// Deposit percentage from the payment schedule in the Terms ("a deposit of ten percent (10%)"),
+// so the email always matches them. null when the Terms name no deposit.
+function termsDepositPercent(){
+  const t=String(SETTINGS.terms || "");
+  // "deposit of ten percent (10%)" or "25% deposit"
+  const m=t.match(/deposit[^%]{0,160}?(\d+(?:\.\d+)?)\s*%/i) || t.match(/(\d+(?:\.\d+)?)\s*%\s*(?:non-refundable\s+)?deposit/i);
+  const pct=m ? Number(m[1]) : NaN;
+  return pct>0 && pct<100 ? pct : null;
+}
+
+function emailSignature(){
+  return ["Best regards,",SETTINGS.companyName,...companyContactParts()];
+}
+
+// The email sent from the CRM with the PDF attached: only the basics. Everything else
+// (services, prices, terms) is in the PDF.
+function buildEmailSummary(d){
+  const pct=termsDepositPercent();
+  const lines=[`Hello ${d.clientName || "there"},`,"",
+    `Thank you for asking ${companyName()} to quote your project${d.address ? ` at ${d.address}` : ""}.`,""];
+  if(d.clientMessage) lines.push(d.clientMessage,"");
+  lines.push(`Estimate #: ${d.estimateNumber || "N/A"} (${formatDate(d.date) || "N/A"})`);
+  lines.push(`TOTAL: ${money(d.grandTotal)} (all taxes included)`);
+  if(pct) lines.push(`Required deposit (${formatQty(pct)}%): ${money(round2(d.grandTotal*pct/100))}`);
+  lines.push("","The full estimate with all the details and our terms is in the attached PDF.","",
+    "If you have any questions, just reply to this email or give us a call.","",...emailSignature());
+  return lines.join("\n");
+}
+
 function emailEstimate(){
   const d=getEstimateData();
   if(!d.clientEmail){
@@ -837,7 +866,7 @@ function emailEstimate(){
   if(!canSendFromCrm()) return viaGmail();
   openSendMail({
     title:`Send estimate ${d.estimateNumber}`,
-    to:d.clientEmail, subject, text:buildEmailBody(d),
+    to:d.clientEmail, subject, text:buildEmailSummary(d), textWithoutPdf:buildEmailBody(d),
     filename:estimatePdfName(d),
     render:()=>renderPrintView(d),
     fallback:({to,subject:subj})=>viaGmail(to,subj)

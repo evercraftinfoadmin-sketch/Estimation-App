@@ -427,6 +427,20 @@ function buildInvoiceEmailBody(inv, {withTerms=true}={}){
   return lines.join("\n");
 }
 
+// The email sent from the CRM with the PDF attached: only the basics; the lines and terms are in the PDF.
+function buildInvoiceEmailSummary(inv){
+  const lines=[`Hello ${inv.clientName || "there"},`,"",
+    `Thank you for choosing ${companyName()}! Here is the invoice for your project${inv.address ? ` at ${inv.address}` : ""}.`,""];
+  if(inv.clientMessage) lines.push(inv.clientMessage,"");
+  lines.push(`Invoice #: ${inv.invoiceNumber} (${formatDate(inv.date)})`);
+  lines.push(`TOTAL: ${money(inv.total)} (all taxes included)`);
+  if(inv.paid>0 && inv.status!=="void") lines.push(`Paid: ${money(inv.paid)}`);
+  lines.push(`BALANCE DUE: ${money(inv.status==="void"?0:inv.balance)}${inv.dueDate && inv.balance>0 && inv.status!=="void" ? ` by ${formatDate(inv.dueDate)}` : ""}`);
+  lines.push("","The full invoice with all the details is in the attached PDF.","",
+    "If you have any questions, just reply to this email or give us a call.","",...emailSignature());
+  return lines.join("\n");
+}
+
 function emailInvoice(inv){
   const subject=`${companyName()} Invoice ${inv.invoiceNumber} - ${inv.address || inv.clientName || "Project"}`;
   const sign=completionSignOption(inv);
@@ -445,7 +459,7 @@ function emailInvoice(inv){
   }
   openSendMail({
     title:`Send invoice ${inv.invoiceNumber}`,
-    to:inv.clientEmail, subject, text:buildInvoiceEmailBody(inv),
+    to:inv.clientEmail, subject, text:buildInvoiceEmailSummary(inv), textWithoutPdf:buildInvoiceEmailBody(inv),
     filename:invoicePdfName(inv),
     render:()=>renderInvoicePrint(inv),
     sign,

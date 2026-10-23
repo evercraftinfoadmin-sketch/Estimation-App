@@ -139,13 +139,26 @@ function setSendStatus(text, isError){
 }
 
 // Opens the "Send email" window. mail: {title, to, subject, text, filename, render, fallback, onSent}
+// The short text goes with the PDF; without the PDF the full text is used (mail.textWithoutPdf).
+function sendMailAutoText(mail, withPdf){
+  return (!withPdf && mail.textWithoutPdf) ? mail.textWithoutPdf : (mail.text || "");
+}
+
+// Ticking or unticking "Attach PDF" swaps the text, unless the person has edited it.
+function handleSendMailAttachChange(){
+  const mail=SEND_MAIL;
+  if(!mail || !mail.textWithoutPdf) return;
+  const withPdf=$("smAttach").checked;
+  if($("smText").value===sendMailAutoText(mail,!withPdf)) $("smText").value=sendMailAutoText(mail,withPdf);
+}
+
 function openSendMail(mail){
   SEND_MAIL=mail;
   $("smTitle").textContent=mail.title || "Send email";
   $("smTo").value=mail.to || "";
   $("smSubject").value=mail.subject || "";
-  $("smText").value=mail.text || "";
   $("smAttach").checked=mail.attach!==false;
+  $("smText").value=sendMailAutoText(mail,$("smAttach").checked);
   $("smSignRow").hidden=!mail.sign;
   if(mail.sign){ $("smSignLabel").textContent=mail.sign.label; $("smSign").checked=true; }
   $("smFile").textContent=mail.filename;
@@ -219,6 +232,7 @@ async function submitSendMail(event){
 
 function wireMailEvents(){
   $("sendMailForm").addEventListener("submit",submitSendMail);
+  $("smAttach").addEventListener("change",handleSendMailAttachChange);
   $("smGmail").addEventListener("click",async()=>{
     const mail=SEND_MAIL;
     if(!mail) return;
