@@ -5,12 +5,13 @@
 
    line total   = quantity × price
    subtotal     = sum of all category totals (Drywall, Stucco, Painting + custom categories)
-   markupAmount = subtotal × markup% / 100
-   taxAmount    = taxableAmount × taxRate / 100
-                  (taxableAmount = subtotal + markup, or subtotal only — see Settings)
-   grandTotal   = subtotal + markupAmount + taxAmount
-*/
-function computeEstimateTotals({items, markup, taxRate, taxMode}){
+   taxAmount    = subtotal × taxRate / 100
+   grandTotal   = subtotal + taxAmount
+
+   There is no markup: the service prices are the prices. Records keep markup = 0 and
+   markupAmount = 0 so older saved data and the cloud tables stay compatible; an older record
+   that had a markup is recalculated without it when it is opened and saved again. */
+function computeEstimateTotals({items, taxRate}){
   const categoryTotals={};
   MAIN_CATEGORY_KEYS.forEach(k=>{ categoryTotals[k]=0; });
 
@@ -25,32 +26,28 @@ function computeEstimateTotals({items, markup, taxRate, taxMode}){
     });
 
   const subtotal=round2(Object.values(categoryTotals).reduce((sum,v)=>sum+v,0));
-  const markupPercent=amount(markup);
-  const markupAmount=round2(subtotal*markupPercent/100);
   const rate=amount(taxRate);
-  const mode=taxMode==="subtotal" ? "subtotal" : "all";
-  const taxableAmount=mode==="subtotal" ? subtotal : round2(subtotal+markupAmount);
+  const taxableAmount=subtotal;
   const taxAmount=round2(taxableAmount*rate/100);
-  const grandTotal=round2(subtotal+markupAmount+taxAmount);
+  const grandTotal=round2(subtotal+taxAmount);
 
   return {
     items:lines,
     categoryTotals,
     subtotal,
-    markup:markupPercent,
-    markupAmount,
+    markup:0,
+    markupAmount:0,
     taxRate:rate,
-    taxMode:mode,
+    taxMode:"subtotal",
     taxableAmount,
     taxAmount,
     grandTotal
   };
 }
 
-/* What the client sees: markup and sales tax are built into each line's price, so documents
-   for the client (print, PDF, email, signing) show only prices and the total, "all taxes
-   included". The markup stays internal. Line totals add up exactly to the grand total (any
-   rounding cent goes to the largest line). */
+/* What the client sees: sales tax is built into each line's price, so documents for the client
+   (print, PDF, email, signing) show only prices and the total, "all taxes included". Line
+   totals add up exactly to the grand total (any rounding cent goes to the largest line). */
 function clientPricedLines(items, grandTotal){
   const base=items.reduce((s,it)=>s+(Number(it.total)||0),0);
   const factor=base>0 ? grandTotal/base : 1;

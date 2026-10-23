@@ -25,7 +25,6 @@ function readBuilderInput(){
     address:BUILDER_ADDRESS.getData().address,
     addressData:BUILDER_ADDRESS.getData(),
     items:BUILDER.items,
-    markup:$("estMarkup").value,
     taxRate:$("estTaxRate").value,
     taxMode:BUILDER.taxMode || SETTINGS.taxMode,
     customCategories:BUILDER.customCategories.map(id=>({id,name:builderCategoryLabel(id)}))
@@ -200,8 +199,6 @@ function updateBuilderTotals(){
     `<div class="sum-row sum-cat"><span>${escapeHtml(c.label)}</span><span id="sum-${escapeHtml(c.key)}">${money(d.categoryTotals[c.key])}</span></div>`
   ).join("");
   $("sumSubtotal").textContent=money(d.subtotal);
-  $("sumMarkup").textContent=money(d.markupAmount);
-  $("sumTaxNote").textContent=`on ${taxModeLabel(d.taxMode)}`;
   $("sumTax").textContent=money(d.taxAmount);
   $("sumTotal").textContent=money(d.grandTotal);
 }
@@ -336,7 +333,6 @@ function newEstimate(prefill={}){
   BUILDER_ADDRESS.setData(prefill.addressFields || {address:prefill.address||""});
   $("estimateNumber").value=nextAvailableEstimateNumber();
   $("estimateDate").value=localISODate();
-  $("estMarkup").value=SETTINGS.markup;
   $("estTaxRate").value=SETTINGS.salesTax;
   renderBuilderItems();
   markClean();
@@ -371,7 +367,6 @@ function loadEstimateIntoBuilder(est){
   BUILDER_ADDRESS.setData(est);
   $("estimateNumber").value=est.estimateNumber;
   $("estimateDate").value=est.date;
-  $("estMarkup").value=est.markup;
   $("estTaxRate").value=est.taxRate;
   renderBuilderItems();
   markClean();
@@ -721,7 +716,7 @@ function estimateCategories(d){
 
 function renderPrintView(d){
   const companyLine=companyContactParts().map(escapeHtml).join(" · ");
-  const clientItems=clientPricedLines(d.items,d.grandTotal); // markup and tax built into the prices
+  const clientItems=clientPricedLines(d.items,d.grandTotal); // tax built into the prices
   const sections=estimateCategories(d).map(c=>{
     const lines=clientItems.filter(it=>it.category===c.key);
     if(!lines.length) return "";
@@ -809,7 +804,7 @@ function buildEmailBody(d, {withTerms=true}={}){
   lines.push(`Client: ${d.clientName || "N/A"}`);
   lines.push(`Project: ${d.address || "N/A"}`,"");
 
-  const clientItems=clientPricedLines(d.items,d.grandTotal); // markup and tax built into the prices
+  const clientItems=clientPricedLines(d.items,d.grandTotal); // tax built into the prices
   for(const c of estimateCategories(d)){
     const items=clientItems.filter(it=>it.category===c.key);
     if(!items.length) continue;

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.11.02a">
+<link rel="stylesheet" href="css/styles.css?v=2026.11.03a">
 </head>
 <body>
 
@@ -75,12 +75,7 @@
             <div id="sumCategories"></div>
             <div class="sum-row sum-strong"><span>Subtotal</span><span id="sumSubtotal">$0.00</span></div>
             <div class="sum-row">
-              <label for="estMarkup" class="sum-label">Markup <span class="pct-input"><input id="estMarkup" type="number" min="0" step="0.1" inputmode="decimal"> %</span></label>
-              <span id="sumMarkup">$0.00</span>
-            </div>
-            <div class="sum-row">
-              <label for="estTaxRate" class="sum-label">Sales Tax <span class="pct-input"><input id="estTaxRate" type="number" min="0" step="0.01" inputmode="decimal"> %</span>
-                <span class="small" id="sumTaxNote"></span></label>
+              <label for="estTaxRate" class="sum-label">Sales Tax <span class="pct-input"><input id="estTaxRate" type="number" min="0" step="0.01" inputmode="decimal"> %</span></label>
               <span id="sumTax">$0.00</span>
             </div>
             <div class="sum-row sum-total"><span>TOTAL</span><span id="sumTotal">$0.00</span></div>
@@ -257,15 +252,7 @@
         <section class="card">
           <h2>Pricing &amp; Numbering</h2>
           <div class="form-grid two">
-            <div class="field"><label for="setMarkup">Default Markup (%)</label><input id="setMarkup" type="number" min="0" step="0.1"></div>
             <div class="field"><label for="setSalesTax">Default Sales Tax (%)</label><input id="setSalesTax" type="number" min="0" step="0.01"></div>
-          </div>
-          <div class="field">
-            <label for="setTaxMode">Apply Sales Tax To</label>
-            <select id="setTaxMode">
-              <option value="all">Subtotal + markup</option>
-              <option value="subtotal">Subtotal only (before markup)</option>
-            </select>
           </div>
           <div class="field"><label for="setNextNumber">Next Estimate #</label><input id="setNextNumber" type="number" min="1" step="1"></div>
           <p class="small">Estimate numbers run EST-YEAR-1001, 1002, … and are never reused.</p>
@@ -522,7 +509,7 @@
       <ul class="small import-tips">
         <li>One row per client / estimate, or one row per service line. Rows with the same <b>Estimate #</b> become one estimate.</li>
         <li>Useful columns: Client Name, Email, Phone, Address, Estimate #, Date, Category, Service, Quantity, Price, Total, Status, Stage, Notes. Only one of Client Name / Address / Phone / Email is required.</li>
-        <li>Imported estimates keep their totals (0% markup and tax). Existing estimate numbers and existing CRM clients are not duplicated.</li>
+        <li>Imported estimates keep their totals (0% tax). Existing estimate numbers and existing CRM clients are not duplicated.</li>
         <li>A <b>backup file (.json)</b> from this app can be restored here too.</li>
       </ul>
       <label class="btn btn-primary file-btn">Choose File…
@@ -606,7 +593,6 @@
         <div class="field"><label for="invMessage">Message to client <span class="small">(optional · on the PDF and in the email)</span></label><textarea id="invMessage" rows="2" maxlength="2000"></textarea></div>
       </div>
       <div>
-        <div class="sum-row"><label for="invMarkup" class="sum-label">Markup <span class="pct-input"><input id="invMarkup" type="number" min="0" step="0.1"> %</span></label></div>
         <div class="sum-row"><label for="invTaxRate" class="sum-label">Sales Tax <span class="pct-input"><input id="invTaxRate" type="number" min="0" step="0.01"> %</span></label></div>
         <div id="invTotals"></div>
       </div>
@@ -638,22 +624,22 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.11.02a"></script>
-<script src="js/docstyles.js?v=2026.11.02a"></script>
-<script src="js/core.js?v=2026.11.02a"></script>
-<script src="js/calc.js?v=2026.11.02a"></script>
-<script src="js/settings.js?v=2026.11.02a"></script>
-<script src="js/address.js?v=2026.11.02a"></script>
-<script src="js/categories.js?v=2026.11.02a"></script>
-<script src="js/services.js?v=2026.11.02a"></script>
-<script src="js/photos.js?v=2026.11.02a"></script>
-<script src="js/cloud.js?v=2026.11.02a"></script>
-<script src="js/estimates.js?v=2026.11.02a"></script>
-<script src="js/crm.js?v=2026.11.02a"></script>
-<script src="js/invoices.js?v=2026.11.02a"></script>
-<script src="js/importer.js?v=2026.11.02a"></script>
-<script src="js/mail.js?v=2026.11.02a"></script>
-<script src="js/signing.js?v=2026.11.02a"></script>
-<script src="js/app.js?v=2026.11.02a"></script>
+<script src="js/config.js?v=2026.11.03a"></script>
+<script src="js/docstyles.js?v=2026.11.03a"></script>
+<script src="js/core.js?v=2026.11.03a"></script>
+<script src="js/calc.js?v=2026.11.03a"></script>
+<script src="js/settings.js?v=2026.11.03a"></script>
+<script src="js/address.js?v=2026.11.03a"></script>
+<script src="js/categories.js?v=2026.11.03a"></script>
+<script src="js/services.js?v=2026.11.03a"></script>
+<script src="js/photos.js?v=2026.11.03a"></script>
+<script src="js/cloud.js?v=2026.11.03a"></script>
+<script src="js/estimates.js?v=2026.11.03a"></script>
+<script src="js/crm.js?v=2026.11.03a"></script>
+<script src="js/invoices.js?v=2026.11.03a"></script>
+<script src="js/importer.js?v=2026.11.03a"></script>
+<script src="js/mail.js?v=2026.11.03a"></script>
+<script src="js/signing.js?v=2026.11.03a"></script>
+<script src="js/app.js?v=2026.11.03a"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 "use strict";
 
-/* Invoices: created after the job, usually from the estimate (its lines, markup and tax are copied
+/* Invoices: created after the job, usually from the estimate (its lines and tax are copied
    and can be edited). Payments received are recorded on the invoice; Paid / Balance due and the
    payment status follow from them. Numbers: INV-<year>-<NNNN>, a separate sequence from estimates. */
 
@@ -67,7 +67,7 @@ function getInvoice(id){ return loadInvoices().find(i=>i.id===id) || null; }
 
 // Totals come from the same engine as estimates; payments give Paid and Balance due.
 function computeInvoice(inv){
-  const t=computeEstimateTotals({items:inv.items,markup:inv.markup,taxRate:inv.taxRate,taxMode:inv.taxMode});
+  const t=computeEstimateTotals({items:inv.items,taxRate:inv.taxRate});
   const paid=round2(inv.payments.reduce((s,p)=>s+amount(p.amount),0));
   return {...inv, items:t.items, subtotal:t.subtotal, markup:t.markup, markupAmount:t.markupAmount,
     taxRate:t.taxRate, taxMode:t.taxMode, taxAmount:t.taxAmount, total:t.grandTotal,
@@ -109,13 +109,13 @@ function newInvoiceRecord(data={}){
   }));
 }
 
-// The invoice copies the estimate: client, address, lines, markup and tax (so the totals match).
+// The invoice copies the estimate: client, address, lines and tax.
 function invoiceFromEstimate(est, projectId){
   return newInvoiceRecord({
     estimateId:est.id, estimateNumber:est.estimateNumber, crmProjectId:projectId || est.crmProjectId || null,
     clientName:est.clientName, clientEmail:est.clientEmail, clientPhone:est.clientPhone, address:est.address,
     items:est.items.map(it=>({...it,id:uid("li"),categoryName:it.categoryName || categoryLabel(it.category)})),
-    markup:est.markup, taxRate:est.taxRate, taxMode:est.taxMode, clientMessage:est.clientMessage || ""
+    markup:0, taxRate:est.taxRate, taxMode:est.taxMode, clientMessage:est.clientMessage || ""
   });
 }
 
@@ -193,7 +193,6 @@ function openInvoiceEditor(id, draft){
   $("invNumber").value=inv.invoiceNumber;
   $("invDate").value=inv.date;
   $("invDueDate").value=inv.dueDate;
-  $("invMarkup").value=inv.markup;
   $("invTaxRate").value=inv.taxRate;
   $("invMessage").value=inv.clientMessage;
   $("invPayDate").value=localISODate();
@@ -214,7 +213,7 @@ function readInvoiceForm(){
     clientName:$("invClientName").value.trim(), clientEmail:$("invClientEmail").value.trim(),
     clientPhone:$("invClientPhone").value.trim(), address:$("invAddress").value.trim(),
     invoiceNumber:$("invNumber").value.trim(), date:$("invDate").value, dueDate:$("invDueDate").value,
-    markup:$("invMarkup").value, taxRate:$("invTaxRate").value, clientMessage:$("invMessage").value.trim()
+    taxRate:$("invTaxRate").value, clientMessage:$("invMessage").value.trim()
   });
   document.querySelectorAll("#invItems tr[data-id]").forEach(row=>{
     const it=inv.items.find(x=>x.id===row.dataset.id);
@@ -256,7 +255,6 @@ function renderInvoiceTotals(){
   });
   $("invTotals").innerHTML=`
     <div class="sum-row"><span>Subtotal</span><span>${money(inv.subtotal)}</span></div>
-    <div class="sum-row"><span>Markup (${formatQty(inv.markup)}%)</span><span>${money(inv.markupAmount)}</span></div>
     <div class="sum-row"><span>Sales Tax (${formatQty(inv.taxRate)}%)</span><span>${money(inv.taxAmount)}</span></div>
     <div class="sum-row sum-strong"><span>TOTAL</span><span>${money(inv.total)}</span></div>
     <div class="sum-row"><span>Paid</span><span>${money(inv.paid)}</span></div>
@@ -266,7 +264,7 @@ function renderInvoiceTotals(){
 }
 
 function handleInvoiceModalInput(e){
-  if(e.target.closest("#invItems") || ["invMarkup","invTaxRate"].includes(e.target.id)){ readInvoiceForm(); renderInvoiceTotals(); }
+  if(e.target.closest("#invItems") || e.target.id==="invTaxRate"){ readInvoiceForm(); renderInvoiceTotals(); }
 }
 
 function handleInvoiceModalClick(e){

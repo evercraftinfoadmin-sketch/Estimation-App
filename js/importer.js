@@ -6,7 +6,7 @@
    - one row = one lead/estimate, or one service line of an estimate
      (rows with the same Estimate # are combined into one estimate)
    - columns are matched automatically and can be changed before importing
-   - imported estimates use 0% markup and 0% tax, so their totals stay as in the old system
+   - imported estimates use 0% tax, so their totals stay as in the old system
    - an Estimate # that already exists is skipped; a client already in the CRM is not duplicated */
 
 const XLSX_CDN = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
@@ -304,7 +304,7 @@ function commitImport(plans, folder=""){
         const category=categoryKey(l.category) || "drywall";
         return {id:uid("li"),category,categoryName:categoryLabel(category),serviceId:null,name:l.name,description:"",quantity:l.quantity,price:l.price};
       });
-      const t=computeEstimateTotals({items,markup:0,taxRate:0,taxMode:"all"});
+      const t=computeEstimateTotals({items,taxRate:0});
       const custom=[...new Set(items.map(i=>i.category).filter(k=>!isMainCategory(k)))];
       est={
         id:uid("est"), estimateNumber:number, date:plan.date || localISODate(),
