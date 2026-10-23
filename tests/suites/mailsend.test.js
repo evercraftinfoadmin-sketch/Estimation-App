@@ -62,6 +62,8 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   const pdf=Buffer.from((s.body.attachment||{}).base64||'','base64');
   ok(pdf.slice(0,5).toString()==='%PDF-' && pdf.length>20000 && pdf.length<5e6 && /Type\s*\/Page\b/.test(pdf.toString('latin1')) && s.body.attachment.filename.endsWith(`Estimate ${est.estimateNumber}.pdf`),'a real PDF of the estimate is attached ('+Math.round(pdf.length/1024)+' KB)');
   require('fs').writeFileSync(OUT+'/sent-estimate.pdf',pdf);
+  const pdfText=pdf.toString('latin1');
+  ok(pdfText.trimEnd().endsWith('%%EOF') && pdfText.includes(`/Title (EverCraft Home Improvement Estimate ${est.estimateNumber})`) && pdfText.includes('/Author (EverCraft Home Improvement)'),'the attached PDF is complete (ends properly) and carries a title and author, which phone viewers show');
   ok((await p.innerText('.toast')).includes('Sent to ann@x.com from evercraft.pro@gmail.com'),'the person is told it was sent, from the company address');
 
   // the service refuses
@@ -105,6 +107,51 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.click('#mainNav [data-page=estimates]');
   got=await pdfOf(()=>p.locator('#estimatesBody tr').first().locator('[data-action=pdf]').click());
   ok(got.name.endsWith('.pdf') && got.data.slice(0,5).toString()==='%PDF-','Saved Estimates: the PDF button saves the estimate as a PDF file');
+
+  // ---------- Safe PDF making (phones) ----------
+  const pageCount=b64=>(Buffer.from(b64,'base64').toString('latin1').match(/\/Type \/Page\b/g)||[]).length;
+  const lim=await p.evaluate(()=>({short:pdfCanvasScale(720,1200), tall:pdfCanvasScale(720,12000), huge:pdfCanvasScale(720,60000)}));
+  ok(lim.short===2 && lim.tall<2 && 720*lim.tall*12000*lim.tall<=12e6+1 && 60000*lim.huge<=16000+1,'a long document is drawn at a lower resolution so phones can make it ('+lim.tall.toFixed(2)+'x for 12,000 px)');
+  ok(await p.evaluate(()=>{ const c=document.createElement('canvas'); c.width=1440; c.height=2000; const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,1440,2000); const blank=pdfCanvasHasInk(c); x.fillStyle='#111'; x.font='28px sans-serif'; x.fillText('ESTIMATE',40,60); return !blank && pdfCanvasHasInk(c) && !pdfCanvasHasInk(c,200,1800); }),'a blank picture (what a phone gives when it runs out of room) is detected');
+  const retry=await p.evaluate(async()=>{ const real=renderPdf, realInk=pdfCanvasHasInk, scales=[]; let first=true;
+    window.renderPdf=(el,sc,t)=>{ scales.push(sc); return real(el,sc,t); };
+    window.pdfCanvasHasInk=(...a)=>{ if(first && a.length===1){ first=false; return false; } return realInk(...a); };
+    try{ const b64=await makePdfBase64(()=>renderPrintView(getEstimateData()),'Retry test'); return {scales, ok:isValidPdfBase64(b64)}; } finally{ window.renderPdf=real; window.pdfCanvasHasInk=realInk; } });
+  ok(retry.ok && retry.scales.join(',')==='2,1','if the picture comes out blank, the PDF is made again at a lower resolution ('+retry.scales.join(' then ')+')');
+  // the device can't draw it at all → no broken PDF is sent, the person is told
+  const n0=svc.sent.length;
+  await p.evaluate(()=>{ window.__realInk=pdfCanvasHasInk; window.pdfCanvasHasInk=()=>false; });
+  await p.click('#mainNav [data-page=builder]'); await p.click('#btnEmail'); await p.waitForFunction(()=>$('smFrom').textContent.includes('evercraft'));
+  await p.click('#smSend'); await p.waitForFunction(()=>$('smStatus').textContent.includes('PDF could not be made'));
+  ok(svc.sent.length===n0 && await p.isVisible('#sendMailModal') && !(await p.isDisabled('#smSend')),'when the PDF cannot be made, nothing broken is sent and the window says why');
+  await p.evaluate(()=>{ window.pdfCanvasHasInk=window.__realInk; closeModal('sendMailModal'); });
+  // a document that ends just past a page gets no extra empty page; real content on a second page is kept
+  const pages=await p.evaluate(async()=>{
+    const mk=(h,bottomText)=>makePdfBase64(()=>{ $('printView').innerHTML=`<div class="pv" style="height:${h}px;position:relative"><b>Top</b>${bottomText?'<b style="position:absolute;bottom:0">Bottom</b>':''}</div>`; },'Pages test');
+    return {justOver:await mk(961,false), twoPages:await mk(1200,true)};
+  });
+  ok(pageCount(pages.justOver)===1 && pageCount(pages.twoPages)===2,'no nearly-empty extra page at the end; a real second page is kept');
+
+  // ---------- Download on a phone: the share sheet (Save to Files, Mail, …) ----------
+  const mctx=await b.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,deviceScaleFactor:3,acceptDownloads:true});
+  await mctx.route('https://cdn.jsdelivr.net/npm/html2pdf.js@0.14.0/**',r=>r.fulfill({path:require.resolve('html2pdf.js/dist/html2pdf.bundle.min.js'),contentType:'application/javascript'}));
+  await mctx.addInitScript(SIGNED_OUT_SDK);
+  await mctx.addInitScript(()=>{ window.__shared=[]; window.__shareMode='ok';
+    navigator.canShare=d=>!!(d && d.files && d.files.length);
+    navigator.share=async d=>{ if(window.__shareMode==='denied') throw new DOMException('no gesture','NotAllowedError'); const f=d.files[0]; const head=new Uint8Array(await f.slice(0,5).arrayBuffer()); window.__shared.push({name:f.name,type:f.type,size:f.size,head:String.fromCharCode(...head)}); }; });
+  const m=await mctx.newPage();
+  const merrs=[]; m.on('pageerror',e=>merrs.push(e.message));
+  await m.goto(FILE);
+  await m.evaluate(()=>{ $('clientName').value='Phone Client'; BUILDER.items=[{id:'m1',category:'painting',name:'Interior Painting',quantity:500,price:3}]; renderBuilderItems(); });
+  ok(await m.evaluate(()=>matchMedia('(pointer:coarse)').matches),'(phone emulation: touch screen)');
+  await m.evaluate(()=>window.scrollTo(0,0)); await m.locator('#btnPdf').scrollIntoViewIfNeeded(); await m.tap('#btnPdf');
+  await m.waitForFunction(()=>window.__shared.length===1,null,{timeout:30000});
+  const sh=(await m.evaluate(()=>window.__shared))[0];
+  ok(sh.type==='application/pdf' && sh.head==='%PDF-' && sh.size>20000 && sh.name.endsWith('.pdf'),'on a phone, Download PDF opens the share sheet with a real PDF file ('+sh.name+', '+Math.round(sh.size/1024)+' KB)');
+  await m.evaluate(()=>{ window.__shareMode='denied'; });
+  const mdl=m.waitForEvent('download',{timeout:30000}); await m.tap('#btnPdf'); const mf=await mdl;
+  ok(require('fs').readFileSync(await mf.path()).slice(0,5).toString()==='%PDF-' && mf.suggestedFilename().endsWith('.pdf'),'if the phone browser refuses the share sheet, the PDF is downloaded instead');
+  ok(merrs.length===0,'phone: no page errors '+JSON.stringify(merrs));
 
   ok(errs.length===0,'no console errors '+JSON.stringify(errs));
   await b.close();
