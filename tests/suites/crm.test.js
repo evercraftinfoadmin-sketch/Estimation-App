@@ -63,7 +63,8 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   await p.fill('#clientEmail', 'maria@example.com');
   await p.fill('#clientPhone', '555-1000');
   await p.fill('#projectAddress', '42 Elm St, Pasadena, CA');
-  await p.fill('#estMarkup', '10'); await p.fill('#estTaxRate', '8');
+  await p.fill('#estTaxRate', '8');
+  ok(await p.locator('#estMarkup, #sumMarkup').count() === 0 && !(await p.innerText('.summary-card')).includes('Markup'), 'builder: there is no markup line');
   ok(true, '2. create estimate: client fields entered');
 
   await addService('drywall', 'Drywall Repair', 500, 4);
@@ -85,9 +86,9 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   await p.locator('#items-drywall .line-item').nth(1).locator('[data-action=delete-item]').click();
   ok(await p.locator('#items-drywall .line-item').count() === 1 && await t('#catTotal-drywall') === '$2,700.00', '9. delete service line');
 
-  // subtotal 2700+1500+3000 = 7200; markup 10% 720; tax 8% of 7920 = 633.60; total 8553.60
-  ok(await t('#sumSubtotal') === '$7,200.00' && await t('#sumMarkup') === '$720.00' && await t('#sumTax') === '$633.60' && await t('#sumTotal') === '$8,553.60',
-    'calc: subtotal/markup/tax/total = 7,200 / 720 / 633.60 / 8,553.60');
+  // subtotal 2700+1500+3000 = 7200; tax 8% of 7200 = 576.00; total 7776.00 (no markup)
+  ok(await t('#sumSubtotal') === '$7,200.00' && await t('#sumTax') === '$576.00' && await t('#sumTotal') === '$7,776.00',
+    'calc: subtotal/tax/total = 7,200 / 576.00 / 7,776.00 (no markup)');
 
   // ---------- 10–11. Custom service ----------
   const svcCount = (await services()).length;
@@ -104,8 +105,8 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   const wp = (await services()).find(s => s.name === 'Stucco Waterproofing');
   ok(wp && wp.category === 'stucco' && wp.defaultPrice === 300 && await t('#catTotal-stucco') === '$1,800.00', '11. custom service saved to service list and added');
 
-  // subtotal 2700+1800+3400 = 7900; markup 790; tax 8% of 8690 = 695.20; total 9385.20
-  ok(await t('#sumTotal') === '$9,385.20', 'calc: total after custom services $9,385.20');
+  // subtotal 2700+1800+3400 = 7900; tax 8% of 7900 = 632.00; total 8532.00
+  ok(await t('#sumTotal') === '$8,532.00', 'calc: total after custom services $8,532.00');
 
   // ---------- 12–13. Services management ----------
   await nav('services');
@@ -143,7 +144,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   await p.locator('#servicesBody tr', { hasText: 'Drywall Texture' }).locator('[data-action=delete]').click();
   ok(!(await services()).some(s => s.name === 'Drywall Texture'), '13. delete service: confirmed delete');
   await nav('builder');
-  ok(await t('#sumTotal') === '$9,385.20' && await p.locator('#items-stucco [data-field=price]').last().inputValue() === '300',
+  ok(await t('#sumTotal') === '$8,532.00' && await p.locator('#items-stucco [data-field=price]').last().inputValue() === '300',
     '12. editing a service does not change prices already in the estimate');
 
   // ---------- 14. Save ----------
@@ -157,8 +158,8 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   const fields = ['id', 'estimateNumber', 'date', 'clientName', 'clientEmail', 'clientPhone', 'address', 'items', 'drywallTotal', 'stuccoTotal', 'paintingTotal', 'subtotal', 'markup', 'markupAmount', 'taxRate', 'taxAmount', 'customerTotal', 'status', 'crmProjectId', 'createdAt', 'updatedAt'];
   ok(est.length === 1 && fields.every(f => f in est[0]), '14. save estimate: record has all required fields');
   const e1 = est[0];
-  ok(e1.estimateNumber === 'EST-2026-1001' && e1.status === 'draft' && e1.customerTotal === 9385.2 && e1.items.length === 5, '14. saved: EST-2026-1001, draft, total 9,385.20, 5 items');
-  ok(e1.drywallTotal === 2700 && e1.stuccoTotal === 1800 && e1.paintingTotal === 3400 && e1.subtotal === 7900 && e1.markupAmount === 790 && e1.taxAmount === 695.2, '14. saved category totals and amounts');
+  ok(e1.estimateNumber === 'EST-2026-1001' && e1.status === 'draft' && e1.customerTotal === 8532 && e1.items.length === 5, '14. saved: EST-2026-1001, draft, total 8,532.00, 5 items');
+  ok(e1.drywallTotal === 2700 && e1.stuccoTotal === 1800 && e1.paintingTotal === 3400 && e1.subtotal === 7900 && e1.markup === 0 && e1.markupAmount === 0 && e1.taxAmount === 632, '14. saved category totals and amounts (markup 0)');
   ok(e1.items.every(it => !('unit' in it)), '14. items have no unit field');
   ok((await t('#builderBadge')).trim() === 'Draft', '14. builder badge shows Draft');
 
@@ -202,7 +203,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   await nav('estimates');
   await p.locator('#estimatesBody tr', { hasText: 'EST-2026-1001' }).locator('[data-action=open]').click();
   ok(await p.isVisible('#page-builder') && await v('#clientName') === 'Maria <b>Lopez</b>' && await v('#clientPhone') === '555-1000' && await v('#estimateNumber') === 'EST-2026-1001', '19. open saved estimate: client fields restored');
-  ok(await p.locator('.line-item').count() === 5 && await v('#estMarkup') === '10' && await v('#estTaxRate') === '8', '19. open: 5 items, markup & tax restored');
+  ok(await p.locator('.line-item').count() === 5 && await v('#estTaxRate') === '8', '19. open: 5 items, tax restored');
   ok(await t('#sumTotal') === money((await estimates()).find(e => e.id === e1.id).customerTotal), '19. open: recalculated total equals saved total');
   ok((await t('#builderBadge')).trim() === 'Sent', '19. open: status badge Sent');
 
@@ -215,7 +216,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   ok(!/Subtotal|Markup|Sales Tax/.test(pv), '20. print: the client does not see subtotal, markup or a tax line');
   const client = await p.evaluate(() => { const d = getEstimateData(); const l = clientPricedLines(d.items, d.grandTotal); const dr = l.find(i => i.name === 'Drywall Repair'), base = d.items.find(i => i.name === 'Drywall Repair');
     return { sum: Math.round(l.reduce((s, i) => s + i.total, 0) * 100), total: Math.round(d.grandTotal * 100), dr: dr.total, expected: Math.round(base.total * d.grandTotal / d.subtotal * 100) / 100, line: `Drywall Repair: Qty 600 x ${clientUnitPrice(dr)} = ${money(dr.total)}`, inPrint: document.getElementById('printView').textContent.includes(money(dr.total)) }; });
-  ok(client.sum === client.total && Math.abs(client.dr - client.expected) <= 0.01 && client.inPrint, '20. print: line prices include markup and tax, and add up exactly to the total (' + client.line + ')');
+  ok(client.sum === client.total && Math.abs(client.dr - client.expected) <= 0.01 && client.inPrint, '20. print: line prices include tax, and add up exactly to the total (' + client.line + ')');
   ok(await p.locator('#printView button, #printView input, #printView select').count() === 0, '20. print: no buttons/inputs');
   ok(await p.evaluate(() => { const i = document.querySelector('#printView .pv-header .pv-logo'); return !!i && i.complete && i.naturalWidth > 0 && i.src.startsWith('data:image/png;base64,'); }), '20. print: company logo at the top (embedded, loaded)');
   ok(!(await p.innerHTML('#printView')).includes('<b>Lopez</b>'), 'security: print view escapes client name');
@@ -247,7 +248,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   await nav('estimates');
   await p.locator('#estimatesBody tr', { hasText: 'EST-2026-1001' }).locator('[data-action=crm]').click();
   let prj = await projects();
-  ok(prj.length === 1 && prj[0].estimateId === e1.id && prj[0].estimateNumber === 'EST-2026-1001' && prj[0].estimateTotal === 8791.2, '22. create CRM project from estimate (linked, total from estimate)');
+  ok(prj.length === 1 && prj[0].estimateId === e1.id && prj[0].estimateNumber === 'EST-2026-1001' && prj[0].estimateTotal === 7992, '22. create CRM project from estimate (linked, total from estimate)');
   ok(prj[0].stage === 'prospect' && prj[0].prospectStatus === 'quote_sent', '22. sent estimate → Prospects / Quote sent');
   ok((await estimates()).find(e => e.id === e1.id).crmProjectId === prj[0].id, '22. estimate stores crmProjectId');
   ok(await p.isVisible('#page-crm') && await p.isVisible('#projectModal'), '23. CRM project opened');
@@ -421,11 +422,12 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
 
   // ---------- Settings ----------
   await nav('settings');
-  await p.fill('#setCompanyName', 'EverCraft Pro'); await p.fill('#setMarkup', '15');
+  ok(await p.locator('#setMarkup, #setTaxMode').count() === 0 && !(await p.innerText('#page-settings')).includes('Markup'), 'settings: no default markup or "tax on subtotal + markup" option');
+  await p.fill('#setCompanyName', 'EverCraft Pro'); await p.fill('#setSalesTax', '5');
   await p.click('#settingsForm button[type=submit]');
-  ok(await t('#brandName') === 'EverCraft Pro' && (await store('constructionEstimatorSettings')).markup === 15, 'settings saved (company name, default markup)');
+  ok(await t('#brandName') === 'EverCraft Pro' && (await store('constructionEstimatorSettings')).salesTax === 5, 'settings saved (company name, default sales tax)');
   await nav('builder'); await p.click('#btnReset');
-  ok(await v('#estMarkup') === '15', 'new estimate uses default markup from Settings');
+  ok(await v('#estTaxRate') === '5', 'new estimate uses default sales tax from Settings');
 
   // ---------- 38–39. NaN / Infinity ----------
   await addService('drywall', 'Drywall Repair', '1e400', '1e400');

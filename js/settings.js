@@ -66,10 +66,11 @@ I, the undersigned client, confirm that:
 If anything is not complete or not satisfactory, please do not sign and contact us at {{phone}} or {{email}} so we can take care of it.`;
 
 const DEFAULT_SETTINGS = {
-  markup: 25,
+  // markup and taxMode are no longer used (there is no markup); kept so saved and shared
+  // settings from earlier versions stay readable.
+  markup: 0,
   salesTax: 0,
-  // "all": tax on subtotal + markup; "subtotal": tax on the services subtotal only
-  taxMode: "all",
+  taxMode: "subtotal",
   nextEstimateNumber: 1001,
   companyName: "EverCraft Home Improvement",
   companyEmail: "EverCraft.pro@gmail.com",
@@ -117,10 +118,6 @@ function persistSettings(){
 }
 
 function companyName(){ return SETTINGS.companyName || "Construction Estimate"; }
-
-function taxModeLabel(mode){
-  return mode==="subtotal" ? "subtotal" : "subtotal + markup";
-}
 
 /* ---------- Estimate numbers ---------- */
 
@@ -173,9 +170,7 @@ function loadSettingsForm(){
   $("setSignEstimate").value=SETTINGS.signTextEstimate;
   $("setSignWork").value=SETTINGS.signTextWork;
   $("setSignCompletion").value=SETTINGS.signTextCompletion;
-  $("setMarkup").value=SETTINGS.markup;
   $("setSalesTax").value=SETTINGS.salesTax;
-  $("setTaxMode").value=SETTINGS.taxMode;
   $("setNextNumber").value=SETTINGS.nextEstimateNumber;
 }
 
@@ -193,9 +188,7 @@ function saveSettings(){
   SETTINGS.signTextEstimate=$("setSignEstimate").value.replace(/\s+$/,"") || DEFAULT_SIGN_TEXT_ESTIMATE;
   SETTINGS.signTextWork=$("setSignWork").value.replace(/\s+$/,"") || DEFAULT_SIGN_TEXT_WORK;
   SETTINGS.signTextCompletion=$("setSignCompletion").value.replace(/\s+$/,"") || DEFAULT_SIGN_TEXT_COMPLETION;
-  SETTINGS.markup=amount($("setMarkup").value);
   SETTINGS.salesTax=amount($("setSalesTax").value);
-  SETTINGS.taxMode=$("setTaxMode").value==="subtotal" ? "subtotal" : "all";
 
   const builderHadAutoNumber=isBuilderAutoNumber();
   SETTINGS.nextEstimateNumber=Math.max(1,Math.floor(num($("setNextNumber").value,SETTINGS.nextEstimateNumber)));

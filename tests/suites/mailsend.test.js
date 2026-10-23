@@ -50,7 +50,7 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.waitForFunction(()=>$('smFrom').textContent.includes('evercraft.pro@gmail.com'));
   const est=await p.evaluate(()=>getEstimateData());
   ok(await p.isVisible('#sendMailModal') && await p.inputValue('#smTo')==='ann@x.com' && (await p.inputValue('#smSubject')).includes(est.estimateNumber),'signed in: Email opens the Send window, client address and subject filled in');
-  ok((await p.inputValue('#smText')).includes('TOTAL: $3,750.00') && (await p.inputValue('#smText')).includes('PAYMENT SCHEDULE') && (await p.inputValue('#smText')).includes('Thanks Ann!'),'message has the estimate details, the client message and the full terms');
+  ok((await p.inputValue('#smText')).includes('TOTAL: $3,000.00') && (await p.inputValue('#smText')).includes('PAYMENT SCHEDULE') && (await p.inputValue('#smText')).includes('Thanks Ann!'),'message has the estimate details, the client message and the full terms');
   ok((await p.textContent('#smFrom')).includes('From: evercraft.pro@gmail.com') && (await p.textContent('#smFile')).endsWith(`Estimate ${est.estimateNumber}.pdf`) && await p.isChecked('#smAttach'),'shows the company sender and the PDF file to attach');
   await p.locator('#sendMailModal .modal-box').screenshot({path:OUT+'/send-mail.png'});
   await p.fill('#smText',(await p.inputValue('#smText'))+'\nP.S. edited here');

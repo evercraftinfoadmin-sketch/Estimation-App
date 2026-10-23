@@ -58,7 +58,7 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   const estNo=await p.evaluate(()=>getEstimateData().estimateNumber);
   let d=[...docs.values()][0]||{};
   ok(dialogs.at(-1).includes('saved first') && d.type==='estimate' && d.clientEmail==='ann@x.com','the estimate is saved first, then a signing request is created');
-  ok(d.html.includes('ESTIMATE') && d.html.includes('Interior Painting') && d.html.includes('ACCEPTANCE OF ESTIMATE') && d.html.includes(`Estimate ${estNo}`) && d.html.includes('$3,750.00') && !d.html.includes('{{'),'the signed document is the estimate plus the acceptance text, filled in');
+  ok(d.html.includes('ESTIMATE') && d.html.includes('Interior Painting') && d.html.includes('ACCEPTANCE OF ESTIMATE') && d.html.includes(`Estimate ${estNo}`) && d.html.includes('$3,000.00') && !d.html.includes('{{'),'the signed document is the estimate plus the acceptance text, filled in');
   ok(/\.pv-doc/.test(d.css) && !/\.kcard/.test(d.css),'the print styles go with it (and nothing else)');
   ok(d.html.includes('<img class="pv-logo" src="data:image/png;base64,') && /\.pv-logo/.test(d.css) && d.html.length<600*1024,'the company logo goes with the document (embedded, within the size limit)');
   let o=await opened();
@@ -82,7 +82,7 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   d=[...docs.values()].at(-1);
   ok(dialogs.at(-1).includes('Send the Work Authorization to Ann Lee') && d.type==='work_authorization','moving to Start the Project offers the Work Authorization');
   ok(d.html.includes('class="pv-logo"'),'the Work Authorization has the company logo too');
-  ok(d.html.includes('WORK AUTHORIZATION') && d.html.includes('1 Main St') && d.html.includes('$3,750.00') && d.html.includes('Nov 2, 2026') && d.html.includes('Our custom clause for Ann Lee') && !d.html.includes('{{'),'Work Authorization: client, address, total, start date and the edited text');
+  ok(d.html.includes('WORK AUTHORIZATION') && d.html.includes('1 Main St') && d.html.includes('$3,000.00') && d.html.includes('Nov 2, 2026') && d.html.includes('Our custom clause for Ann Lee') && !d.html.includes('{{'),'Work Authorization: client, address, total, start date and the edited text');
   o=await opened(); ok(o[0].includes('Work Authorization') && o[0].includes('/s/token2'),'the Work Authorization link is emailed');
   ok((await card().locator('.sign-badge').allTextContents()).join('|').includes('Work Auth.: waiting'),'the card shows the Work Authorization is waiting');
 
@@ -112,7 +112,7 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   await p.click('#smSend');
   await p.waitForFunction(()=>!document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:20000});
   d=[...docs.values()].at(-1); const invNo=await p.evaluate(()=>loadInvoices()[0].invoiceNumber);
-  ok(d.type==='completion' && d.html.includes('CERTIFICATE OF COMPLETION') && d.html.includes(invNo) && d.html.includes('$3,750.00') && !d.html.includes('{{'),'Certificate of Completion: invoice number and balance filled in');
+  ok(d.type==='completion' && d.html.includes('CERTIFICATE OF COMPLETION') && d.html.includes(invNo) && d.html.includes('$3,000.00') && !d.html.includes('{{'),'Certificate of Completion: invoice number and balance filled in');
   ok(mails.length===1 && mails[0].text.includes('BALANCE DUE') && mails[0].text.includes('Certificate of Completion') && mails[0].text.includes('/s/token3'),'the invoice email carries the completion signing link');
   ok((await card().locator('.sign-badge').allTextContents()).join('|').includes('Completion: waiting'),'the card shows the completion certificate is waiting');
 

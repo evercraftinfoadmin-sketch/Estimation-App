@@ -33,7 +33,7 @@ function wireEvents(){
   $("builderSections").addEventListener("click",handleBuilderClick);
   $("builderSections").addEventListener("input",handleBuilderInput);
   $("builderSections").addEventListener("change",handleBuilderInput);
-  ["estMarkup","estTaxRate"].forEach(id=>$(id).addEventListener("input",updateBuilderTotals));
+  $("estTaxRate").addEventListener("input",updateBuilderTotals);
   $("builderMeta").addEventListener("click",e=>{
     const btn=e.target.closest("[data-action]");
     if(!btn) return;

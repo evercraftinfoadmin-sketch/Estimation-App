@@ -48,7 +48,7 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   await section('FLOORING').locator('[data-action=custom-service]').click();
   await p.fill('#csName','Tile Install'); await p.fill('#csPrice','300');
   await p.click('#customServiceForm button[type=submit]');
-  ok(await t('#sumSubtotal')==='$1,200.00' && await t('#sumTotal')==='$1,500.00','custom categories counted: subtotal $1,200, +25% = $1,500');
+  ok(await t('#sumSubtotal')==='$1,200.00' && await t('#sumTotal')==='$1,200.00','custom categories counted: subtotal $1,200 = total $1,200 (no markup)');
 
   // save
   await p.fill('#clientName','Lee Family'); await p.fill('#clientEmail','lee@x.com');
@@ -108,7 +108,7 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   await p.locator('[data-action=open]').first().click();
   ok(await section('ROOFING').count()===1 && await t(`#catTotal-${roof.id}`)==='$900.00','deleted category: saved estimate keeps its section and line');
   ok(await section('FLOORING & TILE').count()===1,'renamed category shows its new name');
-  ok(await t('#sumTotal')==='$1,500.00','saved total unchanged');
+  ok(await t('#sumTotal')==='$1,200.00','saved total unchanged');
 
   // migration of the old fixed "Other Services"
   await p.evaluate(()=>{ localStorage.clear(); localStorage.setItem(storageKey('constructionEstimatorServices'),JSON.stringify([{id:'o1',category:'other',name:'Demolition',defaultPrice:100,active:true}])); });
