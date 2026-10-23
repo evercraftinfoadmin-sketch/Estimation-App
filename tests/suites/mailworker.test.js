@@ -101,7 +101,10 @@ global.fetch=async(url,opts={})=>{
   ok(/^From: EverCraft Home Improvement <evercraft\.pro@gmail\.com>\r\n/m.test(raw) && /^To: <client@example\.com>\r\n/m.test(raw) && raw.includes('Subject: EverCraft Estimate EST-2026-1001 - 42 Elm St'),'email headers: from the company, to the client, subject');
   const textB64=(raw.split('Content-Transfer-Encoding: base64\r\n\r\n')[1]||'').split('\r\n--')[0].replace(/\r\n/g,'');
   ok(Buffer.from(textB64,'base64').toString('utf8')==='Hello Ann,\nYour estimate — total $1,000.','text is sent unchanged (UTF-8)');
-  ok(raw.includes('Content-Type: application/pdf; name="EST-2026-1001.pdf"') && raw.includes('Content-Disposition: attachment; filename="EST-2026-1001.pdf"') && raw.includes(PDF.slice(0,40)),'the PDF is attached with its file name');
+  ok(raw.includes('Content-Type: application/pdf;\r\n name="EST-2026-1001.pdf"') && raw.includes('Content-Disposition: attachment;\r\n filename="EST-2026-1001.pdf"') && raw.includes(PDF.slice(0,40)),'the PDF is attached with its file name');
+  const pdfB64=(raw.split('filename="EST-2026-1001.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\n')[1]||'').split('\r\n--')[0].replace(/\r\n/g,'');
+  ok(pdfB64===PDF,'the attachment decodes back to exactly the PDF the CRM made (byte for byte)');
+  ok(raw.split('\r\n').every(l=>l.length<=78) && !/[^\r]\n/.test(raw),'every line of the email is at most 78 characters and ends in CRLF (what strict mail apps expect)');
   // reply-to and a non-ASCII subject
   calls=[];
   r=await sendReq({...good,subject:'Смета № 5 — EverCraft',replyTo:'office@example.com',attachment:null});

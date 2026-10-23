@@ -227,13 +227,14 @@ function buildMessage({ from, fromName, to, replyTo, subject, text, filename, pd
   if (!pdfBase64) return [...head, ...textPart].join("\r\n");
   return [
     ...head,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    `Content-Type: multipart/mixed;\r\n boundary="${boundary}"`,
     "",
     `--${boundary}`,
     ...textPart,
     `--${boundary}`,
-    `Content-Type: application/pdf; name="${filename}"`,
-    `Content-Disposition: attachment; filename="${filename}"`,
+    // Header lines folded to stay under 78 characters, which strict mail apps expect.
+    `Content-Type: application/pdf;\r\n name="${filename}"`,
+    `Content-Disposition: attachment;\r\n filename="${filename}"`,
     "Content-Transfer-Encoding: base64",
     "",
     wrap76(pdfBase64),
