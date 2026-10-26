@@ -38,6 +38,8 @@ function wireEvents(){
     const btn=e.target.closest("[data-action]");
     if(!btn) return;
     if(btn.dataset.action==="open-crm" && BUILDER.crmProjectId){ showPage("crm"); openProjectModal(BUILDER.crmProjectId); }
+    if(btn.dataset.action==="add-option") addEstimateOption();
+    if(btn.dataset.action==="open-option" && btn.dataset.id!==BUILDER.id) openEstimate(btn.dataset.id);
     if(btn.dataset.action==="create-crm" && BUILDER.id){
       // The CRM project takes its estimate number and total from the saved estimate.
       if(hasUnsavedChanges() && !saveEstimate()) return;
@@ -53,6 +55,7 @@ function wireEvents(){
   $("btnReset").addEventListener("click",resetBuilder);
   $("pmPhotos").addEventListener("photos-changed",()=>fillCrmPhotoCounts());
   $("customServiceForm").addEventListener("submit",e=>{ e.preventDefault(); submitCustomService(); });
+  $("lineEditForm").addEventListener("submit",e=>{ e.preventDefault(); submitLineEdit(); });
   $("categoryForm").addEventListener("submit",e=>{ e.preventDefault(); submitAddCategory(); });
   $("catExisting").addEventListener("change",()=>{ $("catNewField").hidden=!!$("catExisting").value; });
 
@@ -114,6 +117,7 @@ let BUILDER_ADDRESS = null;
 let PROJECT_ADDRESS = null;
 
 function init(){
+  if(RESTORE_WAITING){ document.body.classList.add("restore-waiting"); return; } // reloads by itself in a moment
   BUILDER_ADDRESS=new AddressField($("projectAddress"));
   PROJECT_ADDRESS=new AddressField($("pmAddress"));
   renderBrand();

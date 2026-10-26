@@ -139,6 +139,10 @@ function setSendStatus(text, isError){
 }
 
 // Opens the "Send email" window. mail: {title, to, subject, text, filename, render, fallback, onSent}
+function sendMailFiles(mail){
+  return mail.attachments && mail.attachments.length ? mail.attachments : [{filename:mail.filename,render:mail.render}];
+}
+
 // The short text goes with the PDF; without the PDF the full text is used (mail.textWithoutPdf).
 function sendMailAutoText(mail, withPdf){
   return (!withPdf && mail.textWithoutPdf) ? mail.textWithoutPdf : (mail.text || "");
@@ -161,7 +165,7 @@ function openSendMail(mail){
   $("smText").value=sendMailAutoText(mail,$("smAttach").checked);
   $("smSignRow").hidden=!mail.sign;
   if(mail.sign){ $("smSignLabel").textContent=mail.sign.label; $("smSign").checked=true; }
-  $("smFile").textContent=mail.filename;
+  $("smFile").textContent=sendMailFiles(mail).map(f=>f.filename).join(" · ");
   $("smFrom").textContent="From: the company Gmail (checking…)";
   $("smSend").disabled=false;
   setSendStatus("");
@@ -203,19 +207,22 @@ async function submitSendMail(event){
     const signText=await sendMailSignText(mail);
     if(signText===null) return;
     text+=signText;
-    let attachment=null;
+    // One PDF, or one per option (mail.attachments: [{filename, render}]).
+    const files=sendMailFiles(mail);
+    const made=[];
     if($("smAttach").checked){
-      setSendStatus("Making the PDF…");
-      let base64;
-      try{ base64=await makePdfBase64(mail.render,String(mail.filename||"").replace(/\.pdf$/i,"")); }
-      catch(e){ setSendStatus("The PDF could not be made on this device. Try again on a computer, or untick \"Attach PDF\".",true); return; }
-      attachment={filename:mail.filename,base64};
+      for(const [i,f] of files.entries()){
+        setSendStatus(files.length>1 ? `Making PDF ${i+1} of ${files.length}…` : "Making the PDF…");
+        try{ made.push({filename:f.filename,base64:await makePdfBase64(f.render,String(f.filename||"").replace(/\.pdf$/i,""))}); }
+        catch(e){ setSendStatus("The PDF could not be made on this device. Try again on a computer, or untick \"Attach PDF\".",true); return; }
+      }
     }
+    const attachment=made.length===1 ? made[0] : null, attachments=made.length>1 ? made : undefined;
     setSendStatus("Sending…");
     const r=await fetch(mailServiceUrl()+"/send",{
       method:"POST",
       headers:{"Content-Type":"application/json",Authorization:"Bearer "+cloudSignInToken()},
-      body:JSON.stringify({appId:cloudConfig().appId,to,subject,text,fromName:SETTINGS.companyName,attachment})
+      body:JSON.stringify({appId:cloudConfig().appId,to,subject,text,fromName:SETTINGS.companyName,attachment,attachments})
     });
     const res=await r.json().catch(()=>({}));
     if(!r.ok || !res.ok){ setSendStatus(res.error || `The email was not sent (${r.status}).`,true); return; }

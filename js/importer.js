@@ -495,8 +495,13 @@ async function restoreBackupFile(file){
     if(d[name]===null || d[name]===undefined) localStorage.removeItem(key);
     else if(!writeStore(key,d[name])) return;
   }
+  // Written last: the reloaded page waits until it can see it (see RESTORE_WAITING in core.js).
+  const token=uid("restore");
+  try{ localStorage.setItem(RESTORE_MARK_KEY,token); }catch(e){}
   alert("Backup restored. The app will now reload.");
-  location.reload();
+  const url=new URL(location.href);
+  url.searchParams.set("restore",token); url.searchParams.delete("restoreTry");
+  location.replace(url.href);
 }
 
 function wireImportEvents(){

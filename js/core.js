@@ -21,6 +21,32 @@ const STORAGE_NAMESPACE = (()=>{
 function storageKey(base){ return base+STORAGE_NAMESPACE; }
 const STORAGE_KEYS = Object.fromEntries(Object.entries(STORAGE_BASE_KEYS).map(([k,v])=>[k,storageKey(v)]));
 
+/* After a backup is restored the page reloads with ?restore=<token>. The reloaded page can read
+   this browser's storage before the restore's last writes have arrived there (Chromium delivers
+   them separately), so it would see the data from before the restore and might even save it
+   again. The restore writes the token last: until the token is visible, nothing is saved and the
+   page reloads again shortly (gives up after about 5 seconds and says so). */
+const RESTORE_MARK_KEY = storageKey("constructionEstimatorRestoreMark");
+const RESTORE_WAITING = (()=>{
+  let params;
+  try{ params=new URLSearchParams(location.search); }catch(e){ return false; }
+  const token=params.get("restore");
+  if(!token) return false;
+  const tries=Number(params.get("restoreTry")) || 0;
+  let seen="";
+  try{ seen=localStorage.getItem(RESTORE_MARK_KEY) || ""; }catch(e){}
+  const url=new URL(location.href);
+  if(seen===token || tries>=20){
+    url.searchParams.delete("restore"); url.searchParams.delete("restoreTry");
+    try{ history.replaceState(null,"",url.href); }catch(e){}
+    if(seen!==token) setTimeout(()=>alert("The restored backup may not have been saved completely in this browser. Please check your data, or restore the backup again."),800);
+    return false;
+  }
+  url.searchParams.set("restoreTry",String(tries+1));
+  setTimeout(()=>location.replace(url.href),250);
+  return true;
+})();
+
 // The three main categories are fixed. Users add their own categories
 // (Roofing, Flooring, ...) — see js/categories.js.
 const MAIN_CATEGORIES = [
@@ -105,6 +131,7 @@ function readStore(key, fallback){
 }
 
 function writeStore(key, value){
+  if(RESTORE_WAITING) return false; // see RESTORE_WAITING: never save data from before the restore
   try{
     localStorage.setItem(key, JSON.stringify(value));
     return true;
@@ -141,7 +168,7 @@ function showToast(message){
    tells the cloud module not to sync; the app then works on the original data. */
 let STORAGE_COPY_FAILED = false;
 (function copyLegacyDataIntoNamespace(){
-  if(!STORAGE_NAMESPACE) return;
+  if(!STORAGE_NAMESPACE || RESTORE_WAITING) return;
   const ready=storageKey("constructionEstimatorDataReady");
   const written=[];
   try{

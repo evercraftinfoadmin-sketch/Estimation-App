@@ -31,7 +31,8 @@ function normalizeSignatures(list){
     id:String(s.id), type:s.type, title:String(s.title ?? ""),
     status:["pending","signed","cancelled"].includes(s.status) ? s.status : "pending",
     url:String(s.url ?? ""), sentTo:String(s.sentTo ?? ""),
-    createdAt:String(s.createdAt ?? ""), signedAt:String(s.signedAt ?? ""), signerName:String(s.signerName ?? "")
+    createdAt:String(s.createdAt ?? ""), signedAt:String(s.signedAt ?? ""), signerName:String(s.signerName ?? ""),
+    ...(s.chosenOption ? {chosenOption:String(s.chosenOption)} : {})
   }));
 }
 
@@ -128,8 +129,8 @@ async function signCall(path, payload){
 }
 
 // Creates a signing request and records it on the estimate or project. {url, entry} or {error}.
-async function createSignRequest({type, title, html, clientName, clientEmail, ref, estimateId, projectId}){
-  const res=await signCall("/sign/create",{type,title,html,css:signDocCss(),clientName,clientEmail,company:companyName(),ref});
+async function createSignRequest({type, title, html, clientName, clientEmail, ref, estimateId, projectId, group, option}){
+  const res=await signCall("/sign/create",{type,title,html,css:signDocCss(),clientName,clientEmail,company:companyName(),ref,group,option});
   if(res.error) return res;
   const entry={id:res.id,type,title,status:"pending",url:res.url,sentTo:clientEmail||"",createdAt:res.createdAt,signedAt:"",signerName:""};
   if(estimateId){ const e=getEstimate(estimateId); if(e) updateEstimate(estimateId,{signatures:[...e.signatures,entry],updatedAt:nowISO()}); }
@@ -164,10 +165,48 @@ function signNotReadyMessage(){
   return "Sign in to the shared CRM (☁ button) to send documents for signature.";
 }
 
+// Several options sent together: one signing link per option. When the client signs one,
+// the signing service withdraws the others (so only one can ever be signed).
+async function sendOptionsForSignature(ds){
+  const signedBefore=ds.map(d=>latestSignature(d.signatures,"estimate")).find(s=>s && s.status==="signed");
+  if(signedBefore && !confirm(`An option of this offer was already signed by ${signedBefore.signerName}. Send all options for signature again anyway?`)) return;
+  showToast(`Preparing ${ds.length} options for signature…`);
+  const links=[];
+  for(const d of ds){
+    const title=`Estimate ${d.estimateNumber} - ${d.optionLabel}${d.address?` - ${d.address}`:""}`;
+    const res=await createSignRequest({type:"estimate",title,html:estimateSignHtml(d,d),clientName:d.clientName,clientEmail:d.clientEmail,
+      ref:{estimateId:d.id,estimateNumber:d.estimateNumber,projectId:d.crmProjectId||"",option:d.optionLabel},estimateId:d.id,
+      group:d.optionGroup,option:d.optionLabel});
+    if(res.error){ alert(res.error); return; }
+    links.push({d,url:res.url});
+  }
+  ds.forEach(d=>issueEstimateNumber(d.estimateNumber));
+  const first=ds[0];
+  const text=[`Hello ${first.clientName || "there"},`,"",
+    `Thank you for asking ${companyName()} to quote your project${first.address ? ` at ${first.address}` : ""}. We prepared ${ds.length} options for you. `+
+    `Please review them and sign the one you choose:`,"",
+    ...links.flatMap(({d,url})=>[optionLine(d),`Review & sign ${d.optionLabel}: ${url}`,""]),
+    `All prices include taxes. The full details of each option are in the attached PDFs. When you sign one option, the others are closed automatically. `+
+    `Signing takes about a minute, on a phone or a computer, and you will receive a copy of the signed document.`,"",
+    "Best regards,",...[SETTINGS.companyName,...companyContactParts()]].join("\n");
+  const subject=`Please choose and sign: ${companyName()} Estimate - ${ds.length} options`;
+  const viaGmail=(t=first.clientEmail,s=subject)=>openMailto(t,s,text);
+  if(canSendFromCrm()){
+    openSendMail({title:`Send ${ds.length} options for signature`, to:first.clientEmail, subject, text,
+      attachments:ds.map(d=>({filename:estimatePdfName(d),render:()=>renderPrintView(d)})), fallback:({to:t,subject:s})=>viaGmail(t,s)});
+  }else{
+    viaGmail();
+  }
+  renderCrmBoard();
+}
+
 async function sendEstimateForSignature(){
   if(!canSign()){ alert(signNotReadyMessage()); return; }
   const d0=getEstimateData();
   if(!d0.clientEmail){ alert("Please enter the client's email address."); showPage("builder"); $("clientEmail").focus(); return; }
+  const options=builderOptionsForSending("sent for signature");
+  if(options===false) return;
+  if(options) return sendOptionsForSignature(options);
   if(!BUILDER.id || hasUnsavedChanges()){
     if(!confirm("The estimate is saved first, so the client signs exactly what is saved. Save now?")) return;
     if(!saveEstimate()) return;
@@ -236,6 +275,29 @@ function completionSignOption(inv){
 /* ---------- Status and signed copies ---------- */
 
 // Checks pending requests with the service (at most once a minute) and saves any change.
+// An option of an offer was decided by the client: the signed one is Accepted (and the CRM
+// project shows it), the ones closed because another was chosen are Rejected.
+// The newest estimate signature, including one closed because another option was chosen.
+function lastOptionSignature(signatures){
+  const of=(signatures || []).filter(s=>s.type==="estimate");
+  return of.find(s=>s.status==="signed") || of[of.length-1] || null;
+}
+
+function settleOption(est, signatures){
+  if(!est.optionGroup) return;
+  const s=lastOptionSignature(signatures);
+  if(!s) return;
+  if(s.status==="signed"){
+    updateEstimate(est.id,{status:"accepted",updatedAt:nowISO()});
+    if(est.crmProjectId && getProject(est.crmProjectId)){
+      linkProjectToEstimate(est.crmProjectId,getEstimate(est.id));
+      syncProjectFromEstimateStatus(getEstimate(est.id));
+    }
+  }else if(s.status==="cancelled" && s.chosenOption){
+    updateEstimate(est.id,{status:"rejected",updatedAt:nowISO()});
+  }
+}
+
 async function refreshSignatures(force){
   if(!canSign() || SIGN_REFRESHING || (!force && Date.now()-SIGN_LAST_REFRESH<SIGN_REFRESH_MS)) return false;
   const pending=[];
@@ -249,10 +311,10 @@ async function refreshSignatures(force){
     if(res.error || !Array.isArray(res.items)) return false;
     const byId=new Map(res.items.filter(i=>i.status!=="pending").map(i=>[i.id,i]));
     if(!byId.size) return false;
-    const apply=list=>{ let changed=false; const out=list.map(s=>{ const i=byId.get(s.id); if(!i || s.status!=="pending") return s; changed=true; return {...s,status:i.status,signedAt:i.signedAt||"",signerName:i.signerName||""}; }); return changed ? out : null; };
+    const apply=list=>{ let changed=false; const out=list.map(s=>{ const i=byId.get(s.id); if(!i || s.status!=="pending") return s; changed=true; return {...s,status:i.status,signedAt:i.signedAt||"",signerName:i.signerName||"",chosenOption:i.chosenOption||""}; }); return changed ? out : null; };
     let any=false;
     loadProjects().forEach(p=>{ const n=apply(p.signatures); if(n){ updateProject(p.id,{signatures:n}); any=true; } });
-    loadEstimates().forEach(e=>{ const n=apply(e.signatures); if(n){ updateEstimate(e.id,{signatures:n,updatedAt:nowISO()}); any=true; } });
+    loadEstimates().forEach(e=>{ const n=apply(e.signatures); if(n){ updateEstimate(e.id,{signatures:n,updatedAt:nowISO()}); any=true; settleOption(e,n); } });
     if(any){
       const signed=[...byId.values()].filter(i=>i.status==="signed");
       if(signed.length) showToast(signed.map(i=>`✍ ${i.signerName} signed ${i.title}`).join(" · "));
@@ -295,6 +357,7 @@ async function downloadSignedPdf(id){
 
 function signBadgeHtml(s, label){
   if(!s) return "";
+  if(s.status==="cancelled") return `<span class="sign-badge sign-off" title="This signing link was closed.">✍ ${escapeHtml(label)}: ${s.chosenOption?`not chosen (client signed ${escapeHtml(s.chosenOption)})`:"withdrawn"}</span>`;
   const signed=s.status==="signed";
   return `<button type="button" class="sign-badge ${signed?"sign-done":"sign-wait"}" data-action="sign-doc" data-signed="${signed?1:0}" data-sign-id="${escapeHtml(s.id)}" data-sign-url="${escapeHtml(s.url)}"
     title="${escapeHtml(signed?`Signed by ${s.signerName}. Click to download the signed PDF.`:"Waiting for the client's signature. Click to copy the link.")}">✍ ${escapeHtml(label)}: ${signed?`signed ✓${s.signedAt?` ${escapeHtml(formatDate(s.signedAt.slice(0,10)))}`:""}`:"waiting"}</button>`;
@@ -310,7 +373,10 @@ function signBadgesHtml(p){
 
 // Badge for a saved estimate (Saved Estimates row, Estimate Builder).
 function estimateSignBadgeHtml(e){
-  return e ? signBadgeHtml(latestSignature(e.signatures,"estimate"),"Signature") : "";
+  if(!e) return "";
+  const s=latestSignature(e.signatures,"estimate");
+  const other=!s && e.optionGroup ? lastOptionSignature(e.signatures) : null; // "not chosen"
+  return signBadgeHtml(s || (other && other.chosenOption ? other : null),"Signature");
 }
 
 function handleSignBadge(btn){

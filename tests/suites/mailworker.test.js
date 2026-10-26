@@ -104,6 +104,16 @@ global.fetch=async(url,opts={})=>{
   ok(raw.includes('Content-Type: application/pdf;\r\n name="EST-2026-1001.pdf"') && raw.includes('Content-Disposition: attachment;\r\n filename="EST-2026-1001.pdf"') && raw.includes(PDF.slice(0,40)),'the PDF is attached with its file name');
   const pdfB64=(raw.split('filename="EST-2026-1001.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\n')[1]||'').split('\r\n--')[0].replace(/\r\n/g,'');
   ok(pdfB64===PDF,'the attachment decodes back to exactly the PDF the CRM made (byte for byte)');
+  // several PDFs in one email (estimate options A, B, C)
+  calls=[];
+  r=await sendReq({...good,attachment:undefined,attachments:['A','B','C'].map(o=>({filename:`EST-2026-1001 Option ${o}.pdf`,base64:PDF}))},{token:'tok-data'});
+  const graw=(calls.find(c=>c.url.includes('gmail.googleapis.com'))||{opts:{}}).opts.body||'';
+  const parts=['A','B','C'].map(o=>(graw.split(`filename="EST-2026-1001 Option ${o}.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\n`)[1]||'').split('\r\n--')[0].replace(/\r\n/g,''));
+  ok(r.status===200 && (graw.match(/Content-Type: application\/pdf;/g)||[]).length===3 && parts.every(x=>x===PDF) && graw.split('\r\n').every(l=>l.length<=78),'three PDFs go out in one email, each intact, with its own file name');
+  r=await sendReq({...good,attachment:undefined,attachments:Array.from({length:6},(_,i)=>({filename:`x${i}.pdf`,base64:PDF}))},{token:'tok-data'});
+  ok(r.status===400 && (await r.json()).error.includes('At most 5'),'more than 5 PDFs in one email is refused');
+  r=await sendReq({...good,attachment:undefined,attachments:[{filename:'a.pdf',base64:PDF},{filename:'b.pdf',base64:Buffer.from('hello world!').toString('base64')}]},{token:'tok-data'});
+  ok(r.status===400 && (await r.json()).error.includes('not a PDF'),'every attachment must be a PDF');
   ok(raw.split('\r\n').every(l=>l.length<=78) && !/[^\r]\n/.test(raw),'every line of the email is at most 78 characters and ends in CRLF (what strict mail apps expect)');
   // reply-to and a non-ASCII subject
   calls=[];

@@ -435,6 +435,8 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
     });
     // a sync is still running when the restore starts (it must not write over the restored data)
     await Promise.all([ADM.waitForNavigation(), ADM.evaluate(()=>{ cloudSync(); return restoreBackupFile(window.__bk); })]);
+    // the reloaded page confirms the restored data first (it may reload once more), then syncs
+    await ADM.waitForURL(u=>!/[?&]restore=/.test(String(u)),{timeout:15000});
     // after the reload: wait for the first sync to have run, not just for the page
     await ADM.waitForFunction(()=>typeof CLOUD!=='undefined' && CLOUD.started && CLOUD.state==='synced' && !CLOUD.running,null,{timeout:15000});
     ok(ADM.dialogs.some(d=>d.includes('Shared CRM: the backup does not change or delete shared records')),'F2: the restore warns how it treats shared data');
