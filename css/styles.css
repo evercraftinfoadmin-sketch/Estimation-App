@@ -368,3 +368,4 @@ body.restore-waiting .app{visibility:hidden}
 body.restore-waiting::before{content:"Finishing the restore…";display:block;padding:40px;text-align:center;font:600 16px system-ui,sans-serif;color:#475569}
 .btn-option{background:#eef0ff;color:#3730a3;border:1px dashed #a5b4fc;font-weight:700}
 .btn-option:hover{background:#e0e7ff}
+.opt-remove{color:#b91c1c}

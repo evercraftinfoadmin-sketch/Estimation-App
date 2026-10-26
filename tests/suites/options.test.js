@@ -129,6 +129,29 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.click('#btnAddOption');
   ok(await p.evaluate(()=>BUILDER.optionLabel)==='Option B' && (await ests()).filter(e=>e.clientName==='New Client').map(e=>e.optionLabel).sort().join()==='Option A,Option B','clicking it on an unsaved estimate saves it as Option A and makes Option B');
 
+  // remove an option: from the builder, and from Saved Estimates (deleting shared records needs an admin)
+  await p.click('#builderMeta .opt-remove');
+  ok(dialogs.at(-1).includes('Only an admin can delete') && (await ests()).filter(e=>e.clientName==='New Client').length===2,'a member cannot remove an option from the shared CRM (only an admin can delete)');
+  await p.evaluate(()=>{ CLOUD.role='admin'; });
+  await p.click('#btnAddOption');
+  const nc=async()=>(await ests()).filter(e=>e.clientName==='New Client');
+  ok((await nc()).map(e=>e.optionLabel).sort().join()==='Option A,Option B,Option C' && (await p.textContent('#builderMeta .opt-remove')).includes('Remove Option C'),'the option bar has "Remove Option C" for the option that is open');
+  const cNum=(await nc()).find(e=>e.optionLabel==='Option C').estimateNumber;
+  await p.click('#builderMeta .opt-remove');
+  ok(dialogs.at(-1).includes('Delete Option C') && dialogs.at(-1).includes('The other 2 options stay') && (await nc()).map(e=>e.optionLabel).sort().join()==='Option A,Option B','removing asks first, deletes only Option C, the others stay');
+  ok(await p.evaluate(()=>BUILDER.optionLabel)==='Option A' && await p.locator('#builderMeta .opt-pill').count()===2,'the builder then shows a remaining option');
+  await p.click('#mainNav [data-page=estimates]');
+  const bNum=(await nc()).find(e=>e.optionLabel==='Option B').estimateNumber;
+  await p.locator('#estimatesBody tr',{hasText:bNum}).locator('[data-action=delete]').click();
+  const left=await nc();
+  ok(left.length===1 && !left[0].optionGroup && !left[0].optionLabel && !(await ests()).some(e=>e.estimateNumber===cNum),'deleting Option B in Saved Estimates leaves one normal estimate (no option label)');
+
+  // the option the CRM project shows is deleted → the project moves to a remaining option
+  const jb=(await ests()).find(e=>e.id===B.id);
+  await p.locator('#estimatesBody tr',{hasText:jb.estimateNumber}).locator('[data-action=delete]').click();
+  const pj=await p.evaluate(()=>loadProjects()[0]);
+  ok(![...(await ests())].some(e=>e.id===B.id) && [A.id,C.id].includes(pj.estimateId),'deleting the option the CRM project shows moves the project to a remaining option');
+
   ok(errs.length===0,'no console errors '+JSON.stringify(errs));
   console.log(`\n${pass} passed, ${fail} failed`); await b.close(); process.exit(fail?1:0);
 })().catch(e=>{console.error(e);process.exit(2);});
