@@ -53,6 +53,7 @@ function wireEvents(){
   $("btnReset").addEventListener("click",resetBuilder);
   $("pmPhotos").addEventListener("photos-changed",()=>fillCrmPhotoCounts());
   $("customServiceForm").addEventListener("submit",e=>{ e.preventDefault(); submitCustomService(); });
+  $("lineEditForm").addEventListener("submit",e=>{ e.preventDefault(); submitLineEdit(); });
   $("categoryForm").addEventListener("submit",e=>{ e.preventDefault(); submitAddCategory(); });
   $("catExisting").addEventListener("change",()=>{ $("catNewField").hidden=!!$("catExisting").value; });
 

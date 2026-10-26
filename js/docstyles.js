@@ -26,7 +26,7 @@ const DOC_CSS = `
 .pv-table td{padding:6px;border-bottom:1px solid #ddd;vertical-align:top}
 .pv-table tfoot td{font-weight:700;border-bottom:0}
 .pv-table .num{text-align:right;white-space:nowrap}
-.pv-desc{font-size:10px;color:#666}
+.pv-desc{font-size:10px;color:#666;white-space:pre-line}
 .pv-totals{margin-left:auto;margin-top:10px;border-collapse:collapse;min-width:260px;break-inside:avoid}
 .pv-totals td{padding:5px 6px}
 .pv-totals .num{text-align:right}

@@ -93,7 +93,9 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .category-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .category-head h2{margin:0;letter-spacing:.06em}
 .category-total{font-weight:800;font-size:16px;color:var(--green)}
-.line-head,.line-item{display:grid;grid-template-columns:minmax(0,1fr) 110px 120px 120px 34px;gap:10px;align-items:center}
+.line-head,.line-item{display:grid;grid-template-columns:minmax(0,1fr) 110px 120px 120px 72px;gap:10px;align-items:center}
+.li-actions{display:flex;gap:4px;justify-content:flex-end}
+.li-desc{white-space:pre-line}
 .line-head{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);padding:0 0 6px;border-bottom:1px solid var(--line)}
 .line-head span:nth-child(4){text-align:right}
 .line-item{padding:10px 0;border-bottom:1px solid var(--line)}
@@ -297,7 +299,7 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
   .li-service{grid-column:1/-1}
   .li-label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:3px}
   .li-total{text-align:left}
-  .line-item .btn-icon{grid-column:2;justify-self:end}
+  .line-item .li-actions{grid-column:2;justify-self:end}
   .li-total{grid-column:1;grid-row:3}
   .kanban{grid-template-columns:repeat(6,82vw)}
   .responsive-table thead{display:none}

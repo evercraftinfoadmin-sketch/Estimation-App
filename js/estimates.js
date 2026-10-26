@@ -173,7 +173,10 @@ function renderCategoryItems(category){
         <input data-field="price" type="number" min="0" step="0.01" inputmode="decimal" value="${it.price}">
       </label>
       <div class="li-total"><span class="li-label">Total</span><b data-total>$0.00</b></div>
-      <button class="btn-icon" data-action="delete-item" title="Delete service" aria-label="Delete service">✕</button>
+      <div class="li-actions">
+        <button class="btn-icon" data-action="edit-item" title="Edit name and description" aria-label="Edit service line">✎</button>
+        <button class="btn-icon" data-action="delete-item" title="Delete service" aria-label="Delete service">✕</button>
+      </div>
     </div>`).join("")
     : `<div class="line-empty">No services added yet.</div>`;
 }
@@ -246,6 +249,8 @@ function handleBuilderClick(event){
     openAddCategoryForm();
   }else if(action==="remove-category"){
     removeCategoryFromEstimate(btn.dataset.category);
+  }else if(action==="edit-item"){
+    openLineEdit(btn.closest(".line-item").dataset.itemId);
   }else if(action==="delete-item"){
     const id=btn.closest(".line-item").dataset.itemId;
     const item=findItem(id);
@@ -280,6 +285,51 @@ function handleBuilderInput(event){
     renderCategoryItems(item.category);
     updateBuilderTotals();
   }
+}
+
+/* ---------- Edit a line (pencil): name and description ---------- */
+
+let EDITING_LINE_ID = null;
+
+function openLineEdit(id){
+  const item=findItem(id);
+  if(!item) return;
+  EDITING_LINE_ID=id;
+  const service=item.serviceId ? getService(item.serviceId) : null;
+  $("leName").value=item.name || (service ? service.name : "");
+  $("leDescription").value=item.description || "";
+  $("leSave").checked=false;
+  $("leSaveLabel").textContent=service ? `Also update "${service.name}" in my Services list` : "Also save to my Services list";
+  $("leSaveNote").textContent=service
+    ? "Future estimates will use this name and description. Lines already in other estimates stay as they are."
+    : `Saves it as a new ${categoryLabel(item.category)} service at ${money(item.price)}.`;
+  openModal("lineEditModal");
+  $("leDescription").focus();
+}
+
+function submitLineEdit(){
+  const item=findItem(EDITING_LINE_ID);
+  if(!item){ closeModal("lineEditModal"); return; }
+  const name=$("leName").value.trim(), description=$("leDescription").value.replace(/\s+$/,"");
+  if(!name){ alert("Please enter a service name."); $("leName").focus(); return; }
+  let note="Line updated for this estimate.";
+  if($("leSave").checked){
+    const service=item.serviceId ? getService(item.serviceId) : null;
+    if(service){
+      if(!updateServiceText(service.id,{name,description})) return;
+      note=`Line and "${name}" in the Services list updated.`;
+    }else{
+      const created=createService({category:item.category,name,defaultPrice:item.price,description});
+      if(!created) return;
+      item.serviceId=created.id;
+      note=`Line updated and "${name}" saved to the Services list.`;
+    }
+    renderServicesPage();
+  }
+  Object.assign(item,{name,description});
+  closeModal("lineEditModal");
+  renderBuilderItems();
+  showToast(note);
 }
 
 /* ---------- Custom service ---------- */

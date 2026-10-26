@@ -75,6 +75,18 @@ function createService({category,name,defaultPrice,description,active=true}){
   return saveServices(list) ? service : null;
 }
 
+// Changes a service's name and description; returns it, or null (an alert explains why).
+function updateServiceText(id,{name,description}){
+  name=String(name||"").trim();
+  const list=loadServices();
+  const s=list.find(x=>x.id===id);
+  if(!s) return null;
+  if(!name){ alert("Please enter a service name."); return null; }
+  if(serviceNameTaken(list,s.category,name,id)){ alert(`"${name}" already exists in ${categoryLabel(s.category)}.`); return null; }
+  Object.assign(s,{name,description:String(description||""),updatedAt:nowISO()});
+  return saveServices(list) ? s : null;
+}
+
 /* ---------- Services page ---------- */
 
 let EDITING_SERVICE_ID = null;
