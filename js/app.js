@@ -40,6 +40,7 @@ function wireEvents(){
     if(!btn) return;
     if(btn.dataset.action==="open-crm" && BUILDER.crmProjectId){ showPage("crm"); openProjectModal(BUILDER.crmProjectId); }
     if(btn.dataset.action==="add-option") addEstimateOption();
+    if(btn.dataset.action==="remove-option" && BUILDER.id) deleteEstimate(BUILDER.id);
     if(btn.dataset.action==="open-option" && btn.dataset.id!==BUILDER.id) openEstimate(btn.dataset.id);
     if(btn.dataset.action==="create-crm" && BUILDER.id){
       // The CRM project takes its estimate number and total from the saved estimate.

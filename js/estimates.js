@@ -635,7 +635,8 @@ function optionsBarHtml(est){
   }
   const pills=options.map(o=>`<button type="button" class="opt-pill${o.id===est.id?" on":""}" data-action="open-option" data-id="${escapeHtml(o.id)}">${escapeHtml(o.optionLabel||"Option")} · ${escapeHtml(o.estimateNumber)} · ${money(o.customerTotal)}</button>`).join("");
   return `<div class="opt-bar"><span class="small">Options sent together:</span> ${pills}
-    ${options.length<MAX_OPTIONS?`<button class="btn btn-link" data-action="add-option">+ Add option</button>`:""}</div>`;
+    ${options.length<MAX_OPTIONS?`<button class="btn btn-link" data-action="add-option">+ Add option</button>`:""}
+    <button class="btn btn-link opt-remove" data-action="remove-option" title="Delete this option; the other options stay">🗑 Remove ${escapeHtml(est.optionLabel || "this option")}</button></div>`;
 }
 
 // Makes another option of the estimate in the builder (saved first) and opens it.
@@ -712,10 +713,23 @@ function deleteEstimate(id){
   const est=getEstimate(id);
   if(!est) return;
   if(typeof cloudDeleteRefused==="function" && cloudDeleteRefused()) return;
-  if(!confirm(`Delete estimate ${est.estimateNumber} for ${est.clientName || est.address || "this client"}? This cannot be undone.`)) return;
+  const others=estimateOptions(est).filter(o=>o.id!==id);
+  const question=others.length
+    ? `Delete ${est.optionLabel || "this option"} (estimate ${est.estimateNumber})? The other ${others.length===1?"option stays":`${others.length} options stay`}. This cannot be undone.`
+    : `Delete estimate ${est.estimateNumber} for ${est.clientName || est.address || "this client"}? This cannot be undone.`;
+  if(!confirm(question)) return;
   if(!saveEstimates(loadEstimates().filter(e=>e.id!==id))) return;
-  unlinkEstimateFromProjects(id);
-  if(BUILDER.id===id){
+  if(others.length){
+    // The CRM project moves to a remaining option; a single remaining one is a normal estimate again.
+    if(others.length===1) updateEstimate(others[0].id,{optionGroup:"",optionLabel:"",updatedAt:nowISO()});
+    const project=loadProjects().find(p=>p.estimateId===id);
+    if(project) linkProjectToEstimate(project.id,getEstimate(others[0].id));
+  }else{
+    unlinkEstimateFromProjects(id);
+  }
+  if(BUILDER.id===id && others.length){
+    loadEstimateIntoBuilder(getEstimate(others[0].id));
+  }else if(BUILDER.id===id){
     // The builder keeps its content as a new, unsaved estimate.
     BUILDER.id=null;
     BUILDER.status=null;
@@ -724,7 +738,7 @@ function deleteEstimate(id){
   }
   renderSavedEstimates();
   renderCrmBoard();
-  showToast(`Estimate ${est.estimateNumber} deleted.`);
+  showToast(others.length ? `${est.optionLabel || "Option"} (${est.estimateNumber}) deleted.` : `Estimate ${est.estimateNumber} deleted.`);
 }
 
 function setEstimateStatus(id, status){
