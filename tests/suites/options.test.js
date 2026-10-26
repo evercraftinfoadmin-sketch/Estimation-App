@@ -46,6 +46,7 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.evaluate(()=>document.querySelectorAll('.modal.open').forEach(m=>closeModal(m.id)));
   await p.click('#mainNav [data-page=builder]');
   ok((await p.innerText('#builderMeta')).includes('+ Add Option B'),'a saved estimate offers "+ Add Option B"');
+  ok(await p.isVisible('#btnAddOption') && (await p.textContent('#btnAddOption')).startsWith('+ Add Option B'),'a big "+ Add Option B" button sits under Save Estimate');
 
   // Option B and C
   await p.click('#builderMeta [data-action=add-option]');
@@ -54,7 +55,8 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   ok(list.length===2 && A && B && A.optionGroup && A.optionGroup===B.optionGroup && A.estimateNumber!==B.estimateNumber,'Option B is a copy with its own estimate number, in the same offer as Option A');
   ok(await p.evaluate(()=>BUILDER.optionLabel)==='Option B' && await p.locator('#builderMeta .opt-pill').count()===2 && (await p.textContent('#builderMeta .opt-pill.on')).startsWith('Option B'),'the builder opens Option B and shows the option buttons');
   await price('4'); await p.click('#btnSaveEstimate');
-  await p.click('#builderMeta [data-action=add-option]');
+  ok((await p.textContent('#btnAddOption'))==='+ Add Option C','with two options the button offers Option C');
+  await p.click('#btnAddOption');
   await price('5'); await p.click('#btnSaveEstimate');
   list=await ests();
   const C=list.find(e=>e.optionLabel==='Option C');
@@ -116,6 +118,16 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await rowA.locator('[data-action=duplicate]').click();
   const dup=(await ests()).find(e=>![A.id,B.id,C.id].includes(e.id));
   ok(dup && !dup.optionGroup && !dup.optionLabel,'Duplicate makes an independent estimate (not part of the options)');
+
+  // a new, unsaved estimate also shows the button; clicking it saves first
+  await p.click('#mainNav [data-page=builder]');
+  await p.evaluate(()=>newEstimate());
+  ok(await p.isVisible('#btnAddOption') && (await p.textContent('#btnAddOption')).startsWith('+ Add Option B'),'a new estimate (not saved yet) also shows "+ Add Option B"');
+  await p.fill('#clientName','New Client');
+  await p.click('[data-action=add-service][data-category=painting]');
+  await p.locator('#items-painting select').selectOption({label:'Interior Painting'});
+  await p.click('#btnAddOption');
+  ok(await p.evaluate(()=>BUILDER.optionLabel)==='Option B' && (await ests()).filter(e=>e.clientName==='New Client').map(e=>e.optionLabel).sort().join()==='Option A,Option B','clicking it on an unsaved estimate saves it as Option A and makes Option B');
 
   ok(errs.length===0,'no console errors '+JSON.stringify(errs));
   console.log(`\n${pass} passed, ${fail} failed`); await b.close(); process.exit(fail?1:0);
