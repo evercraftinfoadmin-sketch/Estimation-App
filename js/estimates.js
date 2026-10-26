@@ -225,6 +225,10 @@ function updateBuilderMeta(){
   if(saved) html+=estimateSignBadgeHtml(saved);
   if(saved) html+=optionsBarHtml(saved);
   $("builderMeta").innerHTML=html;
+  // The big "+ Add Option" button under Save Estimate (also for an estimate not saved yet).
+  const count=saved ? estimateOptions(saved).length : 1;
+  $("btnAddOption").hidden=count>=MAX_OPTIONS;
+  $("btnAddOption").textContent=count<2 ? "+ Add Option B (give the client a choice)" : `+ Add Option ${"ABCDE"[count]}`;
 }
 
 /* ---------- Builder events ---------- */

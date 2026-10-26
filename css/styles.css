@@ -366,3 +366,5 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .sign-badge.sign-off{background:#f1f5f9;color:#64748b;border-color:#e2e8f0;cursor:default}
 body.restore-waiting .app{visibility:hidden}
 body.restore-waiting::before{content:"Finishing the restore…";display:block;padding:40px;text-align:center;font:600 16px system-ui,sans-serif;color:#475569}
+.btn-option{background:#eef0ff;color:#3730a3;border:1px dashed #a5b4fc;font-weight:700}
+.btn-option:hover{background:#e0e7ff}

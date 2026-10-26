@@ -34,6 +34,7 @@ function wireEvents(){
   $("builderSections").addEventListener("input",handleBuilderInput);
   $("builderSections").addEventListener("change",handleBuilderInput);
   $("estTaxRate").addEventListener("input",updateBuilderTotals);
+  $("btnAddOption").addEventListener("click",addEstimateOption);
   $("builderMeta").addEventListener("click",e=>{
     const btn=e.target.closest("[data-action]");
     if(!btn) return;
