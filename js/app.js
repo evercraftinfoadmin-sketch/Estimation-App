@@ -117,6 +117,7 @@ let BUILDER_ADDRESS = null;
 let PROJECT_ADDRESS = null;
 
 function init(){
+  if(RESTORE_WAITING){ document.body.classList.add("restore-waiting"); return; } // reloads by itself in a moment
   BUILDER_ADDRESS=new AddressField($("projectAddress"));
   PROJECT_ADDRESS=new AddressField($("pmAddress"));
   renderBrand();

@@ -364,3 +364,5 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .opt-pill.on{background:#4f57ff;border-color:#4f57ff;color:#fff;font-weight:700}
 .opt-badge{display:inline-block;margin-top:3px;background:#eef2ff;color:#3730a3;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700}
 .sign-badge.sign-off{background:#f1f5f9;color:#64748b;border-color:#e2e8f0;cursor:default}
+body.restore-waiting .app{visibility:hidden}
+body.restore-waiting::before{content:"Finishing the restore…";display:block;padding:40px;text-align:center;font:600 16px system-ui,sans-serif;color:#475569}
