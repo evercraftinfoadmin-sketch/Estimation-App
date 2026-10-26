@@ -21,6 +21,8 @@ const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 const SCOPES = "openid email " + GMAIL_SEND_SCOPE;
 const ROLES = ["owner", "admin", "member"];
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
+const MAX_ATTACHMENTS = 5;
+const MAX_TOTAL_PDF_BYTES = 18 * 1024 * 1024; // Gmail's limit is 25 MB after base64 encoding
 const MAX_TEXT = 100000;
 const EMAIL_RE = /^[^\s@<>()",;:\\[\]]+@[^\s@<>()",;:\\[\]]+\.[A-Za-z]{2,}$/;
 
@@ -213,7 +215,9 @@ async function base44User(appId, token, env) {
   return r.json().catch(() => null);
 }
 
-function buildMessage({ from, fromName, to, replyTo, subject, text, filename, pdfBase64 }) {
+// attachments: [{filename, base64}] (PDFs). The older single filename + pdfBase64 still works.
+function buildMessage({ from, fromName, to, replyTo, subject, text, filename, pdfBase64, attachments }) {
+  const files = attachments && attachments.length ? attachments : (pdfBase64 ? [{ filename, base64: pdfBase64 }] : []);
   const boundary = "evercraft-" + crypto.randomUUID();
   const head = [
     `From: ${fromName ? encodeHeader(fromName) + " " : ""}<${from}>`,
@@ -224,20 +228,22 @@ function buildMessage({ from, fromName, to, replyTo, subject, text, filename, pd
     "MIME-Version: 1.0"
   ];
   const textPart = ["Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", wrap76(utf8Base64(text))];
-  if (!pdfBase64) return [...head, ...textPart].join("\r\n");
+  if (!files.length) return [...head, ...textPart].join("\r\n");
   return [
     ...head,
     `Content-Type: multipart/mixed;\r\n boundary="${boundary}"`,
     "",
     `--${boundary}`,
     ...textPart,
-    `--${boundary}`,
     // Header lines folded to stay under 78 characters, which strict mail apps expect.
-    `Content-Type: application/pdf;\r\n name="${filename}"`,
-    `Content-Disposition: attachment;\r\n filename="${filename}"`,
-    "Content-Transfer-Encoding: base64",
-    "",
-    wrap76(pdfBase64),
+    ...files.flatMap(f => [
+      `--${boundary}`,
+      `Content-Type: application/pdf;\r\n name="${f.filename}"`,
+      `Content-Disposition: attachment;\r\n filename="${f.filename}"`,
+      "Content-Transfer-Encoding: base64",
+      "",
+      wrap76(f.base64)
+    ]),
     `--${boundary}--`,
     ""
   ].join("\r\n");
@@ -260,21 +266,28 @@ async function send(request, env, cors) {
   if (replyTo && !EMAIL_RE.test(replyTo)) return json({ error: "The reply-to address is not valid." }, 400, cors);
   if (!subject || subject.length > 300) return json({ error: "The subject is empty or too long." }, 400, cors);
   if (!text.trim() || text.length > MAX_TEXT) return json({ error: "The message is empty or too long." }, 400, cors);
-  let pdfBase64 = "", filename = "";
-  if (body.attachment) {
-    pdfBase64 = String(body.attachment.base64 || "").replace(/\s+/g, "");
-    filename = String(body.attachment.filename || "document.pdf").replace(/[^\w .-]+/g, "_").slice(0, 100);
+  // One PDF (attachment) or several (attachments: estimate options A, B, C…).
+  const given = Array.isArray(body.attachments) ? body.attachments : (body.attachment ? [body.attachment] : []);
+  if (given.length > MAX_ATTACHMENTS) return json({ error: `At most ${MAX_ATTACHMENTS} PDFs per email.` }, 400, cors);
+  const attachments = [];
+  let totalBytes = 0;
+  for (const a of given) {
+    const base64 = String((a && a.base64) || "").replace(/\s+/g, "");
+    let filename = String((a && a.filename) || "document.pdf").replace(/[^\w .-]+/g, "_").slice(0, 100);
     if (!/\.pdf$/i.test(filename)) filename += ".pdf";
-    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(pdfBase64) || pdfBase64.length * 3 / 4 > MAX_PDF_BYTES) return json({ error: "The PDF is missing or too large." }, 400, cors);
-    if (!atob(pdfBase64.slice(0, 8)).startsWith("%PDF-")) return json({ error: "The attachment is not a PDF." }, 400, cors);
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length * 3 / 4 > MAX_PDF_BYTES) return json({ error: "The PDF is missing or too large." }, 400, cors);
+    if (!atob(base64.slice(0, 8)).startsWith("%PDF-")) return json({ error: "The attachment is not a PDF." }, 400, cors);
+    totalBytes += base64.length * 3 / 4;
+    attachments.push({ filename, base64 });
   }
+  if (totalBytes > MAX_TOTAL_PDF_BYTES) return json({ error: "The PDFs are too large together for one email." }, 400, cors);
 
   const day = new Date().toISOString().slice(0, 10);
   const countKey = `count:${appId}:${user.id || user.email}:${day}`;
   const sent = Number(await env.MAIL_KV.get(countKey)) || 0;
   if (sent >= (Number(env.DAILY_LIMIT) || 300)) return json({ error: "Too many emails sent today from this account." }, 429, cors);
 
-  const g = await gmailSend(env, { fromName, to, replyTo, subject, text, filename, pdfBase64 });
+  const g = await gmailSend(env, { fromName, to, replyTo, subject, text, attachments });
   if (g.error) return json({ error: g.error }, g.status, cors);
   await env.MAIL_KV.put(countKey, String(sent + 1), { expirationTtl: 2 * 86400 });
   return json({ ok: true, id: g.id, from: g.from, to }, 200, cors);
@@ -292,12 +305,12 @@ async function teamMember(request, env, body) {
 }
 
 // Sends one email from the connected company Gmail. {id, from} or {error, status}.
-async function gmailSend(env, { fromName, to, replyTo, subject, text, filename, pdfBase64 }) {
+async function gmailSend(env, { fromName, to, replyTo, subject, text, filename, pdfBase64, attachments }) {
   const saved = await savedGmail(env);
   if (!saved) return { error: "The company Gmail is not connected to the CRM yet.", status: 503 };
   const access = await gmailAccessToken(env, saved);
   if (!access) return { error: "The Gmail connection expired. An admin must connect it again.", status: 503 };
-  const raw = buildMessage({ from: saved.email, fromName: fromName || env.SENDER_NAME || "", to, replyTo, subject, text, filename, pdfBase64 });
+  const raw = buildMessage({ from: saved.email, fromName: fromName || env.SENDER_NAME || "", to, replyTo, subject, text, filename, pdfBase64, attachments });
   const r = await fetch(GMAIL_SEND, { method: "POST", headers: { Authorization: "Bearer " + access, "Content-Type": "message/rfc822" }, body: raw });
   if (!r.ok) {
     if (r.status === 401) ACCESS = { token: "", exp: 0 };

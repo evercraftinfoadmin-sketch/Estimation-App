@@ -7,6 +7,9 @@
 //   GET  /s/<token>     (client)    the signing page (or the signed copy)
 //   POST /s/<token>     (client)    sign: typed name, drawn signature, consent
 //
+// Options: several estimates sent together as choices (Option A, B, C) share a group. The client
+// signs one; the others are withdrawn at that moment, so two options can never both be signed.
+//
 // The link token is the only key to the page; storage uses its SHA-256 as the document id, so the
 // id the CRM keeps cannot be turned back into a working link. The audit trail keeps the time, IP
 // address, browser and a SHA-256 fingerprint of the exact document that was signed.
@@ -42,7 +45,11 @@ async function load(env, id) {
   try { return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
 }
 const save = (env, rec) => env.MAIL_KV.put("sig:" + rec.id, JSON.stringify(rec));
-const summary = r => ({ id: r.id, type: r.type, title: r.title, status: r.status, createdAt: r.createdAt, signedAt: r.signedAt || "", signerName: r.signerName || "", cancelledAt: r.cancelledAt || "" });
+const summary = r => ({ id: r.id, type: r.type, title: r.title, status: r.status, createdAt: r.createdAt, signedAt: r.signedAt || "", signerName: r.signerName || "", cancelledAt: r.cancelledAt || "", group: r.group || "", option: r.option || "", chosenOption: r.chosenOption || "" });
+const groupKey = (appId, group) => `sgroup:${appId}:${group}`;
+async function groupIds(env, appId, group) {
+  try { const v = JSON.parse((await env.MAIL_KV.get(groupKey(appId, group))) || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
 
 export async function signRoutes(request, env, url, cors, h) {
   const p = url.pathname;
@@ -71,6 +78,8 @@ export async function signRoutes(request, env, url, cors, h) {
     if (!html.trim() || html.length > MAX_HTML) return h.json({ error: "The document is empty or too large." }, 400, cors);
     if (css.length > MAX_CSS) return h.json({ error: "The document style is too large." }, 400, cors);
     if (clientEmail && !h.EMAIL_RE.test(clientEmail)) return h.json({ error: "The client's email address is not valid." }, 400, cors);
+    const group = /^[A-Za-z0-9_-]{6,64}$/.test(String(body.group || "")) ? String(body.group) : "";
+    const option = group ? String(body.option || "").replace(/[\r\n<>]+/g, " ").trim().slice(0, 40) : "";
     const token = randomToken();
     const rec = {
       id: await sha256Hex(token), type, title, html, css,
@@ -79,9 +88,15 @@ export async function signRoutes(request, env, url, cors, h) {
       company: String(body.company || env.SENDER_NAME || "").slice(0, 200),
       ref: body.ref && typeof body.ref === "object" && JSON.stringify(body.ref).length <= 2000 ? JSON.parse(JSON.stringify(body.ref)) : {},
       appId: who.appId, createdBy: String(who.user.email || who.user.id || ""), createdAt: new Date().toISOString(),
-      status: "pending"
+      status: "pending",
+      ...(group ? { group, option } : {})
     };
     await save(env, rec);
+    if (group) {
+      const ids = await groupIds(env, rec.appId, group);
+      if (!ids.includes(rec.id)) ids.push(rec.id);
+      await env.MAIL_KV.put(groupKey(rec.appId, group), JSON.stringify(ids.slice(-20)));
+    }
     return h.json({ ok: true, id: rec.id, url: `${url.origin}/s/${token}`, createdAt: rec.createdAt, docHash: rec.docHash }, 200, cors);
   }
   if (p === "/sign/status") {
@@ -116,6 +131,17 @@ async function clientSign(request, rec, token, env, url, h) {
   if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(sig) || sig.length > MAX_SIGNATURE || !atob(sig.slice(22, 34)).startsWith("\x89PNG")) {
     return reply({ error: "Draw your signature in the box." }, 400);
   }
+  // Another option of the same offer already signed: this one is no longer available.
+  const siblings = [];
+  if (rec.group) {
+    for (const id of await groupIds(env, rec.appId, rec.group)) {
+      if (id === rec.id) continue;
+      const other = await load(env, id);
+      if (!other) continue;
+      if (other.status === "signed") return reply({ error: `${other.option || "Another option"} was already chosen and signed, so this option is no longer available.` }, 409);
+      siblings.push(other);
+    }
+  }
   rec.status = "signed";
   rec.signedAt = new Date().toISOString();
   rec.signerName = name;
@@ -124,6 +150,11 @@ async function clientSign(request, rec, token, env, url, h) {
   rec.userAgent = String(request.headers.get("User-Agent") || "").slice(0, 300);
   rec.consent = CONSENT;
   await save(env, rec);
+  for (const other of siblings) {
+    if (other.status !== "pending") continue;
+    Object.assign(other, { status: "cancelled", cancelledAt: rec.signedAt, cancelledBy: "client chose another option", chosenOption: rec.option || "another option" });
+    await save(env, other);
+  }
 
   // Notify the company and send the client a link to the signed copy (best effort).
   const link = `${url.origin}/s/${token}`;
@@ -171,6 +202,7 @@ ${css}
 </style></head><body><div class="wrap">${body}</div></body></html>`, { status: 200, headers });
 
   if (!rec) return shell("Link not valid", `<div class="card"><h1>This signing link is not valid</h1><p>Check that the whole link was copied, or ask us for a new one.</p></div>`);
+  if (rec.status === "cancelled" && rec.chosenOption) return shell("Option not available", `<div class="card"><h1>${h.esc(rec.option || "This option")} is no longer available</h1><p>You chose and signed <b>${h.esc(rec.chosenOption)}</b>. The link in your email for that option shows your signed copy. Questions? Contact ${h.esc(rec.company || "us")}.</p></div>`);
   if (rec.status === "cancelled") return shell("Document withdrawn", `<div class="card"><h1>This document was withdrawn</h1><p>Please contact ${h.esc(rec.company || "us")} for a new link.</p></div>`);
   const doc = `<div class="doc">${rec.html}</div>`;
   if (rec.status === "signed") {

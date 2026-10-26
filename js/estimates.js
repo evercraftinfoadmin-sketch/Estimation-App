@@ -27,7 +27,9 @@ function readBuilderInput(){
     items:BUILDER.items,
     taxRate:$("estTaxRate").value,
     taxMode:BUILDER.taxMode || SETTINGS.taxMode,
-    customCategories:BUILDER.customCategories.map(id=>({id,name:builderCategoryLabel(id)}))
+    customCategories:BUILDER.customCategories.map(id=>({id,name:builderCategoryLabel(id)})),
+    optionGroup:BUILDER.optionGroup || "",
+    optionLabel:BUILDER.optionLabel || ""
   };
 }
 
@@ -221,6 +223,7 @@ function updateBuilderMeta(){
     html=`<button class="btn btn-link" data-action="create-crm">+ Create CRM Project</button>`;
   }
   if(saved) html+=estimateSignBadgeHtml(saved);
+  if(saved) html+=optionsBarHtml(saved);
   $("builderMeta").innerHTML=html;
 }
 
@@ -402,7 +405,9 @@ function loadEstimateIntoBuilder(est){
     taxMode:est.taxMode,
     items:clone(est.items),
     customCategories:[],
-    categoryNames:{}
+    categoryNames:{},
+    optionGroup:est.optionGroup || "",
+    optionLabel:est.optionLabel || ""
   };
   // Custom categories of this estimate: the saved list first, then any used by its lines.
   est.customCategories.forEach(c=>{ ensureCategoryInBuilder(c.id); BUILDER.categoryNames[c.id]=c.name; });
@@ -479,6 +484,9 @@ function normalizeEstimate(e){
     status:ESTIMATE_STATUSES.includes(e.status) ? e.status : "draft",
     crmProjectId:e.crmProjectId || null,
     signatures:normalizeSignatures(e.signatures),
+    // Options: estimates offered together as choices (Option A, B, C) share an optionGroup.
+    optionGroup:String(e.optionGroup ?? ""),
+    optionLabel:String(e.optionLabel ?? ""),
     createdAt:e.createdAt || nowISO(),
     updatedAt:e.updatedAt || e.createdAt || nowISO(),
     legacy
@@ -537,6 +545,8 @@ function buildEstimateRecord(d, existing){
     status:existing ? existing.status : "draft",
     crmProjectId:BUILDER.crmProjectId || (existing && existing.crmProjectId) || null,
     signatures:existing ? existing.signatures : [],
+    optionGroup:d.optionGroup || "",
+    optionLabel:d.optionLabel || "",
     createdAt:existing ? existing.createdAt : now,
     updatedAt:now
   };
@@ -580,7 +590,11 @@ function saveEstimate(){
   BUILDER.taxMode=record.taxMode;
   BUILDER.crmProjectId=record.crmProjectId;
   issueEstimateNumber(record.estimateNumber);
-  if(record.crmProjectId){
+  const project=record.crmProjectId ? getProject(record.crmProjectId) : null;
+  // Options share one CRM project; it stays on the option it shows until the client chooses one.
+  const onSibling=project && project.estimateId && project.estimateId!==record.id && record.optionGroup &&
+    (getEstimate(project.estimateId)||{}).optionGroup===record.optionGroup;
+  if(record.crmProjectId && !onSibling){
     const link=linkProjectToEstimate(record.crmProjectId,record);
     if(link && link.addressBlocked) setTimeout(()=>showToast("The CRM project keeps its verified address. Verify this address to update both."),2700);
   }
@@ -593,6 +607,68 @@ function saveEstimate(){
 }
 
 /* ---------- Saved estimates actions ---------- */
+
+/* ---------- Options: several estimates offered to one client as choices ---------- */
+
+const MAX_OPTIONS = 5;
+
+// The saved estimates of one offer (Option A, B, C…), in order.
+function estimateOptions(est){
+  if(!est || !est.optionGroup) return est ? [est] : [];
+  return loadEstimates().filter(e=>e.optionGroup===est.optionGroup)
+    .sort((a,b)=>a.optionLabel.localeCompare(b.optionLabel) || String(a.createdAt).localeCompare(String(b.createdAt)));
+}
+
+// Data for the PDF / email of a saved estimate (totals from the same engine as the builder).
+function estimateDataFromRecord(est){
+  return {...est, ...computeEstimateTotals({items:est.items,taxRate:est.taxRate})};
+}
+
+function optionsBarHtml(est){
+  const options=estimateOptions(est);
+  if(options.length<2){
+    return `<div class="opt-bar"><button class="btn btn-link" data-action="add-option" title="Make a second version of this estimate (other services or prices) and send both as choices">+ Add Option B (give the client a choice)</button></div>`;
+  }
+  const pills=options.map(o=>`<button type="button" class="opt-pill${o.id===est.id?" on":""}" data-action="open-option" data-id="${escapeHtml(o.id)}">${escapeHtml(o.optionLabel||"Option")} · ${escapeHtml(o.estimateNumber)} · ${money(o.customerTotal)}</button>`).join("");
+  return `<div class="opt-bar"><span class="small">Options sent together:</span> ${pills}
+    ${options.length<MAX_OPTIONS?`<button class="btn btn-link" data-action="add-option">+ Add option</button>`:""}</div>`;
+}
+
+// Makes another option of the estimate in the builder (saved first) and opens it.
+function addEstimateOption(){
+  if(!BUILDER.id || hasUnsavedChanges()){
+    if(!confirm("The estimate is saved first, then a copy is made as the next option. Save now?")) return;
+    if(!saveEstimate()) return;
+  }
+  const est=getEstimate(BUILDER.id);
+  if(!est) return;
+  const group=est.optionGroup || uid("opt");
+  if(!est.optionGroup) updateEstimate(est.id,{optionGroup:group,optionLabel:"Option A",updatedAt:nowISO()});
+  const options=estimateOptions({...est,optionGroup:group});
+  if(options.length>=MAX_OPTIONS){ alert(`An offer can have at most ${MAX_OPTIONS} options.`); return; }
+  const used=new Set(options.map(o=>o.optionLabel));
+  const label=["A","B","C","D","E"].map(l=>"Option "+l).find(l=>!used.has(l));
+  const now=nowISO();
+  const copy={
+    ...clone(getEstimate(est.id)),
+    id:uid("est"),
+    estimateNumber:takeEstimateNumber(),
+    status:"draft",
+    signatures:[],
+    optionGroup:group,
+    optionLabel:label,
+    items:est.items.map(it=>({...it,id:uid("li")})),
+    createdAt:now,
+    updatedAt:now
+  };
+  const list=loadEstimates();
+  list.push(copy);
+  if(!saveEstimates(list)) return;
+  loadEstimateIntoBuilder(copy);
+  updateBuilderMeta();
+  renderSavedEstimates();
+  showToast(`${label} made as ${copy.estimateNumber}: change its services or prices, then Save.`);
+}
 
 function duplicateEstimate(id){
   const original=getEstimate(id);
@@ -609,6 +685,8 @@ function duplicateEstimate(id){
     status:"draft",
     crmProjectId:null,
     signatures:[],
+    optionGroup:"",
+    optionLabel:"",
     items:original.items.map(it=>({...it,id:uid("li")})),
     createdAt:now,
     updatedAt:now
@@ -661,6 +739,7 @@ function printSavedEstimate(id){
 }
 
 function estimatePdfName(d){
+  if(d.optionLabel) return `${companyName()} Estimate ${d.estimateNumber} ${d.optionLabel}.pdf`.trim();
   return `${companyName()} Estimate ${d.estimateNumber}.pdf`.trim();
 }
 
@@ -699,7 +778,7 @@ function renderSavedEstimates(){
     const hasProject=e.crmProjectId && projects.some(p=>p.id===e.crmProjectId);
     return `
     <tr data-id="${escapeHtml(e.id)}" class="${e.id===BUILDER.id?"row-current":""}">
-      <td data-label="Estimate #" class="nowrap"><b>${escapeHtml(e.estimateNumber)}</b>${e.legacy?`<div class="small">old calculator</div>`:""}</td>
+      <td data-label="Estimate #" class="nowrap"><b>${escapeHtml(e.estimateNumber)}</b>${e.optionLabel?`<div><span class="opt-badge">${escapeHtml(e.optionLabel)}</span></div>`:""}${e.legacy?`<div class="small">old calculator</div>`:""}</td>
       <td data-label="Client">${escapeHtml(e.clientName||"—")}<div class="small">${escapeHtml([e.clientEmail,e.clientPhone].filter(Boolean).join(" · "))}</div></td>
       <td data-label="Address">${escapeHtml(e.address||"—")}<div>${addressBadgeHtml(e)}</div></td>
       <td data-label="Date" class="nowrap">${escapeHtml(formatDate(e.date))}</td>
@@ -795,6 +874,7 @@ function renderPrintView(d){
         <div class="pv-title">
           <div class="pv-doc">ESTIMATE</div>
           <table class="pv-meta">
+            ${d.optionLabel?`<tr><td>Option</td><td><b>${escapeHtml(d.optionLabel)}</b></td></tr>`:""}
             <tr><td>Estimate #</td><td>${escapeHtml(d.estimateNumber)}</td></tr>
             <tr><td>Date</td><td>${escapeHtml(formatDate(d.date))}</td></tr>
           </table>
@@ -844,16 +924,9 @@ function printEstimate(){
 
 /* ---------- Email ---------- */
 
-function buildEmailBody(d, {withTerms=true}={}){
+// The services of an estimate as email lines, prices with tax included, grouped by category.
+function estimateLinesText(d){
   const lines=[];
-  lines.push(`Hello ${d.clientName || "there"},`,"");
-  lines.push(`Please find your estimate from ${companyName()} below.`,"");
-  if(d.clientMessage) lines.push(d.clientMessage,"");
-  lines.push(`Estimate #: ${d.estimateNumber || "N/A"}`);
-  lines.push(`Date: ${formatDate(d.date) || "N/A"}`);
-  lines.push(`Client: ${d.clientName || "N/A"}`);
-  lines.push(`Project: ${d.address || "N/A"}`,"");
-
   const clientItems=clientPricedLines(d.items,d.grandTotal); // tax built into the prices
   for(const c of estimateCategories(d)){
     const items=clientItems.filter(it=>it.category===c.key);
@@ -864,6 +937,20 @@ function buildEmailBody(d, {withTerms=true}={}){
     }
     lines.push(`${c.label} total: ${money(items.reduce((t,it)=>t+it.total,0))}`,"");
   }
+  return lines;
+}
+
+function buildEmailBody(d, {withTerms=true}={}){
+  const lines=[];
+  lines.push(`Hello ${d.clientName || "there"},`,"");
+  lines.push(`Please find your estimate from ${companyName()} below.`,"");
+  if(d.clientMessage) lines.push(d.clientMessage,"");
+  lines.push(`Estimate #: ${d.estimateNumber || "N/A"}`);
+  lines.push(`Date: ${formatDate(d.date) || "N/A"}`);
+  lines.push(`Client: ${d.clientName || "N/A"}`);
+  lines.push(`Project: ${d.address || "N/A"}`,"");
+
+  lines.push(...estimateLinesText(d));
 
   lines.push(`TOTAL: ${money(d.grandTotal)} (all taxes included)`,"");
   if(SETTINGS.terms.trim()) lines.push(...(withTerms ? ["TERMS AND CONDITIONS","",SETTINGS.terms.trim(),""] : ["Terms and Conditions: see the attached PDF estimate.",""]));
@@ -902,6 +989,64 @@ function buildEmailSummary(d){
   return lines.join("\n");
 }
 
+// One line per option: "Option B - Estimate EST-2026-1261: $4,200.00 (deposit 10%: $420.00)".
+function optionLine(d){
+  const pct=termsDepositPercent();
+  return `${d.optionLabel || "Option"} - Estimate ${d.estimateNumber}: ${money(d.grandTotal)}`+
+    (pct ? ` (deposit ${formatQty(pct)}%: ${money(round2(d.grandTotal*pct/100))})` : "");
+}
+
+function optionsIntro(ds){
+  const d=ds[0];
+  return [`Hello ${d.clientName || "there"},`,"",
+    `Thank you for asking ${companyName()} to quote your project${d.address ? ` at ${d.address}` : ""}. `+
+    `We prepared ${ds.length} options for you to choose from:`,""];
+}
+
+// Several options in one email, with their PDFs attached: only the basics.
+function buildOptionsEmailSummary(ds){
+  const lines=optionsIntro(ds);
+  ds.forEach(d=>lines.push(optionLine(d)));
+  lines.push("","All prices include taxes. The full details of each option and our terms are in the attached PDFs.","",
+    "If you have any questions, just reply to this email or give us a call.","",...emailSignature());
+  return lines.join("\n");
+}
+
+// The same without PDFs: every option with its services, the terms once.
+function buildOptionsEmailFull(ds){
+  const lines=optionsIntro(ds);
+  ds.forEach(d=>{ lines.push(optionLine(d).toUpperCase(),"",...estimateLinesText(d)); });
+  if(SETTINGS.terms.trim()) lines.push("TERMS AND CONDITIONS","",SETTINGS.terms.trim(),"");
+  lines.push("Please let us know which option you choose, or if you have any questions.","",...emailSignature());
+  return lines.join("\n");
+}
+
+// The saved options of the estimate in the builder, ready to send (saved first if needed).
+// null when it is not part of an offer with several options.
+function builderOptionsForSending(action){
+  const est=BUILDER.id ? getEstimate(BUILDER.id) : null;
+  if(!est || estimateOptions(est).length<2) return null;
+  if(hasUnsavedChanges()){
+    if(!confirm(`All options are ${action} together, as they are saved. Save this one first?`)) return false;
+    if(!saveEstimate()) return false;
+  }
+  return estimateOptions(getEstimate(BUILDER.id)).map(estimateDataFromRecord);
+}
+
+function emailEstimateOptions(ds){
+  const first=ds[0];
+  const subject=`${companyName()} Estimate - ${ds.length} options - ${first.address || first.clientName || "Project"}`;
+  ds.forEach(d=>issueEstimateNumber(d.estimateNumber));
+  const viaGmail=(to=first.clientEmail,subj=subject)=>openMailto(to,subj,buildOptionsEmailFull(ds),buildOptionsEmailSummary(ds));
+  if(!canSendFromCrm()) return viaGmail();
+  openSendMail({
+    title:`Send ${ds.length} options (${ds.map(d=>d.estimateNumber).join(", ")})`,
+    to:first.clientEmail, subject, text:buildOptionsEmailSummary(ds), textWithoutPdf:buildOptionsEmailFull(ds),
+    attachments:ds.map(d=>({filename:estimatePdfName(d),render:()=>renderPrintView(d)})),
+    fallback:({to,subject:subj})=>viaGmail(to,subj)
+  });
+}
+
 function emailEstimate(){
   const d=getEstimateData();
   if(!d.clientEmail){
@@ -910,6 +1055,9 @@ function emailEstimate(){
     $("clientEmail").focus();
     return;
   }
+  const options=builderOptionsForSending("emailed");
+  if(options===false) return;
+  if(options) return emailEstimateOptions(options);
   const subject=`${companyName()} Estimate ${d.estimateNumber} - ${d.address || d.clientName || "Project"}`;
   issueEstimateNumber(d.estimateNumber);
   const viaGmail=(to=d.clientEmail,subj=subject)=>openMailto(to,subj,buildEmailBody(d),buildEmailBody(d,{withTerms:false}));
