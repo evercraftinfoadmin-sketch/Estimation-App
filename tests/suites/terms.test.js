@@ -7,6 +7,7 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   const errs=[]; p.on('pageerror',e=>errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')errs.push(m.text());});
   p.on('dialog',d=>d.accept());
   await p.addInitScript(() => { window.__prints = 0; window.print = () => { window.__prints++; }; });
+  await p.route('https://cdn.jsdelivr.net/npm/html2pdf.js@0.14.0/**',r=>r.fulfill({path:require.resolve('html2pdf.js/dist/html2pdf.bundle.min.js'),contentType:'application/javascript'}));
   await p.goto(FILE);
   await p.fill('#clientName','Ann Lee'); await p.fill('#clientEmail','ann@x.com'); await p.fill('#projectAddress','1 Main St');
   await p.click('[data-action=add-service][data-category=painting]');
@@ -19,15 +20,15 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   ok(missing.length===0,'PDF contains the full Terms & Conditions '+JSON.stringify(missing));
   ok(/License #1133560/.test(pv) && /\+1 818 913 4820/.test(pv.split('TERMS')[0]),'PDF header shows phone, email and license');
   ok(pv.indexOf('TERMS AND CONDITIONS')>pv.indexOf('TOTAL'),'terms appear after the totals');
-  const body=await p.evaluate(()=>buildEmailBody(getEstimateData()));
-  ok(must.every(s=>body.includes(s)),'email contains the full Terms & Conditions');
+  const body=await p.evaluate(()=>buildEmailSummary(getEstimateData()));
+  ok(body.includes('our terms is in the attached PDF') && !body.includes('PAYMENT SCHEDULE'),'the email says the terms are in the attached PDF (the PDF always goes with it)');
   // client message: optional, saved with the estimate, on the PDF (before the services) and in the email
   ok(await p.isVisible('#clientMessage') && !(await p.innerText('#printView')).includes('Thank you Ann'),'builder has an empty "Message to client" box; nothing extra on the PDF when empty');
   await p.fill('#clientMessage','Thank you Ann!\nWork can start next Monday.');
   await printAndWait();
   const pv2=await p.innerText('#printView');
   ok(pv2.includes('Thank you Ann!') && pv2.includes('Work can start next Monday.') && pv2.indexOf('Thank you Ann!')<pv2.indexOf('PAINTING'),'PDF shows the client message (with line breaks) before the services');
-  ok((await p.evaluate(()=>buildEmailBody(getEstimateData()))).includes('Thank you Ann!\nWork can start next Monday.'),'email contains the client message');
+  ok((await p.evaluate(()=>buildEmailSummary(getEstimateData()))).includes('Thank you Ann!\nWork can start next Monday.'),'email contains the client message');
   await p.evaluate(()=>saveEstimate());
   const saved=await p.evaluate(()=>loadEstimates().find(e=>e.clientName==='Ann Lee'));
   ok(saved && saved.clientMessage==='Thank you Ann!\nWork can start next Monday.','client message is saved with the estimate');
@@ -46,14 +47,14 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   ok(m.length===1 && m[0].target==='_blank' && p.url()===urlBefore && !dialogsBefore.includes('beforeunload'),'Email opens in a new window: the app page stays, no "Leave site?" warning');
   const g=m.length ? new URL(m[0].href) : null, gBody=g ? g.searchParams.get('body')||'' : '';
   ok(g && g.origin==='https://mail.google.com' && g.searchParams.get('authuser')==='EverCraft.pro@gmail.com' && g.searchParams.get('view')==='cm' && g.searchParams.get('to')==='ann@x.com' && /Estimate/.test(g.searchParams.get('su')||''),'Email opens Gmail as EverCraft.pro@gmail.com, to the client, with the subject');
-  ok(m[0].href.length<=8000 && gBody.includes('TOTAL:') && gBody.includes('Thank you Ann!') && gBody.includes('PAYMENT SCHEDULE'),'Gmail email keeps the estimate details and the full terms ('+m[0].href.length+')');
+  ok(m[0].href.length<=8000 && gBody.includes('TOTAL:') && gBody.includes('Thank you Ann!') && gBody.includes('attached PDF') && !gBody.includes('PAYMENT SCHEDULE'),'Gmail gets the short email; the details and terms are in the PDF ('+m[0].href.length+')');
   // empty "Send from" → the device's mail app, shortened to fit
   await p.evaluate(()=>{ SETTINGS.emailFrom=''; window.__mailto=[]; });
   await p.click('#btnEmail'); await p.waitForTimeout(300);
   m=await p.evaluate(()=>window.__mailto);
   const mailBody=decodeURIComponent(m[0].href.split('&body=')[1]||'');
   ok(m[0].href.length<=1900 && m[0].href.startsWith('mailto:ann%40x.com?subject=') && mailBody.includes('TOTAL:') && mailBody.includes('Thank you Ann!'),'without a Gmail address: mailto link stays under 1900 characters and keeps the estimate details ('+m[0].href.length+')');
-  ok(mailBody.includes('see the attached PDF') && (await p.innerText('.toast')).includes('shorter text'),'long terms are replaced by "see the attached PDF" and the user is told');
+  ok(mailBody.includes('attached PDF') && !mailBody.includes('(Shortened.'),'the short email fits a mailto link without being cut');
   await p.evaluate(()=>{ SETTINGS=loadSettings(); });
   // the setting is on the Settings page and is saved
   await p.click('#mainNav [data-page=settings]');

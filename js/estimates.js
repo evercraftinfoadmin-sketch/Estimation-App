@@ -944,42 +944,6 @@ function printEstimate(){
 
 /* ---------- Email ---------- */
 
-// The services of an estimate as email lines, prices with tax included, grouped by category.
-function estimateLinesText(d){
-  const lines=[];
-  const clientItems=clientPricedLines(d.items,d.grandTotal); // tax built into the prices
-  for(const c of estimateCategories(d)){
-    const items=clientItems.filter(it=>it.category===c.key);
-    if(!items.length) continue;
-    lines.push(c.label.toUpperCase());
-    for(const it of items){
-      lines.push(`- ${it.name || "Service"}: Qty ${formatQty(it.quantity)} x ${clientUnitPrice(it)} = ${money(it.total)}`);
-    }
-    lines.push(`${c.label} total: ${money(items.reduce((t,it)=>t+it.total,0))}`,"");
-  }
-  return lines;
-}
-
-function buildEmailBody(d, {withTerms=true}={}){
-  const lines=[];
-  lines.push(`Hello ${d.clientName || "there"},`,"");
-  lines.push(`Please find your estimate from ${companyName()} below.`,"");
-  if(d.clientMessage) lines.push(d.clientMessage,"");
-  lines.push(`Estimate #: ${d.estimateNumber || "N/A"}`);
-  lines.push(`Date: ${formatDate(d.date) || "N/A"}`);
-  lines.push(`Client: ${d.clientName || "N/A"}`);
-  lines.push(`Project: ${d.address || "N/A"}`,"");
-
-  lines.push(...estimateLinesText(d));
-
-  lines.push(`TOTAL: ${money(d.grandTotal)} (all taxes included)`,"");
-  if(SETTINGS.terms.trim()) lines.push(...(withTerms ? ["TERMS AND CONDITIONS","",SETTINGS.terms.trim(),""] : ["Terms and Conditions: see the attached PDF estimate.",""]));
-  if(SETTINGS.estimateFooter) lines.push(SETTINGS.estimateFooter,"");
-  lines.push("Please let us know if you have any questions.","","Best regards,");
-  lines.push(...[SETTINGS.companyName,...companyContactParts()]);
-  return lines.join("\n");
-}
-
 // Deposit percentage from the payment schedule in the Terms ("a deposit of ten percent (10%)"),
 // so the email always matches them. null when the Terms name no deposit.
 function termsDepositPercent(){
@@ -1032,15 +996,6 @@ function buildOptionsEmailSummary(ds){
   return lines.join("\n");
 }
 
-// The same without PDFs: every option with its services, the terms once.
-function buildOptionsEmailFull(ds){
-  const lines=optionsIntro(ds);
-  ds.forEach(d=>{ lines.push(optionLine(d).toUpperCase(),"",...estimateLinesText(d)); });
-  if(SETTINGS.terms.trim()) lines.push("TERMS AND CONDITIONS","",SETTINGS.terms.trim(),"");
-  lines.push("Please let us know which option you choose, or if you have any questions.","",...emailSignature());
-  return lines.join("\n");
-}
-
 // The saved options of the estimate in the builder, ready to send (saved first if needed).
 // null when it is not part of an offer with several options.
 function builderOptionsForSending(action){
@@ -1057,12 +1012,13 @@ function emailEstimateOptions(ds){
   const first=ds[0];
   const subject=`${companyName()} Estimate - ${ds.length} options - ${first.address || first.clientName || "Project"}`;
   ds.forEach(d=>issueEstimateNumber(d.estimateNumber));
-  const viaGmail=(to=first.clientEmail,subj=subject)=>openMailto(to,subj,buildOptionsEmailFull(ds),buildOptionsEmailSummary(ds));
+  const files=ds.map(d=>({filename:estimatePdfName(d),render:()=>renderPrintView(d)}));
+  const viaGmail=(to=first.clientEmail,subj=subject)=>{ openMailto(to,subj,buildOptionsEmailSummary(ds)); downloadPdfsForGmail(files); };
   if(!canSendFromCrm()) return viaGmail();
   openSendMail({
     title:`Send ${ds.length} options (${ds.map(d=>d.estimateNumber).join(", ")})`,
-    to:first.clientEmail, subject, text:buildOptionsEmailSummary(ds), textWithoutPdf:buildOptionsEmailFull(ds),
-    attachments:ds.map(d=>({filename:estimatePdfName(d),render:()=>renderPrintView(d)})),
+    to:first.clientEmail, subject, text:buildOptionsEmailSummary(ds),
+    attachments:files,
     fallback:({to,subject:subj})=>viaGmail(to,subj)
   });
 }
@@ -1080,11 +1036,12 @@ function emailEstimate(){
   if(options) return emailEstimateOptions(options);
   const subject=`${companyName()} Estimate ${d.estimateNumber} - ${d.address || d.clientName || "Project"}`;
   issueEstimateNumber(d.estimateNumber);
-  const viaGmail=(to=d.clientEmail,subj=subject)=>openMailto(to,subj,buildEmailBody(d),buildEmailBody(d,{withTerms:false}));
+  const pdf={filename:estimatePdfName(d),render:()=>renderPrintView(d)};
+  const viaGmail=(to=d.clientEmail,subj=subject)=>{ openMailto(to,subj,buildEmailSummary(d)); downloadPdfsForGmail([pdf]); };
   if(!canSendFromCrm()) return viaGmail();
   openSendMail({
     title:`Send estimate ${d.estimateNumber}`,
-    to:d.clientEmail, subject, text:buildEmailSummary(d), textWithoutPdf:buildEmailBody(d),
+    to:d.clientEmail, subject, text:buildEmailSummary(d),
     filename:estimatePdfName(d),
     render:()=>renderPrintView(d),
     fallback:({to,subject:subj})=>viaGmail(to,subj)
