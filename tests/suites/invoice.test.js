@@ -70,8 +70,8 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   const pv=await p.innerText('#printView');
   ok(await p.evaluate(()=>{ const i=document.querySelector('#printView .pv-header .pv-logo'); return !!i && i.complete && i.naturalWidth>0; }),'PDF: company logo at the top');
   ok(await p.evaluate(()=>window.__prints)===n0+1 && pv.includes('INVOICE') && pv.includes(`INV-${year}-1001`) && pv.includes('Extra: patch ceiling') && pv.includes('BALANCE DUE') && pv.includes('Zelle') && pv.includes('Thanks Ann!') && pv.includes('TERMS AND CONDITIONS'),'PDF: INVOICE, number, lines, payments, balance, message, terms');
-  const body=await p.evaluate(()=>buildInvoiceEmailBody(computeInvoice(normalizeInvoice(EDITING_INVOICE))));
-  ok(body.includes(`Invoice #: INV-${year}-1001`) && body.includes('TOTAL: $3,200.00') && body.includes('BALANCE DUE: $0.00') && body.includes('Thanks Ann!'),'email body: number, total, balance, message');
+  const body=await p.evaluate(()=>buildInvoiceEmailSummary(computeInvoice(normalizeInvoice(EDITING_INVOICE))));
+  ok(body.includes(`Invoice #: INV-${year}-1001`) && body.includes('TOTAL: $3,200.00') && body.includes('BALANCE DUE: $0.00') && body.includes('Thanks Ann!') && body.includes('attached PDF'),'email body: number, total, balance, message; details in the attached PDF');
   const sums=await p.evaluate(()=>{ const inv=computeInvoice(normalizeInvoice(EDITING_INVOICE)); return Math.round(clientPricedLines(inv.items,inv.total).reduce((t,i)=>t+i.total,0)*100)===Math.round(inv.total*100); });
   ok(!/Subtotal|Markup|Sales Tax/.test(pv) && !/Subtotal|Markup|Sales Tax/.test(body) && pv.includes('All taxes included') && body.includes('(all taxes included)') && sums,'invoice for the client: no subtotal, markup or tax line; prices add up to the total, all taxes included');
   await p.click('#invoiceForm button[type=submit]');

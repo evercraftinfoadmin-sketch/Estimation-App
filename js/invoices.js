@@ -411,22 +411,6 @@ function printInvoice(inv){
   document.title=original;
 }
 
-function buildInvoiceEmailBody(inv, {withTerms=true}={}){
-  const lines=[`Hello ${inv.clientName || "there"},`,"",`Please find your invoice from ${companyName()} below.`,""];
-  if(inv.clientMessage) lines.push(inv.clientMessage,"");
-  lines.push(`Invoice #: ${inv.invoiceNumber}`,`Date: ${formatDate(inv.date)}`);
-  if(inv.dueDate) lines.push(`Due date: ${formatDate(inv.dueDate)}`);
-  if(inv.estimateNumber) lines.push(`Estimate #: ${inv.estimateNumber}`);
-  lines.push(`Project: ${inv.address || "N/A"}`,"");
-  for(const it of clientPricedLines(inv.items,inv.total)) lines.push(`- ${it.name || "Service"}: Qty ${formatQty(it.quantity)} x ${clientUnitPrice(it)} = ${money(it.total)}`);
-  lines.push("",`TOTAL: ${money(inv.total)} (all taxes included)`);
-  for(const p of inv.payments) lines.push(`Paid ${formatDate(p.date)} (${p.method}): ${money(p.amount)}`);
-  lines.push(`BALANCE DUE: ${money(inv.status==="void"?0:inv.balance)}`,"");
-  if(SETTINGS.terms.trim()) lines.push(...(withTerms ? ["TERMS AND CONDITIONS","",SETTINGS.terms.trim(),""] : ["Terms and Conditions: see the attached PDF invoice.",""]));
-  lines.push("Thank you for your business!","","Best regards,",...[SETTINGS.companyName,...companyContactParts()]);
-  return lines.join("\n");
-}
-
 // The email sent from the CRM with the PDF attached: only the basics; the lines and terms are in the PDF.
 function buildInvoiceEmailSummary(inv){
   const lines=[`Hello ${inv.clientName || "there"},`,"",
@@ -446,7 +430,8 @@ function emailInvoice(inv){
   const sign=completionSignOption(inv);
   const viaGmail=(to=inv.clientEmail,subj=subject,extraText="")=>{
     markInvoiceSent();
-    openMailto(to,subj,buildInvoiceEmailBody(inv)+extraText,buildInvoiceEmailBody(inv,{withTerms:false})+extraText);
+    openMailto(to,subj,buildInvoiceEmailSummary(inv)+extraText);
+    downloadPdfsForGmail([{filename:invoicePdfName(inv),render:()=>renderInvoicePrint(inv)}]);
   };
   if(!canSendFromCrm()){
     if(!sign || !confirm("Include the Certificate of Completion for the client to sign?")) return viaGmail();
@@ -459,7 +444,7 @@ function emailInvoice(inv){
   }
   openSendMail({
     title:`Send invoice ${inv.invoiceNumber}`,
-    to:inv.clientEmail, subject, text:buildInvoiceEmailSummary(inv), textWithoutPdf:buildInvoiceEmailBody(inv),
+    to:inv.clientEmail, subject, text:buildInvoiceEmailSummary(inv),
     filename:invoicePdfName(inv),
     render:()=>renderInvoicePrint(inv),
     sign,

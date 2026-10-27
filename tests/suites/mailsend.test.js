@@ -52,16 +52,10 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   ok(await p.isVisible('#sendMailModal') && await p.inputValue('#smTo')==='ann@x.com' && (await p.inputValue('#smSubject')).includes(est.estimateNumber),'signed in: Email opens the Send window, client address and subject filled in');
   const short=await p.inputValue('#smText');
   ok(short.includes('TOTAL: $3,000.00 (all taxes included)') && short.includes('Required deposit (10%): $300.00') && short.includes('Thanks Ann!') && short.includes('attached PDF') && short.includes('Best regards,') && !short.includes('PAYMENT SCHEDULE') && !short.includes('Interior Painting'),'the email with the PDF has only the basics: total, the deposit from the Terms (10%), the client message; services and terms are in the PDF');
-  await p.click('#smAttach');
-  const full=await p.inputValue('#smText');
-  ok(full.includes('Interior Painting') && full.includes('PAYMENT SCHEDULE') && full.includes('TOTAL: $3,000.00'),'without the PDF ("Attach PDF" unticked) the email has the full estimate and terms');
-  await p.click('#smAttach');
-  ok(await p.inputValue('#smText')===short && await p.isChecked('#smAttach'),'ticking it again brings back the short email');
-  ok((await p.textContent('#smFrom')).includes('From: evercraft.pro@gmail.com') && (await p.textContent('#smFile')).endsWith(`Estimate ${est.estimateNumber}.pdf`) && await p.isChecked('#smAttach'),'shows the company sender and the PDF file to attach');
+  ok(await p.locator('#smAttach').count()===0 && (await p.innerText('#sendMailModal')).includes('Attached PDF:'),'there is no "Attach PDF" checkbox: the PDF always goes with the email');
+  ok((await p.textContent('#smFrom')).includes('From: evercraft.pro@gmail.com') && (await p.textContent('#smFile')).endsWith(`Estimate ${est.estimateNumber}.pdf`),'shows the company sender and the PDF file that is attached');
   await p.locator('#sendMailModal .modal-box').screenshot({path:OUT+'/send-mail.png'});
   await p.fill('#smText',(await p.inputValue('#smText'))+'\nP.S. edited here');
-  await p.click('#smAttach'); await p.click('#smAttach');
-  ok((await p.inputValue('#smText')).endsWith('P.S. edited here'),'a message the person edited is never replaced when "Attach PDF" is toggled');
   await p.click('#smSend');
   await p.waitForFunction(()=>!document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:30000});
   const s=svc.sent[0]||{body:{},headers:{}};
@@ -77,9 +71,9 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   // the service refuses
   svc.reply={status:401,body:{error:'Sign in to the CRM again, then send.'}};
   await p.click('#btnEmail'); await p.waitForFunction(()=>$('smFrom').textContent.includes('evercraft'));
-  await p.click('#smAttach'); await p.click('#smSend');
-  await p.waitForFunction(()=>$('smStatus').textContent.includes('Sign in'));
-  ok(await p.isVisible('#sendMailModal') && !(svc.sent[1].body.attachment),'a refused send keeps the window open with the reason; "Attach PDF" off sends no PDF');
+  await p.click('#smSend');
+  await p.waitForFunction(()=>$('smStatus').textContent.includes('Sign in'),null,{timeout:30000});
+  ok(await p.isVisible('#sendMailModal') && svc.sent[1].body.attachment && svc.sent[1].body.attachment.base64.length>1000,'a refused send keeps the window open with the reason (the PDF was attached)');
   // fall back to Gmail from the window
   await p.click('#smGmail');
   const opened=await p.evaluate(()=>window.__opened);

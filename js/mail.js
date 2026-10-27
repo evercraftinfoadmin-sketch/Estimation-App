@@ -140,20 +140,16 @@ function setSendStatus(text, isError){
 
 // Opens the "Send email" window. mail: {title, to, subject, text, filename, render, fallback, onSent}
 function sendMailFiles(mail){
-  return mail.attachments && mail.attachments.length ? mail.attachments : [{filename:mail.filename,render:mail.render}];
+  return (mail.attachments && mail.attachments.length ? mail.attachments : [{filename:mail.filename,render:mail.render}]).filter(f=>f.render);
 }
 
-// The short text goes with the PDF; without the PDF the full text is used (mail.textWithoutPdf).
-function sendMailAutoText(mail, withPdf){
-  return (!withPdf && mail.textWithoutPdf) ? mail.textWithoutPdf : (mail.text || "");
-}
-
-// Ticking or unticking "Attach PDF" swaps the text, unless the person has edited it.
-function handleSendMailAttachChange(){
-  const mail=SEND_MAIL;
-  if(!mail || !mail.textWithoutPdf) return;
-  const withPdf=$("smAttach").checked;
-  if($("smText").value===sendMailAutoText(mail,!withPdf)) $("smText").value=sendMailAutoText(mail,withPdf);
+// Gmail and mail apps cannot be handed a file: the PDF(s) are saved so they can be attached there.
+// Called right after the email window is opened, so the PDF always goes with the email.
+async function downloadPdfsForGmail(files){
+  const list=(files || []).filter(f=>f && f.render);
+  if(!list.length) return;
+  for(const f of list) await downloadPdf(f.render,f.filename);
+  showToast(list.length>1 ? `${list.length} PDFs saved: attach them to the email in Gmail.` : `${list[0].filename} saved: attach it to the email in Gmail.`);
 }
 
 function openSendMail(mail){
@@ -161,8 +157,7 @@ function openSendMail(mail){
   $("smTitle").textContent=mail.title || "Send email";
   $("smTo").value=mail.to || "";
   $("smSubject").value=mail.subject || "";
-  $("smAttach").checked=mail.attach!==false;
-  $("smText").value=sendMailAutoText(mail,$("smAttach").checked);
+  $("smText").value=mail.text || "";
   $("smSignRow").hidden=!mail.sign;
   if(mail.sign){ $("smSignLabel").textContent=mail.sign.label; $("smSign").checked=true; }
   $("smFile").textContent=sendMailFiles(mail).map(f=>f.filename).join(" · ");
@@ -210,12 +205,11 @@ async function submitSendMail(event){
     // One PDF, or one per option (mail.attachments: [{filename, render}]).
     const files=sendMailFiles(mail);
     const made=[];
-    if($("smAttach").checked){
-      for(const [i,f] of files.entries()){
-        setSendStatus(files.length>1 ? `Making PDF ${i+1} of ${files.length}…` : "Making the PDF…");
-        try{ made.push({filename:f.filename,base64:await makePdfBase64(f.render,String(f.filename||"").replace(/\.pdf$/i,""))}); }
-        catch(e){ setSendStatus("The PDF could not be made on this device. Try again on a computer, or untick \"Attach PDF\".",true); return; }
-      }
+    // The PDF always goes with the email.
+    for(const [i,f] of files.entries()){
+      setSendStatus(files.length>1 ? `Making PDF ${i+1} of ${files.length}…` : "Making the PDF…");
+      try{ made.push({filename:f.filename,base64:await makePdfBase64(f.render,String(f.filename||"").replace(/\.pdf$/i,""))}); }
+      catch(e){ setSendStatus("The PDF could not be made on this device, so nothing was sent. Try again on a computer.",true); return; }
     }
     const attachment=made.length===1 ? made[0] : null, attachments=made.length>1 ? made : undefined;
     setSendStatus("Sending…");
@@ -239,7 +233,6 @@ async function submitSendMail(event){
 
 function wireMailEvents(){
   $("sendMailForm").addEventListener("submit",submitSendMail);
-  $("smAttach").addEventListener("change",handleSendMailAttachChange);
   $("smGmail").addEventListener("click",async()=>{
     const mail=SEND_MAIL;
     if(!mail) return;

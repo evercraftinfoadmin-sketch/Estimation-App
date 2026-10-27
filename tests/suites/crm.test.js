@@ -6,7 +6,8 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
 
 (async () => {
   const b = await launch();
-  const ctx = await b.newContext({ viewport: { width: 1360, height: 1000 } });
+  const ctx = await b.newContext({ viewport: { width: 1360, height: 1000 }, acceptDownloads: true });
+  await ctx.route('https://cdn.jsdelivr.net/npm/html2pdf.js@0.14.0/**', r => r.fulfill({ path: require.resolve('html2pdf.js/dist/html2pdf.bundle.min.js'), contentType: 'application/javascript' }));
   const p = await ctx.newPage();
   const printAndWait = async () => { const n = await p.evaluate(() => window.__prints); await p.click('#btnPrint'); await p.waitForFunction(n => window.__prints > n, n, { timeout: 5000 }); };
 
@@ -225,10 +226,11 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   await p.emulateMedia({ media: 'screen' });
 
   // ---------- 21. Email ----------
-  const body = await p.evaluate(() => buildEmailBody(getEstimateData()));
-  ok(['Maria <b>Lopez</b>', '42 Elm St', 'EST-2026-1001', client.line, 'TOTAL:', '(all taxes included)', 'EverCraft Home Improvement'].every(s => body.includes(s)), '21. email body: client, project, #, services qty×price (client prices), total, company');
+  const body = await p.evaluate(() => buildEmailSummary(getEstimateData()));
+  ok(['Maria <b>Lopez</b>', '42 Elm St', 'EST-2026-1001', 'TOTAL:', '(all taxes included)', 'attached PDF', 'EverCraft Home Improvement'].every(s => body.includes(s)), '21. email body: client, project, #, total, company; the details are in the attached PDF');
   ok(!/Subtotal|Markup|Sales Tax|\$4\.50/.test(body), '21. email body: no subtotal, markup, tax line or internal prices');
   await p.evaluate(() => { window.__opened = []; window.__aclick = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function(){ window.__opened.push(this.href); }; });
+  const gmailPdf = p.waitForEvent('download', { timeout: 30000 });
   const mailto = await p.evaluate(() => new Promise(resolve => {
     const orig = window.emailEstimate;
     let captured = null;
@@ -239,6 +241,8 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   }));
   const opened = await p.evaluate(() => { HTMLAnchorElement.prototype.click = window.__aclick; return window.__opened; });
   ok(mailto === null && opened.length === 1 && opened[0].startsWith('https://mail.google.com/mail/?authuser=EverCraft.pro%40gmail.com&view=cm&fs=1&to=maria%40example.com'), '21. Email Client button opens Gmail as the company address');
+  const gpdf = await gmailPdf;
+  ok(gpdf.suggestedFilename() === 'EverCraft Home Improvement Estimate EST-2026-1001.pdf' && require('fs').readFileSync(await gpdf.path()).slice(0, 5).toString() === '%PDF-', '21. with Gmail, the PDF is saved at the same time so it can be attached (the PDF always goes with the email)');
   await p.fill('#clientEmail', '');
   await p.click('#btnEmail');
   ok(lastDialog().includes("client's email"), '21. email requires client email');

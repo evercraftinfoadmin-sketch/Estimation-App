@@ -108,7 +108,6 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   await p.click('#invoiceModal [data-inv=email]');
   await p.waitForFunction(()=>document.getElementById('sendMailModal').classList.contains('open'));
   ok(await p.isVisible('#smSignRow') && await p.isChecked('#smSign') && (await p.textContent('#smSignLabel')).includes('Certificate of Completion'),'the invoice Send window offers the Certificate of Completion');
-  await p.click('#smAttach');
   await p.click('#smSend');
   await p.waitForFunction(()=>!document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:20000});
   d=[...docs.values()].at(-1); const invNo=await p.evaluate(()=>loadInvoices()[0].invoiceNumber);

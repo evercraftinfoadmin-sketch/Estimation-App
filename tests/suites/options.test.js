@@ -79,9 +79,6 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   const text=await p.inputValue('#smText');
   ok((await p.textContent('#smTitle')).startsWith('Send 3 options') && (await p.textContent('#smFile')).split(' · ').length===3,'Email sends all 3 options: the window lists 3 PDFs');
   ok(text.includes('We prepared 3 options') && text.includes(`Option A - Estimate ${A.estimateNumber}: $3,000.00 (deposit 10%: $300.00)`) && text.includes('Option C - Estimate') && text.includes('$5,000.00') && !text.includes('Interior Painting'),'the email lists each option with its total and deposit; details are in the PDFs');
-  await p.click('#smAttach');
-  ok((await p.inputValue('#smText')).includes('Interior Painting') && (await p.inputValue('#smText')).includes('TERMS AND CONDITIONS'),'without PDFs, the email has every option in full and the terms once');
-  await p.click('#smAttach');
   await p.click('#smSend');
   await p.waitForFunction(()=>!document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:60000});
   const m1=mails[0]||{};

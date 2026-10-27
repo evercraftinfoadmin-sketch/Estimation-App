@@ -150,9 +150,9 @@ function signLinkLine(docLabel, url){
 
 // Emails a signing link: Send window when the CRM sends email itself, otherwise Gmail / the mail app.
 function sendSignLink({to, subject, text, title, pdfName, render}){
-  const viaGmail=(t=to,s=subject)=>openMailto(t,s,text);
+  const viaGmail=(t=to,s=subject)=>{ openMailto(t,s,text); downloadPdfsForGmail([{filename:pdfName,render}]); };
   if(canSendFromCrm()){
-    openSendMail({title, to, subject, text, filename:pdfName, render, attach:!!render, fallback:({to:t,subject:s})=>viaGmail(t,s)});
+    openSendMail({title, to, subject, text, filename:pdfName, render, fallback:({to:t,subject:s})=>viaGmail(t,s)});
   }else{
     viaGmail();
   }
@@ -190,10 +190,11 @@ async function sendOptionsForSignature(ds){
     `Signing takes about a minute, on a phone or a computer, and you will receive a copy of the signed document.`,"",
     "Best regards,",...[SETTINGS.companyName,...companyContactParts()]].join("\n");
   const subject=`Please choose and sign: ${companyName()} Estimate - ${ds.length} options`;
-  const viaGmail=(t=first.clientEmail,s=subject)=>openMailto(t,s,text);
+  const files=ds.map(d=>({filename:estimatePdfName(d),render:()=>renderPrintView(d)}));
+  const viaGmail=(t=first.clientEmail,s=subject)=>{ openMailto(t,s,text); downloadPdfsForGmail(files); };
   if(canSendFromCrm()){
     openSendMail({title:`Send ${ds.length} options for signature`, to:first.clientEmail, subject, text,
-      attachments:ds.map(d=>({filename:estimatePdfName(d),render:()=>renderPrintView(d)})), fallback:({to:t,subject:s})=>viaGmail(t,s)});
+      attachments:files, fallback:({to:t,subject:s})=>viaGmail(t,s)});
   }else{
     viaGmail();
   }
