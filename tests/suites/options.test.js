@@ -135,15 +135,19 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.evaluate(()=>{ CLOUD.role='admin'; });
   await p.click('#btnAddOption');
   const nc=async()=>(await ests()).filter(e=>e.clientName==='New Client');
+  ok(await p.isVisible('#btnRemoveOption') && (await p.textContent('#btnRemoveOption')).startsWith('🗑 Remove Option C'),'a big red "Remove Option C" button sits under "+ Add Option"');
   ok((await nc()).map(e=>e.optionLabel).sort().join()==='Option A,Option B,Option C' && (await p.textContent('#builderMeta .opt-remove')).includes('Remove Option C'),'the option bar has "Remove Option C" for the option that is open');
   const cNum=(await nc()).find(e=>e.optionLabel==='Option C').estimateNumber;
-  await p.click('#builderMeta .opt-remove');
+  await p.click('#btnRemoveOption');
   ok(dialogs.at(-1).includes('Delete Option C') && dialogs.at(-1).includes('The other 2 options stay') && (await nc()).map(e=>e.optionLabel).sort().join()==='Option A,Option B','removing asks first, deletes only Option C, the others stay');
   ok(await p.evaluate(()=>BUILDER.optionLabel)==='Option A' && await p.locator('#builderMeta .opt-pill').count()===2,'the builder then shows a remaining option');
   await p.click('#mainNav [data-page=estimates]');
   const bNum=(await nc()).find(e=>e.optionLabel==='Option B').estimateNumber;
   await p.locator('#estimatesBody tr',{hasText:bNum}).locator('[data-action=delete]').click();
   const left=await nc();
+  await p.click('#mainNav [data-page=builder]');
+  ok(await p.isHidden('#btnRemoveOption'),'with a single estimate (no options) the Remove button is hidden');
+  await p.click('#mainNav [data-page=estimates]');
   ok(left.length===1 && !left[0].optionGroup && !left[0].optionLabel && !(await ests()).some(e=>e.estimateNumber===cNum),'deleting Option B in Saved Estimates leaves one normal estimate (no option label)');
 
   // the option the CRM project shows is deleted → the project moves to a remaining option
