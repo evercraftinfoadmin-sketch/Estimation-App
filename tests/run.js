@@ -4,9 +4,9 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const SUITES = ['crm', 'category', 'lineedit', 'terms', 'photo', 'address', 'import', 'restore', 'delete', 'invoice', 'cloud', 'mailsend', 'signing', 'options', 'mailworker', 'signworker'];
-const SHARED_ONLY = new Set(['cloud', 'mailsend', 'signing', 'options']); // use their own fake services
-const NODE_ONLY = new Set(['mailworker', 'signworker']); // the mail and signing service
+const SUITES = ['crm', 'category', 'lineedit', 'terms', 'photo', 'address', 'import', 'restore', 'delete', 'invoice', 'cloud', 'mailsend', 'signing', 'options', 'calendar', 'mailworker', 'signworker', 'calworker'];
+const SHARED_ONLY = new Set(['cloud', 'mailsend', 'signing', 'options', 'calendar']); // use their own fake services
+const NODE_ONLY = new Set(['mailworker', 'signworker', 'calworker']); // the mail and signing service
 const only = process.argv.slice(2);
 const runs = [];
 for (const s of SUITES.filter(s => !only.length || only.includes(s))) {

@@ -85,7 +85,13 @@ const DEFAULT_SETTINGS = {
   terms: DEFAULT_TERMS,
   signTextEstimate: DEFAULT_SIGN_TEXT_ESTIMATE,
   signTextWork: DEFAULT_SIGN_TEXT_WORK,
-  signTextCompletion: DEFAULT_SIGN_TEXT_COMPLETION
+  signTextCompletion: DEFAULT_SIGN_TEXT_COMPLETION,
+  // Google Calendar (js/calendar.js). calendarTeam: JSON list of team calendars.
+  calendarEnabled: "",
+  calendarSince: "",
+  calendarMain: "primary",
+  calendarTeam: "[]",
+  calendarOnCancel: "delete"
 };
 
 function loadSettings(){
@@ -105,7 +111,8 @@ function loadSettings(){
       if(!stored[key]) settings[key]=DEFAULT_SETTINGS[key];
     }
   }
-  for(const key of ["companyName","companyEmail","emailFrom","companyPhone","companyAddress","licenseNumber","estimateFooter","terms","googleMapsApiKey","signTextEstimate","signTextWork","signTextCompletion"]){
+  for(const key of ["companyName","companyEmail","emailFrom","companyPhone","companyAddress","licenseNumber","estimateFooter","terms","googleMapsApiKey","signTextEstimate","signTextWork","signTextCompletion",
+    "calendarEnabled","calendarSince","calendarMain","calendarTeam","calendarOnCancel"]){
     settings[key]=String(settings[key] ?? "");
   }
   return settings;
@@ -172,6 +179,8 @@ function loadSettingsForm(){
   $("setSignCompletion").value=SETTINGS.signTextCompletion;
   $("setSalesTax").value=SETTINGS.salesTax;
   $("setNextNumber").value=SETTINGS.nextEstimateNumber;
+  renderCalendarSettings();
+  if(!CALENDAR_LIST && SETTINGS.calendarEnabled==="on" && canSendFromCrm()) refreshCalendarSettings();
 }
 
 function saveSettings(){
@@ -189,6 +198,7 @@ function saveSettings(){
   SETTINGS.signTextWork=$("setSignWork").value.replace(/\s+$/,"") || DEFAULT_SIGN_TEXT_WORK;
   SETTINGS.signTextCompletion=$("setSignCompletion").value.replace(/\s+$/,"") || DEFAULT_SIGN_TEXT_COMPLETION;
   SETTINGS.salesTax=amount($("setSalesTax").value);
+  readCalendarSettings();
 
   const builderHadAutoNumber=isBuilderAutoNumber();
   SETTINGS.nextEstimateNumber=Math.max(1,Math.floor(num($("setNextNumber").value,SETTINGS.nextEstimateNumber)));
@@ -199,6 +209,7 @@ function saveSettings(){
   if(oldMapsKey!==SETTINGS.googleMapsApiKey) resetPlacesLoader();
   if(builderHadAutoNumber) $("estimateNumber").value=nextAvailableEstimateNumber();
   updateBuilderTotals();
+  scheduleCalendarScan();
   alert("Settings saved.");
 }
 

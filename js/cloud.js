@@ -54,7 +54,8 @@ const CLOUD_NUMBER_FIELDS = new Set(["addressLatitude","addressLongitude","defau
 const CLOUD_SETTINGS_FIELDS = ["companyName","companyEmail","companyPhone","companyAddress","licenseNumber",
   "markup","salesTax","taxMode","estimateFooter","terms"];
 // Settings kept in the CompanySettings record's "extra" field (no table change needed).
-const CLOUD_SETTINGS_EXTRA = ["signTextEstimate","signTextWork","signTextCompletion"];
+const CLOUD_SETTINGS_EXTRA = ["signTextEstimate","signTextWork","signTextCompletion",
+  "calendarEnabled","calendarSince","calendarMain","calendarTeam","calendarOnCancel"];
 // Fields Base44 adds to every record.
 const CLOUD_SYSTEM_FIELDS = new Set(["id","legacy_id","version","extra","deletedAt","created_date","updated_date",
   "created_by_id","created_by","is_sample","app_id","entity_name"]);
