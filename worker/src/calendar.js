@@ -5,8 +5,9 @@
 //   POST /calendar/calendars  the calendars the company account can write to
 //   POST /calendar/sync       add / update / remove the event of one CRM project
 //
-// Each project always gets the same event id (made from the app and project id), so a repeated
-// or retried sync updates that one event and never makes a second one.
+// A project has up to two events: its estimate visit ("ESTIMATE (name), phone") and its job
+// ("JOB (name), phone · technician"). Each always gets the same event id (made from the app,
+// project id and kind), so a repeated or retried sync updates that one event, never a second one.
 
 const CAL_API = "https://www.googleapis.com/calendar/v3";
 const CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/calendar.calendarlist.readonly"];
@@ -15,9 +16,10 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const CAL_ID_RE = /^[A-Za-z0-9._%+#@-]{1,200}$/;
 const DAY_END = "17:00"; // a timed job with no end time ends at 5 PM (or 2 hours after a late start)
 
-// The fixed event id for a project. Google allows the letters a-v and digits; hex is a subset.
-async function projectEventId(appId, projectId) {
-  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${appId}:${projectId}`)));
+// The fixed event id of a project's job / estimate event. Google allows a-v and digits; hex is a subset.
+async function projectEventId(appId, projectId, kind = "job") {
+  const key = kind === "estimate" ? `${appId}:${projectId}:estimate` : `${appId}:${projectId}`;
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)));
   return "evc" + [...bytes].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 40);
 }
 
@@ -47,12 +49,17 @@ function buildEvent(p, { eventId, appId, projectId, timeZone }) {
   if (time && !TIME_RE.test(time)) return { error: "The start time is not valid." };
   if (!DATE_RE.test(endDate) || endDate < date) return { error: "The end date is before the start date." };
 
-  const title = clean(p.title, 150) || "CRM project";
+  const estimate = p.kind === "estimate";
+  const name = clean(p.name || p.title, 150).replace(/[()]/g, "") || "CRM project";
+  const phone = clean(p.phone, 40).replace(/\s+/g, " ");
   const service = clean(p.service, 150);
-  const technician = clean(p.technician, 150);
-  const summary = [p.canceled ? "CANCELED:" : "", title, service ? "– " + service : "", technician ? "· " + technician : ""].filter(Boolean).join(" ");
+  const technician = estimate ? "" : clean(p.technician, 150);
+  // ESTIMATE (Ann Lee), 818-555-0100   /   JOB (Ann Lee), 818-555-0100 · Yura
+  const summary = (p.canceled ? "CANCELED: " : "") + `${estimate ? "ESTIMATE" : "JOB"} (${name})` + (phone ? ", " + phone : "") + (technician ? " · " + technician : "");
   const description = [
     p.canceled ? "THIS PROJECT WAS CANCELED in the CRM." : "",
+    estimate ? "Estimate visit" : "",
+    phone ? "Phone: " + phone : "",
     service ? "Service: " + service : "",
     technician ? "Team: " + technician : "",
     clean(p.notes, 3000) ? "Notes: " + clean(p.notes, 3000) : "",
@@ -65,7 +72,8 @@ function buildEvent(p, { eventId, appId, projectId, timeZone }) {
     start = { date };
     end = { date: nextDay(endDate) }; // all-day: Google's end date is the day after
   } else {
-    let stop = { date: endDate, time: DAY_END };
+    // An estimate visit takes an hour; a job runs to 5 PM on its end date.
+    let stop = estimate ? addMinutes(date, time, 60) : { date: endDate, time: DAY_END };
     if (`${stop.date}T${stop.time}` <= `${date}T${time}`) stop = addMinutes(date, time, 120);
     start = { dateTime: `${date}T${time}:00`, timeZone };
     end = { dateTime: `${stop.date}T${stop.time}:00`, timeZone };
@@ -81,7 +89,7 @@ function buildEvent(p, { eventId, appId, projectId, timeZone }) {
       status: "confirmed",
       transparency: p.canceled ? "transparent" : "opaque",
       ...(p.canceled ? { colorId: "8" } : {}),
-      extendedProperties: { private: { evercraftApp: appId, evercraftProject: projectId } }
+      extendedProperties: { private: { evercraftApp: appId, evercraftProject: projectId, evercraftKind: estimate ? "estimate" : "job" } }
     }
   };
 }
@@ -119,10 +127,11 @@ async function calendarRoutes(request, env, url, cors, h) {
     const calendarId = String(body.calendarId || "primary");
     const prevCalendarId = String(body.prevCalendarId || "");
     const action = String(body.action || "");
+    const kind = body.kind === "estimate" ? "estimate" : "job";
     if (!/^[\w.-]{1,100}$/.test(projectId)) return h.json({ error: "The project id is not valid." }, 400, cors);
     if (!CAL_ID_RE.test(calendarId) || (prevCalendarId && !CAL_ID_RE.test(prevCalendarId))) return h.json({ error: "The calendar id is not valid." }, 400, cors);
     if (!["upsert", "remove"].includes(action)) return h.json({ error: "Unknown calendar action." }, 400, cors);
-    const eventId = await projectEventId(who.appId, projectId);
+    const eventId = await projectEventId(who.appId, projectId, kind);
     const at = cal => `/calendars/${encodeURIComponent(cal)}/events/${eventId}`;
 
     if (action === "remove") {
