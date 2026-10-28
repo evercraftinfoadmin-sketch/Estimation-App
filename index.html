@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.11.12a">
+<link rel="stylesheet" href="css/styles.css?v=2026.11.13a">
 </head>
 <body>
 
@@ -270,6 +270,28 @@
           <p class="small" id="mapsKeyStatus"></p>
           <div class="btn-row end"><button type="submit" class="btn btn-primary">Save Settings</button></div>
         </section>
+        <section class="card terms-card" id="calendarCard">
+          <h2>Google Calendar</h2>
+          <p class="small" style="margin-top:-8px">Projects (stage Client / Job and later) with a scheduled date are added to the company Google Calendar and updated whenever the date, time, address or technician changes here. The CRM is the source of truth: change jobs here, not in the calendar. Projects already in the CRM are added only once they are changed.</p>
+          <label class="check"><input id="setCalEnabled" type="checkbox"> <span>Add projects to Google Calendar automatically</span></label>
+          <div class="form-grid two">
+            <div class="field"><label for="setCalMain">Calendar for projects</label><select id="setCalMain"></select></div>
+            <div class="field"><label for="setCalCancel">When a project is canceled</label>
+              <select id="setCalCancel"><option value="delete">Delete the calendar event</option><option value="mark">Keep the event, marked CANCELED</option></select>
+            </div>
+          </div>
+          <p class="small">A job goes into a team member's own calendar when the Assigned Technician names them (the calendar's name, or one of the names written next to it). Otherwise it goes into the calendar above.</p>
+          <div class="table-wrap"><table class="table"><thead><tr><th>Team calendar</th><th>Also matches these names</th></tr></thead><tbody id="calTeamBody"></tbody></table></div>
+          <p class="small" id="calStatus"></p>
+          <div class="btn-row">
+            <button type="button" class="btn btn-light" id="btnCalRefresh">Load calendars from Google</button>
+            <button type="button" class="btn btn-light" id="btnCalRetry">Retry waiting syncs now</button>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+          </div>
+          <h3>Sync log (this device)</h3>
+          <p class="small" id="calWaiting"></p>
+          <ul class="cal-log" id="calLog"></ul>
+        </section>
         <section class="card terms-card" id="teamCard" hidden>
           <h2>Team Access (shared cloud data)</h2>
           <p class="small" style="margin-top:-8px">Everyone who signs in appears here. Choose what each person may do: <b>Member</b> can view and edit, <b>Admin</b> can also delete and change Settings. <b>No access</b> sees nothing. New employees: send them the app link and ask them to sign in once, then give them access here.</p>
@@ -447,8 +469,12 @@
         <h3>Client / Job</h3>
         <div class="form-grid two">
           <div class="field"><label for="pmScheduledDate">Scheduled Date</label><input id="pmScheduledDate" type="date"></div>
+          <div class="field"><label for="pmScheduledTime">Start Time <span class="small">(empty = all day)</span></label><input id="pmScheduledTime" type="time"></div>
+          <div class="field"><label for="pmScheduledEnd">End Date <span class="small">(optional)</span></label><input id="pmScheduledEnd" type="date"></div>
           <div class="field"><label for="pmTechnician">Assigned Technician</label><input id="pmTechnician" type="text" autocomplete="off"></div>
         </div>
+        <div class="pm-calendar" id="pmCalendar" aria-live="polite"></div>
+        <label class="check"><input id="pmCanceled" type="checkbox"> <span>Project canceled</span></label>
         <div class="field"><label for="pmNotes">Notes</label><textarea id="pmNotes" rows="2"></textarea></div>
 
         <h3>Start the Project <span class="small" id="pmStartedProgress"></span></h3>
@@ -640,22 +666,23 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.11.12a"></script>
-<script src="js/docstyles.js?v=2026.11.12a"></script>
-<script src="js/core.js?v=2026.11.12a"></script>
-<script src="js/calc.js?v=2026.11.12a"></script>
-<script src="js/settings.js?v=2026.11.12a"></script>
-<script src="js/address.js?v=2026.11.12a"></script>
-<script src="js/categories.js?v=2026.11.12a"></script>
-<script src="js/services.js?v=2026.11.12a"></script>
-<script src="js/photos.js?v=2026.11.12a"></script>
-<script src="js/cloud.js?v=2026.11.12a"></script>
-<script src="js/estimates.js?v=2026.11.12a"></script>
-<script src="js/crm.js?v=2026.11.12a"></script>
-<script src="js/invoices.js?v=2026.11.12a"></script>
-<script src="js/importer.js?v=2026.11.12a"></script>
-<script src="js/mail.js?v=2026.11.12a"></script>
-<script src="js/signing.js?v=2026.11.12a"></script>
-<script src="js/app.js?v=2026.11.12a"></script>
+<script src="js/config.js?v=2026.11.13a"></script>
+<script src="js/docstyles.js?v=2026.11.13a"></script>
+<script src="js/core.js?v=2026.11.13a"></script>
+<script src="js/calc.js?v=2026.11.13a"></script>
+<script src="js/settings.js?v=2026.11.13a"></script>
+<script src="js/address.js?v=2026.11.13a"></script>
+<script src="js/categories.js?v=2026.11.13a"></script>
+<script src="js/services.js?v=2026.11.13a"></script>
+<script src="js/photos.js?v=2026.11.13a"></script>
+<script src="js/cloud.js?v=2026.11.13a"></script>
+<script src="js/estimates.js?v=2026.11.13a"></script>
+<script src="js/calendar.js?v=2026.11.13a"></script>
+<script src="js/crm.js?v=2026.11.13a"></script>
+<script src="js/invoices.js?v=2026.11.13a"></script>
+<script src="js/importer.js?v=2026.11.13a"></script>
+<script src="js/mail.js?v=2026.11.13a"></script>
+<script src="js/signing.js?v=2026.11.13a"></script>
+<script src="js/app.js?v=2026.11.13a"></script>
 </body>
 </html>

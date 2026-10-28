@@ -153,6 +153,15 @@ h1 .status-badge{margin-left:8px;position:relative;top:-2px}
 .kanban-empty{color:var(--muted);font-size:12px;text-align:center;padding:18px 0}
 .kcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 2px 6px rgba(15,23,42,.05)}
 .kcard-done{opacity:.7}
+.kcard-canceled{opacity:.6}
+.cal-badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.cal-ok{background:#d1fae5;color:#047857}
+.cal-wait{background:#fef3c7;color:#92400e}
+.cal-error{background:#fee2e2;color:#b91c1c}
+.pm-calendar{display:flex;flex-direction:column;gap:6px;padding:10px 12px;margin:4px 0 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;font-size:14px}
+.cal-log{list-style:none;margin:8px 0 0;padding:0;font-size:13px;max-height:260px;overflow:auto}
+.cal-log li{padding:4px 0;border-bottom:1px solid var(--border,#e5e7eb)}
+.cal-log-error{color:#b91c1c}
 /* Stage colors: column tint, colored header, colored edge on every card. */
 .kanban-col[data-stage=lead]{--stage:#eab308;--stage-bg:#fefce8;--stage-ink:#713f12}
 .kanban-col[data-stage=prospect]{--stage:#f97316;--stage-bg:#fff7ed;--stage-ink:#fff}

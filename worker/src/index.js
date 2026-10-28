@@ -8,17 +8,20 @@
 //   GET  /oauth/callback  Google returns here; only ALLOWED_SENDER is accepted
 //   POST /send            send one email (Authorization: Bearer <Base44 sign-in token>)
 //   /sign/*, /s/<token>   electronic signatures (see sign.js)
+//   /calendar/*           CRM projects in the company Google Calendar (see calendar.js)
 //
 // Only signed-in CRM team members (Base44 crm_role owner/admin/member) can send. The Gmail
 // permission (refresh token) is kept in this Worker's KV storage and never reaches the browser.
 
 import { signRoutes } from "./sign.js";
+import { calendarRoutes, CALENDAR_SCOPES } from "./calendar.js";
 
 const GOOGLE_AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN = "https://oauth2.googleapis.com/token";
 const GMAIL_SEND = "https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media";
 const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
-const SCOPES = "openid email " + GMAIL_SEND_SCOPE;
+// The calendar is asked for too, but only "send email" is required to connect.
+const SCOPES = ["openid", "email", GMAIL_SEND_SCOPE, ...CALENDAR_SCOPES].join(" ");
 const ROLES = ["owner", "admin", "member"];
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 const MAX_ATTACHMENTS = 5;
@@ -44,12 +47,15 @@ async function route(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: cors ? 204 : 403, headers: cors || {} });
   if (url.pathname === "/" || url.pathname === "/status") {
     const saved = await savedGmail(env);
-    return json({ service: "EverCraft CRM mail", connected: !!saved, sender: env.ALLOWED_SENDER }, 200, cors);
+    const calendar = !!saved && hasCalendarScopes(saved.scope);
+    return json({ service: "EverCraft CRM mail", connected: !!saved, sender: env.ALLOWED_SENDER, calendar }, 200, cors);
   }
   if (url.pathname === "/setup" && request.method === "GET") return setupPage(url, env);
   if (url.pathname === "/oauth/start" && request.method === "GET") return oauthStart(url, env);
   if (url.pathname === "/oauth/callback" && request.method === "GET") return oauthCallback(url, env);
   if (url.pathname === "/send" && request.method === "POST") return send(request, env, cors);
+  const calendar = await calendarRoutes(request, env, url, cors, { json, teamMember, googleAccess, hasCalendarScopes, resetAccess: () => { ACCESS = { token: "", exp: 0 }; } });
+  if (calendar) return calendar;
   const signed = await signRoutes(request, env, url, cors, { json, esc, teamMember, gmailSend, EMAIL_RE });
   if (signed) return signed;
   return json({ error: "Not found" }, 404, cors);
@@ -122,6 +128,12 @@ function base44Apps(env) {
   try { return JSON.parse(env.BASE44_APPS || "{}"); } catch (e) { return {}; }
 }
 
+// Connections made before the calendar existed have no recorded scope, and no calendar.
+function hasCalendarScopes(scope) {
+  const granted = String(scope || "").split(/\s+/);
+  return CALENDAR_SCOPES.every(s => granted.includes(s));
+}
+
 async function savedGmail(env) {
   const raw = await env.MAIL_KV.get("gmail");
   if (!raw) return null;
@@ -184,9 +196,12 @@ async function oauthCallback(url, env) {
     return html("<h2>Not connected</h2><p>Google did not give permission to send email. Start again from the setup link and tick <b>Send email on your behalf</b> before pressing Continue.</p>", 400);
   }
   if (!t.refresh_token) return html("<h2>Not connected</h2><p>Google did not give a lasting permission. In the Google account, remove this app's access (Security → Third-party connections), then start again.</p>", 400);
-  await env.MAIL_KV.put("gmail", JSON.stringify({ refresh_token: t.refresh_token, email, connectedAt: new Date().toISOString() }));
+  await env.MAIL_KV.put("gmail", JSON.stringify({ refresh_token: t.refresh_token, email, scope: String(t.scope || ""), connectedAt: new Date().toISOString() }));
   ACCESS = { token: "", exp: 0 };
-  return html(`<h2>Connected ✓</h2><p>The CRM now sends emails from <b>${esc(email)}</b>. You can close this page.</p>`);
+  const calendarNote = hasCalendarScopes(t.scope)
+    ? "<p>CRM projects are added to this account's Google Calendar.</p>"
+    : "<p><b>Google Calendar was not allowed</b>, so CRM projects are not added to the calendar. To add them, start again from the setup link and tick the calendar boxes.</p>";
+  return html(`<h2>Connected ✓</h2><p>The CRM now sends emails from <b>${esc(email)}</b>.</p>${calendarNote}<p>You can close this page.</p>`);
 }
 
 async function gmailAccessToken(env, saved) {
@@ -200,6 +215,16 @@ async function gmailAccessToken(env, saved) {
   if (!r.ok || !t.access_token) return "";
   ACCESS = { token: t.access_token, exp: Date.now() + (Number(t.expires_in) || 3600) * 1000 };
   return ACCESS.token;
+}
+
+// A Google access token for the connected company account: {token, scope} or {error, status}.
+// scope is "" for a connection made before the permissions were recorded.
+async function googleAccess(env) {
+  const saved = await savedGmail(env);
+  if (!saved) return { error: "The company Google account is not connected to the CRM yet.", status: 503 };
+  const token = await gmailAccessToken(env, saved);
+  if (!token) return { error: "The Google connection expired. An admin must connect it again.", status: 503 };
+  return { token, scope: String(saved.scope || "") };
 }
 
 /* ---------- sending ---------- */

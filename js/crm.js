@@ -84,6 +84,10 @@ function normalizeProject(p){
     folder:CRM_FOLDER_KEYS.includes(p.folder) ? p.folder : "",
     prospectStatus:PROSPECT_STATUSES.some(s=>s.key===p.prospectStatus) ? p.prospectStatus : "needs_action",
     scheduledDate:String(p.scheduledDate ?? ""),
+    scheduledTime:/^([01]\d|2[0-3]):[0-5]\d$/.test(p.scheduledTime) ? p.scheduledTime : "",
+    scheduledEndDate:p.scheduledEndDate && p.scheduledEndDate>=String(p.scheduledDate ?? "") ? String(p.scheduledEndDate) : "",
+    canceled:!!p.canceled,
+    calendar:normalizeCalendarState(p.calendar),
     assignedTechnician:String(p.assignedTechnician ?? ""),
     notes:String(p.notes ?? ""),
     tasks:TASK_TEMPLATE.map(t=>({...t,done:!!(stored.find(x=>x && x.key===t.key)||{}).done})),
@@ -119,7 +123,9 @@ function loadProjects(){
 }
 
 function saveProjects(list){
-  return writeStore(STORAGE_KEYS.crm,list);
+  const ok=writeStore(STORAGE_KEYS.crm,list);
+  if(ok) scheduleCalendarScan(); // the Google Calendar follows the CRM
+  return ok;
 }
 
 function getProject(id){
@@ -341,6 +347,7 @@ function deleteProject(id){
   if(typeof cloudDeleteRefused==="function" && cloudDeleteRefused()) return false;
   if(!confirm(`Delete CRM project for ${p.clientName || p.address || "this client"}? The linked estimate is kept.`)) return false;
   if(!saveProjects(loadProjects().filter(x=>x.id!==id))) return false;
+  queueCalendarRemoval(p);
   // With shared cloud data the project can come back (e.g. changed by someone else meanwhile),
   // so its photos stay on this device; without a cloud they are deleted with the project.
   if(!(typeof cloudActive==="function" && cloudActive())) deleteOwnerPhotos("project",id);
@@ -406,7 +413,7 @@ function renderCard(p){
       actions=btn("open","Open")+btn("edit","Edit")+btn("to-job","Move to Client / Job","btn-primary");
       break;
     case "job":
-      body=`<div class="kcard-line">📅 ${p.scheduledDate?escapeHtml(formatDate(p.scheduledDate)):`<span class="muted">Not scheduled</span>`}</div>
+      body=`<div class="kcard-line">📅 ${p.scheduledDate?escapeHtml(projectStartText(p)):`<span class="muted">Not scheduled</span>`} ${calendarBadgeHtml(p)}</div>
         <div class="kcard-line">👷 ${p.assignedTechnician?escapeHtml(p.assignedTechnician):`<span class="muted">No technician</span>`}</div>
         ${p.notes?`<div class="kcard-notes">${escapeHtml(p.notes)}</div>`:""}`;
       actions=btn("schedule","Schedule Job")+btn("assign","Assign Technician")+btn("open","Open")
@@ -433,13 +440,14 @@ function renderCard(p){
   }
 
   return `
-    <article class="kcard ${p.stage==="followup"&&p.followUpCompleted?"kcard-done":""}" data-id="${escapeHtml(p.id)}">
+    <article class="kcard ${p.stage==="followup"&&p.followUpCompleted?"kcard-done":""} ${p.canceled?"kcard-canceled":""}" data-id="${escapeHtml(p.id)}">
       <div class="kcard-top">
         <div class="kcard-title">${escapeHtml(p.clientName || p.address || "Unnamed client")}</div>
         <button type="button" class="kcard-delete" data-action="delete" title="Delete" aria-label="Delete ${escapeHtml(p.clientName || p.address || "project")}">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z"/></svg>
         </button>
       </div>
+      ${p.canceled ? `<div class="kcard-line"><span class="status-badge status-rejected">Canceled</span></div>` : ""}
       ${p.address && p.clientName ? `<div class="kcard-line muted">${escapeHtml(p.address)}</div>` : ""}
       <div class="kcard-address">${addressBadgeHtml(p)}${hasCoordinates(p)?`<button type="button" class="btn-link" data-action="map">Open in Google Maps</button>`:""}</div>
       ${estimateLine}
@@ -552,7 +560,11 @@ function openProjectModal(id, focusField){
   PM_JOB_TOTAL=p.estimateTotal;
   renderMaterialRows(p.materials.length ? p.materials : [blankMaterial()]);
   $("pmScheduledDate").value=p.scheduledDate;
+  $("pmScheduledTime").value=p.scheduledTime;
+  $("pmScheduledEnd").value=p.scheduledEndDate;
   $("pmTechnician").value=p.assignedTechnician;
+  $("pmCanceled").checked=p.canceled;
+  $("pmCalendar").innerHTML=calendarStatusHtml(p);
   $("pmNotes").value=p.notes;
   $("pmFollowUpDate").value=p.followUpDate;
   $("pmFollowUpType").value=p.followUpType;
@@ -651,6 +663,9 @@ function saveProjectForm(){
     paymentStatus:$("pmPaymentStatus").value,
     materials:readMaterialRows(),
     scheduledDate:$("pmScheduledDate").value,
+    scheduledTime:$("pmScheduledTime").value,
+    scheduledEndDate:$("pmScheduledEnd").value,
+    canceled:$("pmCanceled").checked,
     assignedTechnician:$("pmTechnician").value.trim(),
     notes:$("pmNotes").value.trim(),
     tasks:readProjectChecklist(),
@@ -659,6 +674,11 @@ function saveProjectForm(){
     followUpNotes:$("pmFollowUpNotes").value.trim(),
     followUpCompleted:$("pmFollowUpCompleted").checked
   };
+  if(data.scheduledEndDate && data.scheduledEndDate<data.scheduledDate){
+    alert("The end date is before the scheduled start date.");
+    $("pmScheduledEnd").focus();
+    return;
+  }
   if(!data.clientName && !data.address){
     alert("Please enter at least a Client Name or an Address.");
     $("pmClientName").focus();
@@ -687,6 +707,7 @@ function handleProjectModalClick(event){
   if(!el || !EDITING_PROJECT_ID) return;
   if(el.dataset.pmAction==="open-estimate") openProjectEstimate(EDITING_PROJECT_ID);
   else if(el.dataset.pmAction==="create-estimate") createEstimateFromProject(EDITING_PROJECT_ID);
+  else if(el.dataset.pmAction==="calendar-sync") syncProjectCalendarNow(EDITING_PROJECT_ID);
 }
 
 function handleProjectModalChange(event){
