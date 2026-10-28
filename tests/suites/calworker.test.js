@@ -31,6 +31,7 @@ global.fetch=async(url,opts={})=>{
   if(parts[0]==='users') return res(200,{items:[{id:'evercraft.pro@gmail.com',summary:'evercraft.pro@gmail.com',primary:true},{id:'yura@group.calendar.google.com',summary:'Yura'},{id:'gone',summary:'Old',deleted:true}]});
   const cal=CALS[parts[1]]; if(!cal) return res(404,{error:{message:'Not Found'}});
   const id=parts[3];
+  if(method==='GET' && parts.length===3) return res(200,{items:[...cal.values()]});
   if(method==='POST' && parts.length===3){ const ev=JSON.parse(opts.body); if(cal.has(ev.id)) return res(409,{error:{message:'The requested identifier already exists.'}}); cal.set(ev.id,{...ev,htmlLink:'https://calendar.google.com/event?eid='+ev.id}); return res(200,cal.get(ev.id)); }
   if(parts[4]==='move'){ const ev=cal.get(id); if(!ev||ev.status==='cancelled') return res(404,{error:{message:'Not Found'}}); const dest=CALS[u.searchParams.get('destination')]; if(!dest) return res(404,{}); cal.delete(id); dest.set(id,ev); return res(200,ev); }
   if(method==='PUT'){ const ev=cal.get(id); if(!ev) return res(404,{error:{message:'Not Found'}}); cal.set(id,{...JSON.parse(opts.body),htmlLink:ev.htmlLink}); return res(200,cal.get(id)); }
@@ -149,6 +150,24 @@ global.fetch=async(url,opts={})=>{
   ok(r.status===200 && live('primary').length===1 && CALS['primary'].get(await cal.projectEventId(PROD,'crm2')).status!=='cancelled','removing the estimate visit leaves the job event alone');
   r=await post('/calendar/sync',{projectId:'crm9',action:'upsert',calendarId:'primary',event:{...job,name:'Bob (Jr.)',phone:''}});
   ok(CALS['primary'].get(await cal.projectEventId(PROD,'crm9')).summary==='JOB (Bob Jr.) · Yura','no phone: left out; brackets in the name do not break the title');
+
+  // the CRM's Calendar page: events of several calendars
+  CALS['yura@group.calendar.google.com'].set('handmade1',{id:'handmade1',summary:'Margo painting Yurii',start:{dateTime:'2026-11-02T09:00:00-08:00'},end:{dateTime:'2026-11-02T17:00:00-08:00'},location:'19802 Bassett St',htmlLink:'https://calendar.google.com/e/1',status:'confirmed'});
+  CALS['yura@group.calendar.google.com'].set('devjob',{id:'devjob',summary:'JOB (Dev)',start:{date:'2026-11-03'},end:{date:'2026-11-04'},status:'confirmed',extendedProperties:{private:{evercraftApp:'6acd6d429d6ed1576d7696b7',evercraftProject:'crm-dev'}}});
+  r=await post('/calendar/events',{calendarIds:['primary','yura@group.calendar.google.com','nobody@group.calendar.google.com'],timeMin:'2026-10-25T00:00:00Z',timeMax:'2026-12-06T00:00:00Z'}); j=await r.json();
+  const byCal=Object.fromEntries(j.calendars.map(c=>[c.calendarId,c]));
+  const listCall=calls.filter(c=>c.method==='GET' && c.url.includes('/events?')).at(-1);
+  ok(r.status===200 && byCal['primary'].events.length===2 && byCal['yura@group.calendar.google.com'].events.length===2,'Calendar page: the events of each chosen calendar (removed ones left out)');
+  ok(listCall && listCall.url.includes('singleEvents=true') && listCall.url.includes('timeMin=2026-10-25'),'repeating events are listed one by one, only in the month shown');
+  const hand=byCal['yura@group.calendar.google.com'].events.find(e=>e.id==='handmade1');
+  const crmJob=byCal['primary'].events.find(e=>e.crmProject==='crm9');
+  ok(hand && hand.summary==='Margo painting Yurii' && hand.location==='19802 Bassett St' && !hand.allDay && hand.start==='2026-11-02T09:00:00-08:00' && hand.link && hand.crmProject==='','events entered by hand in Google show too, with time, address and link');
+  ok(crmJob && crmJob.crmKind==='job' && byCal['yura@group.calendar.google.com'].events.find(e=>e.id==='devjob').crmProject==='','CRM events say which project they belong to (only for this CRM, not the dev app)');
+  ok(byCal['nobody@group.calendar.google.com'].error && byCal['nobody@group.calendar.google.com'].events.length===0,'a calendar that cannot be read gives its own error; the others still show');
+  r=await post('/calendar/events',{calendarIds:['primary'],timeMin:'2026-01-01T00:00:00Z',timeMax:'2026-06-01T00:00:00Z'});
+  ok(r.status===400,'more than two months at once is refused');
+  r=await post('/calendar/events',{calendarIds:['primary'],timeMin:'2026-11-01T00:00:00Z',timeMax:'2026-11-30T00:00:00Z'},{token:''});
+  ok(r.status===401,'without a CRM sign-in the calendar cannot be read');
 
   // projects of different apps never share an event
   ok((await cal.projectEventId(PROD,'crm1'))!==(await cal.projectEventId('6acd6d429d6ed1576d7696b7','crm1')),'the same project id in the dev app gets a different event');

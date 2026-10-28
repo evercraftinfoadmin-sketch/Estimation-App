@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.11.14a">
+<link rel="stylesheet" href="css/styles.css?v=2026.11.15a">
 </head>
 <body>
 
@@ -21,6 +21,7 @@
         <button data-page="estimates">Saved Estimates</button>
         <button data-page="services">Services</button>
         <button data-page="crm">CRM</button>
+        <button data-page="calendar">Calendar</button>
         <button data-page="invoices">Invoices</button>
         <button data-page="signatures">Signatures</button>
         <button data-page="settings">Settings</button>
@@ -211,6 +212,30 @@
     </section>
 
     <!-- ============ SIGNATURES ============ -->
+    <section id="page-calendar" class="page" hidden>
+      <div class="page-head">
+        <div><h1>Calendar</h1><div class="page-sub">The company Google Calendar. Jobs and estimate visits come from the CRM: change them in the CRM project.</div></div>
+        <div class="btn-row">
+          <button class="btn btn-light" id="calViewRefresh">Refresh</button>
+          <a class="btn btn-light" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">Open Google Calendar</a>
+        </div>
+      </div>
+      <section class="card">
+        <div class="calv-bar">
+          <div class="btn-row">
+            <button class="btn btn-light btn-sm" id="calViewPrev" aria-label="Previous month">‹</button>
+            <button class="btn btn-light btn-sm" id="calViewToday">Today</button>
+            <button class="btn btn-light btn-sm" id="calViewNext" aria-label="Next month">›</button>
+          </div>
+          <h2 id="calViewMonth"></h2>
+        </div>
+        <div class="calv-legend" id="calViewLegend"></div>
+        <p class="small" id="calViewStatus" aria-live="polite"></p>
+        <div class="calv-grid" id="calViewGrid"></div>
+      </section>
+      <section class="card calv-day" id="calViewDay"></section>
+    </section>
+
     <section id="page-signatures" class="page" hidden>
       <div class="page-head">
         <div><h1>Signatures</h1><div class="page-sub">Estimates, Work Authorizations and Certificates of Completion sent to clients to sign.</div></div>
@@ -682,23 +707,24 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.11.14a"></script>
-<script src="js/docstyles.js?v=2026.11.14a"></script>
-<script src="js/core.js?v=2026.11.14a"></script>
-<script src="js/calc.js?v=2026.11.14a"></script>
-<script src="js/settings.js?v=2026.11.14a"></script>
-<script src="js/address.js?v=2026.11.14a"></script>
-<script src="js/categories.js?v=2026.11.14a"></script>
-<script src="js/services.js?v=2026.11.14a"></script>
-<script src="js/photos.js?v=2026.11.14a"></script>
-<script src="js/cloud.js?v=2026.11.14a"></script>
-<script src="js/estimates.js?v=2026.11.14a"></script>
-<script src="js/calendar.js?v=2026.11.14a"></script>
-<script src="js/crm.js?v=2026.11.14a"></script>
-<script src="js/invoices.js?v=2026.11.14a"></script>
-<script src="js/importer.js?v=2026.11.14a"></script>
-<script src="js/mail.js?v=2026.11.14a"></script>
-<script src="js/signing.js?v=2026.11.14a"></script>
-<script src="js/app.js?v=2026.11.14a"></script>
+<script src="js/config.js?v=2026.11.15a"></script>
+<script src="js/docstyles.js?v=2026.11.15a"></script>
+<script src="js/core.js?v=2026.11.15a"></script>
+<script src="js/calc.js?v=2026.11.15a"></script>
+<script src="js/settings.js?v=2026.11.15a"></script>
+<script src="js/address.js?v=2026.11.15a"></script>
+<script src="js/categories.js?v=2026.11.15a"></script>
+<script src="js/services.js?v=2026.11.15a"></script>
+<script src="js/photos.js?v=2026.11.15a"></script>
+<script src="js/cloud.js?v=2026.11.15a"></script>
+<script src="js/estimates.js?v=2026.11.15a"></script>
+<script src="js/calendar.js?v=2026.11.15a"></script>
+<script src="js/crm.js?v=2026.11.15a"></script>
+<script src="js/calview.js?v=2026.11.15a"></script>
+<script src="js/invoices.js?v=2026.11.15a"></script>
+<script src="js/importer.js?v=2026.11.15a"></script>
+<script src="js/mail.js?v=2026.11.15a"></script>
+<script src="js/signing.js?v=2026.11.15a"></script>
+<script src="js/app.js?v=2026.11.15a"></script>
 </body>
 </html>

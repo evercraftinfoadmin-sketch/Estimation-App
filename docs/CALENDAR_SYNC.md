@@ -52,6 +52,17 @@ Only the CRM writes to the calendar; nothing is read back.
   - The board card shows ✓ / ⏳ / ⚠ Calendar.
   - Settings → Google Calendar shows the log of syncs and errors on this device.
 
+## Calendar page in the CRM
+
+The **Calendar** page in the CRM menu shows the company Google Calendar: the main calendar and
+every team calendar, including events entered by hand in Google.
+- Untick a calendar to hide it. The choice is remembered on that device.
+- Click a day to list its events, with the time, the address (map link) and the calendar.
+- Click a CRM event to open its project. Every event has *Open in Google Calendar*.
+- The page is read only: change jobs and estimate visits in the CRM project.
+- Anyone signed in to the CRM can see it, without their own Google access to the calendars.
+  It reads through the same company connection, so no extra Google setup is needed.
+
 ## Setup (one time, admin)
 
 1. **Google Cloud** (the project that has the CRM's OAuth client):
