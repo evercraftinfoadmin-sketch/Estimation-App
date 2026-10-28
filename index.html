@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.11.13a">
+<link rel="stylesheet" href="css/styles.css?v=2026.11.14a">
 </head>
 <body>
 
@@ -272,7 +272,7 @@
         </section>
         <section class="card terms-card" id="calendarCard">
           <h2>Google Calendar</h2>
-          <p class="small" style="margin-top:-8px">Projects (stage Client / Job and later) with a scheduled date are added to the company Google Calendar and updated whenever the date, time, address or technician changes here. The CRM is the source of truth: change jobs here, not in the calendar. Projects already in the CRM are added only once they are changed.</p>
+          <p class="small" style="margin-top:-8px">Estimate visits (from Prospects on) go into the calendar below as "ESTIMATE (name), phone"; jobs (Client / Job and later) as "JOB (name), phone · technician", with the address as the location. They are updated whenever the date, time, address or technician changes here. The CRM is the source of truth: change jobs here, not in the calendar. Projects already in the CRM are added only once they are changed.</p>
           <label class="check"><input id="setCalEnabled" type="checkbox"> <span>Add projects to Google Calendar automatically</span></label>
           <div class="form-grid two">
             <div class="field"><label for="setCalMain">Calendar for projects</label><select id="setCalMain"></select></div>
@@ -345,6 +345,20 @@
 </div>
 
 <!-- ============ MODALS ============ -->
+<div id="estimateVisitModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="estimateVisitTitle">
+  <form class="modal-box modal-sm" id="estimateVisitForm">
+    <div class="modal-head"><h2 id="estimateVisitTitle">Estimate Visit</h2><button type="button" class="btn-icon" data-close="estimateVisitModal" aria-label="Close">✕</button></div>
+    <p class="small">When is the estimate visit for <b id="visitClient"></b>? It goes into the main Google Calendar as "ESTIMATE (name), phone" with the address.</p>
+    <div class="form-grid two">
+      <div class="field"><label for="visitDate">Date</label><input id="visitDate" type="date"></div>
+      <div class="field"><label for="visitTime">Time <span class="small">(empty = all day)</span></label><input id="visitTime" type="time"></div>
+    </div>
+    <div class="btn-row end">
+      <button type="button" class="btn btn-light" data-close="estimateVisitModal">Later</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</div>
 <div id="customServiceModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="customServiceTitle">
   <form class="modal-box modal-sm" id="customServiceForm">
     <div class="modal-head"><h2 id="customServiceTitle">Custom Service</h2><button type="button" class="btn-icon" data-close="customServiceModal" aria-label="Close">✕</button></div>
@@ -462,6 +476,8 @@
               <option value="paid">Paid in full</option>
             </select>
           </div>
+          <div class="field"><label for="pmVisitDate">Estimate Visit Date</label><input id="pmVisitDate" type="date"></div>
+          <div class="field"><label for="pmVisitTime">Estimate Visit Time <span class="small">(empty = all day)</span></label><input id="pmVisitTime" type="time"></div>
         </div>
       </section>
 
@@ -666,23 +682,23 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.11.13a"></script>
-<script src="js/docstyles.js?v=2026.11.13a"></script>
-<script src="js/core.js?v=2026.11.13a"></script>
-<script src="js/calc.js?v=2026.11.13a"></script>
-<script src="js/settings.js?v=2026.11.13a"></script>
-<script src="js/address.js?v=2026.11.13a"></script>
-<script src="js/categories.js?v=2026.11.13a"></script>
-<script src="js/services.js?v=2026.11.13a"></script>
-<script src="js/photos.js?v=2026.11.13a"></script>
-<script src="js/cloud.js?v=2026.11.13a"></script>
-<script src="js/estimates.js?v=2026.11.13a"></script>
-<script src="js/calendar.js?v=2026.11.13a"></script>
-<script src="js/crm.js?v=2026.11.13a"></script>
-<script src="js/invoices.js?v=2026.11.13a"></script>
-<script src="js/importer.js?v=2026.11.13a"></script>
-<script src="js/mail.js?v=2026.11.13a"></script>
-<script src="js/signing.js?v=2026.11.13a"></script>
-<script src="js/app.js?v=2026.11.13a"></script>
+<script src="js/config.js?v=2026.11.14a"></script>
+<script src="js/docstyles.js?v=2026.11.14a"></script>
+<script src="js/core.js?v=2026.11.14a"></script>
+<script src="js/calc.js?v=2026.11.14a"></script>
+<script src="js/settings.js?v=2026.11.14a"></script>
+<script src="js/address.js?v=2026.11.14a"></script>
+<script src="js/categories.js?v=2026.11.14a"></script>
+<script src="js/services.js?v=2026.11.14a"></script>
+<script src="js/photos.js?v=2026.11.14a"></script>
+<script src="js/cloud.js?v=2026.11.14a"></script>
+<script src="js/estimates.js?v=2026.11.14a"></script>
+<script src="js/calendar.js?v=2026.11.14a"></script>
+<script src="js/crm.js?v=2026.11.14a"></script>
+<script src="js/invoices.js?v=2026.11.14a"></script>
+<script src="js/importer.js?v=2026.11.14a"></script>
+<script src="js/mail.js?v=2026.11.14a"></script>
+<script src="js/signing.js?v=2026.11.14a"></script>
+<script src="js/app.js?v=2026.11.14a"></script>
 </body>
 </html>

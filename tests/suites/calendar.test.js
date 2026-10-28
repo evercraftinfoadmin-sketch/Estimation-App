@@ -23,8 +23,9 @@ const YURA='yura@group.calendar.google.com';
     if(path==='/calendar/sync'){
       if(svc.down){ svc.down--; return {status:502,body:{error:'Google Calendar is not available right now (503: Backend Error).',retry:true}}; }
       const b=req.body;
-      if(b.action==='remove'){ svc.events.delete(b.projectId); return {status:200,body:{ok:true,removed:true}}; }
-      svc.events.set(b.projectId,{calendarId:b.calendarId,...b.event});
+      const key=b.kind==='estimate' ? b.projectId+':estimate' : b.projectId; // job events keep the plain project id
+      if(b.action==='remove'){ svc.events.delete(key); return {status:200,body:{ok:true,removed:true}}; }
+      svc.events.set(key,{calendarId:b.calendarId,...b.event});
       return {status:200,body:{ok:true,eventId:'evc'+b.projectId.replace(/\W/g,''),calendarId:b.calendarId,link:'https://www.google.com/calendar/event?eid=x'+b.projectId}};
     }
     return {status:404,body:{}};
@@ -77,7 +78,7 @@ const YURA='yura@group.calendar.google.com';
   const id=await p.evaluate(()=>loadProjects().find(x=>x.clientName==='Margo Winnetka').id);
   let s=syncs()[0]||{body:{event:{}},headers:{}};
   ok(syncs().length===1 && s.body.action==='upsert' && s.body.projectId===id && s.headers.Authorization==='Bearer tok-boss','a new project with a start date is sent to the calendar once, with the CRM sign-in');
-  ok(s.body.event.title==='Margo Winnetka' && s.body.event.date===D1 && s.body.event.time==='09:00' && s.body.event.endDate===D2 && s.body.event.technician==='Yurii + Kirill' && s.body.event.notes==='Gate code 1234','it carries the name, start date and time, end date, team member and notes');
+  ok(s.body.kind==='job' && s.body.event.kind==='job' && s.body.event.name==='Margo Winnetka' && s.body.event.date===D1 && s.body.event.time==='09:00' && s.body.event.endDate===D2 && s.body.event.technician==='Yurii + Kirill' && s.body.event.notes==='Gate code 1234','it carries the name, start date and time, end date, team member and notes');
   ok(s.body.calendarId===YURA,'"Yurii" is one of the names next to Yura\'s calendar: the job goes into Yura\'s calendar');
   let c=await cal(id);
   ok(c.state==='synced' && c.eventId && c.calendarId===YURA && c.link.includes(id),'the event id, calendar and link are saved on the project');
@@ -85,7 +86,7 @@ const YURA='yura@group.calendar.google.com';
   // the project window shows it
   await p.locator(`.kcard[data-id="${id}"] [data-action=open]`).click();
   let box=await p.innerText('#pmCalendar');
-  ok(box.includes('Start:') && box.includes('at 9:00 AM') && box.includes('In Google Calendar') && await p.locator('#pmCalendar a[href*="calendar"]').count()===1,'the project window shows the start date and time, "In Google Calendar" and a link to the event');
+  ok(box.includes('Job:') && box.includes('at 9:00 AM') && box.includes('In Google Calendar') && await p.locator('#pmCalendar a[href*="calendar"]').count()===1,'the project window shows the start date and time, "In Google Calendar" and a link to the event');
   await p.locator('#projectModal .modal-box').screenshot({path:OUT+'/calendar-project.png'}).catch(()=>{});
 
   // 2. saving again with no change: nothing sent; a new date: the same event is updated
@@ -156,7 +157,38 @@ const YURA='yura@group.calendar.google.com';
   await p.evaluate(()=>runCalendarSync(true)); await settle();
   ok(!svc.events.has(id) && await p.evaluate(()=>calendarRemovals().length)===0,'the waiting removal is retried: the event is gone');
 
-  // 8. log in Settings
+  // 8. estimate visits: a lead moved to Prospects asks for the visit, which goes into the main calendar
+  const lead=await p.evaluate(()=>{ const r=newProjectRecord({clientName:'Ann Lee',clientPhone:'818-555-0100',address:'42 Elm St, Reseda, CA',stage:'lead'}); const l=loadProjects(); l.push(r); saveProjects(l); return r.id; });
+  await settle();
+  const n3=syncs().length;
+  ok(syncs().every(x=>x.body.projectId!==lead),'a lead is not in the calendar');
+  await p.evaluate(()=>showPage('crm'));
+  await p.locator(`.kcard[data-id="${lead}"] [data-action=to-prospect]`).click();
+  await p.waitForSelector('#estimateVisitModal.open');
+  ok((await p.innerText('#estimateVisitModal')).includes('Ann Lee'),'moving the lead to Prospects asks for the estimate visit date and time');
+  await p.fill('#visitDate',D1); await p.fill('#visitTime','10:00');
+  await p.click('#estimateVisitForm button[type=submit]'); await settle();
+  s=syncs().at(-1)||{body:{event:{}}};
+  ok(syncs().length===n3+1 && s.body.kind==='estimate' && s.body.event.kind==='estimate' && s.body.calendarId==='primary','the estimate visit is sent once, as an estimate event in the main calendar');
+  ok(s.body.event.name==='Ann Lee' && s.body.event.phone==='818-555-0100' && s.body.event.location==='42 Elm St, Reseda, CA' && s.body.event.date===D1 && s.body.event.time==='10:00','it carries the lead name, phone, address and the visit date and time');
+  ok((await p.innerText(`.kcard[data-id="${lead}"]`)).includes('Estimate visit:') && await p.locator(`.kcard[data-id="${lead}"] .cal-ok`).count()===1,'the Prospects card shows the estimate visit with "✓ Calendar"');
+  // becomes a job: the job event is added, the estimate event stays
+  await p.evaluate(({lead,D2})=>updateProject(lead,{stage:'job',scheduledDate:D2,assignedTechnician:'Yura'}),{lead,D2}); await settle();
+  s=syncs().at(-1);
+  ok(s.body.kind==='job' && s.body.calendarId===YURA && svc.events.has(lead) && svc.events.has(lead+':estimate') && syncs().filter(x=>x.body.projectId===lead && x.body.kind==='estimate').length===1,'as a job it gets its own job event in the technician\'s calendar; the estimate event stays as it was');
+  await p.locator(`.kcard[data-id="${lead}"] [data-action=open]`).click();
+  box=await p.innerText('#pmCalendar');
+  ok(box.includes('Estimate visit:') && box.includes('at 10:00 AM') && box.includes('Job:') && (box.match(/In Google Calendar/g)||[]).length===2 && await p.inputValue('#pmVisitTime')==='10:00','the project window shows both events, and the visit date and time can be changed there');
+  await p.click('[data-close=projectModal]');
+  await p.evaluate(lead=>deleteProject(lead),lead); await settle();
+  ok(!svc.events.has(lead) && !svc.events.has(lead+':estimate'),'deleting the project removes both events');
+  // calendar sync off: moving to Prospects does not ask
+  await p.evaluate(()=>{ SETTINGS.calendarEnabled=''; const r=newProjectRecord({clientName:'No Ask',stage:'lead'}); const l=loadProjects(); l.push(r); saveProjects(l); window.__noask=r.id; });
+  await p.evaluate(()=>moveProject(window.__noask,'prospect')); await p.waitForTimeout(200);
+  ok(!(await p.isVisible('#estimateVisitModal')),'with the calendar sync off, moving to Prospects does not ask');
+  await p.evaluate(()=>{ SETTINGS.calendarEnabled='on'; });
+
+  // 9. log in Settings
   await p.evaluate(()=>showPage('settings'));
   const log=await p.innerText('#calLog');
   ok(log.includes('Margo Winnetka') && log.includes('Event saved.') && log.includes('not available') && log.includes('remove (project deleted)'),'Settings shows a log of syncs and errors on this device');

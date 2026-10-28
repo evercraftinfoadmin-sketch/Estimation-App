@@ -45,7 +45,7 @@ global.fetch=async(url,opts={})=>{
   const E=env();
   const post=(p,body,{token='tok-member',origin=ORIGIN}={})=>worker.fetch(new Request(W+p,{method:'POST',headers:{'Content-Type':'application/json',...(origin?{Origin:origin}:{}),...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify({appId:PROD,...body})}),E);
   const live=c=>[...CALS[c].values()].filter(e=>e.status!=='cancelled');
-  const job={title:'Margo Winnetka',service:'Painting',location:'19802 Bassett St, Winnetka, CA',technician:'Yura',notes:'Gate code 1234',date:'2026-11-02',time:'09:00',endDate:'2026-11-04'};
+  const job={kind:'job',name:'Margo Winnetka',phone:'818-555-0100',service:'Painting',location:'19802 Bassett St, Winnetka, CA',technician:'Yura',notes:'Gate code 1234',date:'2026-11-02',time:'09:00',endDate:'2026-11-04'};
 
   // connecting asks Google for the calendar too
   let r=await worker.fetch(new Request(W+'/oauth/start?key=k'),E);
@@ -85,7 +85,7 @@ global.fetch=async(url,opts={})=>{
   r=await post('/calendar/sync',{projectId:'crm1',action:'upsert',calendarId:'yura@group.calendar.google.com',event:job}); j=await r.json();
   let ev=CALS['yura@group.calendar.google.com'].get(eid);
   ok(r.status===200 && j.ok && j.eventId===eid && j.link.includes(eid) && live('yura@group.calendar.google.com').length===1,'a project with a start date becomes one event, with its link back');
-  ok(ev.summary==='Margo Winnetka – Painting · Yura' && ev.location==='19802 Bassett St, Winnetka, CA' && ev.description.includes('Service: Painting') && ev.description.includes('Team: Yura') && ev.description.includes('Gate code 1234'),'the event has the project name, service, address, team member and notes');
+  ok(ev.summary==='JOB (Margo Winnetka), 818-555-0100 · Yura' && ev.description.includes('Phone: 818-555-0100') && ev.location==='19802 Bassett St, Winnetka, CA' && ev.description.includes('Service: Painting') && ev.description.includes('Team: Yura') && ev.description.includes('Gate code 1234'),'job events are named "JOB (name), phone · technician", the address is the location, service and notes in the description');
   ok(ev.start.dateTime==='2026-11-02T09:00:00' && ev.start.timeZone==='America/Los_Angeles' && ev.end.dateTime==='2026-11-04T17:00:00','a start time: a timed event in the company time zone, until 5 PM on the end date');
   ok(ev.extendedProperties.private.evercraftProject==='crm1' && /^[a-v0-9]{5,}$/.test(ev.id),'the event carries the project id and a Google-valid fixed id');
 
@@ -133,6 +133,22 @@ global.fetch=async(url,opts={})=>{
   ok(r.status===502 && j.retry===false && /Settings/.test(j.error),'a calendar that does not exist: says to check Settings, not retried quickly');
   r=await post('/calendar/sync',{projectId:'../x',action:'upsert',event:job});
   ok(r.status===400,'a bad project id is refused');
+
+  // estimate visits: their own event, in the main calendar
+  const visit={kind:'estimate',name:'Ann Lee',phone:'818-555-0100',service:'Painting',location:'42 Elm St, Reseda, CA',notes:'Call first',date:'2026-11-05',time:'10:00',technician:'Yura'};
+  const vid=await cal.projectEventId(PROD,'crm2','estimate');
+  r=await post('/calendar/sync',{projectId:'crm2',kind:'estimate',action:'upsert',calendarId:'primary',event:visit}); j=await r.json();
+  ev=CALS['primary'].get(vid);
+  ok(r.status===200 && j.eventId===vid && vid!==await cal.projectEventId(PROD,'crm2') && live('primary').length===2,'the estimate visit is its own event (another fixed id than the job of the same project)');
+  ok(ev.summary==='ESTIMATE (Ann Lee), 818-555-0100' && ev.location==='42 Elm St, Reseda, CA' && ev.description.startsWith('Estimate visit') && ev.description.includes('Call first') && !ev.description.includes('Team:'),'named "ESTIMATE (name), phone", the address in the location line');
+  ok(ev.start.dateTime==='2026-11-05T10:00:00' && ev.end.dateTime==='2026-11-05T11:00:00' && ev.extendedProperties.private.evercraftKind==='estimate','a visit with a time lasts one hour');
+  r=await post('/calendar/sync',{projectId:'crm2',kind:'estimate',action:'upsert',calendarId:'primary',event:{...visit,time:''}});
+  ev=CALS['primary'].get(vid);
+  ok(live('primary').length===2 && ev.start.date==='2026-11-05' && ev.end.date==='2026-11-06','synced again without a time: the same event, all day');
+  r=await post('/calendar/sync',{projectId:'crm2',kind:'estimate',action:'remove',calendarId:'primary'});
+  ok(r.status===200 && live('primary').length===1 && CALS['primary'].get(await cal.projectEventId(PROD,'crm2')).status!=='cancelled','removing the estimate visit leaves the job event alone');
+  r=await post('/calendar/sync',{projectId:'crm9',action:'upsert',calendarId:'primary',event:{...job,name:'Bob (Jr.)',phone:''}});
+  ok(CALS['primary'].get(await cal.projectEventId(PROD,'crm9')).summary==='JOB (Bob Jr.) · Yura','no phone: left out; brackets in the name do not break the title');
 
   // projects of different apps never share an event
   ok((await cal.projectEventId(PROD,'crm1'))!==(await cal.projectEventId('6acd6d429d6ed1576d7696b7','crm1')),'the same project id in the dev app gets a different event');

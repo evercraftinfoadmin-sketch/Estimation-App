@@ -86,8 +86,11 @@ function normalizeProject(p){
     scheduledDate:String(p.scheduledDate ?? ""),
     scheduledTime:/^([01]\d|2[0-3]):[0-5]\d$/.test(p.scheduledTime) ? p.scheduledTime : "",
     scheduledEndDate:p.scheduledEndDate && p.scheduledEndDate>=String(p.scheduledDate ?? "") ? String(p.scheduledEndDate) : "",
+    estimateVisitDate:/^\d{4}-\d{2}-\d{2}$/.test(p.estimateVisitDate) ? p.estimateVisitDate : "",
+    estimateVisitTime:/^([01]\d|2[0-3]):[0-5]\d$/.test(p.estimateVisitTime) ? p.estimateVisitTime : "",
     canceled:!!p.canceled,
     calendar:normalizeCalendarState(p.calendar),
+    calendarEstimate:normalizeCalendarState(p.calendarEstimate),
     assignedTechnician:String(p.assignedTechnician ?? ""),
     notes:String(p.notes ?? ""),
     tasks:TASK_TEMPLATE.map(t=>({...t,done:!!(stored.find(x=>x && x.key===t.key)||{}).done})),
@@ -321,6 +324,8 @@ function moveProject(id, stage){
   updateBuilderMeta();
   showToast(`Moved to ${stageLabel(stage)}.`);
   if(stage==="started") setTimeout(()=>offerWorkAuthorization(id),50);
+  // The estimate visit goes into the calendar: ask for its date and time.
+  if(stage==="prospect" && !p.estimateVisitDate && SETTINGS.calendarEnabled==="on") setTimeout(()=>openEstimateVisitModal(id),50);
 }
 
 function setTask(id, key, done){
@@ -407,7 +412,8 @@ function renderCard(p){
         +btn("to-prospect","Move to Prospect","btn-primary");
       break;
     case "prospect":
-      body=`<select class="kcard-select" data-action="prospect-status" aria-label="Prospect status">
+      body=`<div class="kcard-line">📋 Estimate visit: ${p.estimateVisitDate?escapeHtml(estimateVisitText(p)):`<span class="muted">not set</span>`} ${calendarBadgeHtml(p,"estimate")}</div>
+        <select class="kcard-select" data-action="prospect-status" aria-label="Prospect status">
           ${PROSPECT_STATUSES.map(s=>`<option value="${s.key}" ${s.key===p.prospectStatus?"selected":""}>${s.label}</option>`).join("")}
         </select>`;
       actions=btn("open","Open")+btn("edit","Edit")+btn("to-job","Move to Client / Job","btn-primary");
@@ -564,6 +570,8 @@ function openProjectModal(id, focusField){
   $("pmScheduledEnd").value=p.scheduledEndDate;
   $("pmTechnician").value=p.assignedTechnician;
   $("pmCanceled").checked=p.canceled;
+  $("pmVisitDate").value=p.estimateVisitDate;
+  $("pmVisitTime").value=p.estimateVisitTime;
   $("pmCalendar").innerHTML=calendarStatusHtml(p);
   $("pmNotes").value=p.notes;
   $("pmFollowUpDate").value=p.followUpDate;
@@ -666,6 +674,8 @@ function saveProjectForm(){
     scheduledTime:$("pmScheduledTime").value,
     scheduledEndDate:$("pmScheduledEnd").value,
     canceled:$("pmCanceled").checked,
+    estimateVisitDate:$("pmVisitDate").value,
+    estimateVisitTime:$("pmVisitTime").value,
     assignedTechnician:$("pmTechnician").value.trim(),
     notes:$("pmNotes").value.trim(),
     tasks:readProjectChecklist(),

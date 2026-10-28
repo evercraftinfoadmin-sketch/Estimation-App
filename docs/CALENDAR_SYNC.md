@@ -10,14 +10,20 @@ Only the CRM writes to the calendar; nothing is read back.
 - The CRM sends the project to the CRM mail service (`worker/src/calendar.js`, Cloudflare). The
   service writes the event with the same Google account that already sends the email. The Google
   permission stays on the service, never in the browser.
-- **Which projects:** stage *Client / Job* or later (Start the Project, Completed, Follow-up),
+- **Estimate visits:**
+  - When a lead moves to *Prospects*, the CRM asks for the estimate visit date and time. They
+    can also be set in the project, under Pipeline.
+  - The visit goes into the **main calendar** as `ESTIMATE (name), phone`, with the address in
+    the location line. With a time it lasts one hour; without one it is all day.
+  - It stays when the project becomes a job, which gets its own job event.
+- **Jobs, which projects:** stage *Client / Job* or later (Start the Project, Completed, Follow-up),
   with a *Scheduled Date*, not in a folder (old CRM leads), and not over yet.
 - **Projects from before the sync was turned on** are added only once they are changed (they
   may already be in the calendar by hand, and this avoids duplicates).
 - **The event:**
-  - The title is the client / project name, the service (from the estimate) and the technician.
+  - The title is `JOB (name), phone · technician`.
   - The location is the job address.
-  - The description has the service, the team member and the notes.
+  - The description has the phone, the service (from the estimate), the team member and the notes.
   - With a *Start Time*, the event is timed (until 5 PM on the end date, or 2 hours after a late
     start). Without one, it is an all-day event. *End Date* is optional.
 - **Which calendar:**
