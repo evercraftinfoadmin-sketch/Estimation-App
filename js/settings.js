@@ -91,7 +91,13 @@ const DEFAULT_SETTINGS = {
   calendarSince: "",
   calendarMain: "primary",
   calendarTeam: "[]",
-  calendarOnCancel: "delete"
+  calendarOnCancel: "delete",
+  // Project financials (js/finance.js): defaults, not business rules. Kept as text like the rest.
+  finLaborRate: "",
+  finBurdenPercent: "",
+  finWarnPct: "90",
+  finCritPct: "100",
+  finAutoApprove: ""
 };
 
 function loadSettings(){
@@ -112,7 +118,8 @@ function loadSettings(){
     }
   }
   for(const key of ["companyName","companyEmail","emailFrom","companyPhone","companyAddress","licenseNumber","estimateFooter","terms","googleMapsApiKey","signTextEstimate","signTextWork","signTextCompletion",
-    "calendarEnabled","calendarSince","calendarMain","calendarTeam","calendarOnCancel"]){
+    "calendarEnabled","calendarSince","calendarMain","calendarTeam","calendarOnCancel",
+    "finLaborRate","finBurdenPercent","finWarnPct","finCritPct","finAutoApprove"]){
     settings[key]=String(settings[key] ?? "");
   }
   return settings;
@@ -180,6 +187,7 @@ function loadSettingsForm(){
   $("setSalesTax").value=SETTINGS.salesTax;
   $("setNextNumber").value=SETTINGS.nextEstimateNumber;
   renderCalendarSettings();
+  renderFinanceSettings();
   if(!CALENDAR_LIST && SETTINGS.calendarEnabled==="on" && canSendFromCrm()) refreshCalendarSettings();
 }
 
@@ -199,6 +207,7 @@ function saveSettings(){
   SETTINGS.signTextCompletion=$("setSignCompletion").value.replace(/\s+$/,"") || DEFAULT_SIGN_TEXT_COMPLETION;
   SETTINGS.salesTax=amount($("setSalesTax").value);
   readCalendarSettings();
+  readFinanceSettings();
 
   const builderHadAutoNumber=isBuilderAutoNumber();
   SETTINGS.nextEstimateNumber=Math.max(1,Math.floor(num($("setNextNumber").value,SETTINGS.nextEstimateNumber)));

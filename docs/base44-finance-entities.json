@@ -1,0 +1,832 @@
+[
+ {
+  "name": "Employee",
+  "type": "object",
+  "description": "People who work on jobs (also without a CRM login). No pay rates here: see EmployeeRate.",
+  "properties": {
+   "name": {
+    "type": "string"
+   },
+   "payType": {
+    "type": "string",
+    "enum": [
+     "hourly",
+     "salary",
+     "fixed",
+     "subcontractor"
+    ],
+    "default": "hourly"
+   },
+   "userEmail": {
+    "type": "string",
+    "description": "CRM login email (optional)"
+   },
+   "active": {
+    "type": "boolean",
+    "default": true
+   },
+   "createdAt": {
+    "type": "string"
+   },
+   "updatedAt": {
+    "type": "string"
+   },
+   "legacy_id": {
+    "type": "string",
+    "description": "App id (unique)"
+   },
+   "version": {
+    "type": "integer",
+    "default": 1
+   },
+   "extra": {
+    "type": "object",
+    "additionalProperties": true
+   },
+   "deletedAt": {
+    "type": "string",
+    "description": "Soft delete timestamp (ISO). Admins only.",
+    "rls": {
+     "write": {
+      "$or": [
+       {
+        "user_condition": {
+         "data.crm_role": "owner"
+        }
+       },
+       {
+        "user_condition": {
+         "data.crm_role": "admin"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  "required": [
+   "legacy_id",
+   "name"
+  ],
+  "rls": {
+   "read": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "member"
+      }
+     }
+    ]
+   },
+   "create": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     }
+    ]
+   },
+   "update": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     }
+    ]
+   },
+   "delete": {
+    "user_condition": {
+     "data.crm_role": "owner"
+    }
+   }
+  }
+ },
+ {
+  "name": "EmployeeRate",
+  "type": "object",
+  "description": "Labor COST rate of an employee from a date (cents per hour) and optional burden %. Owners/admins only. New rates are new rows; old ones are kept.",
+  "properties": {
+   "employeeId": {
+    "type": "string",
+    "description": "Employee.legacy_id"
+   },
+   "rateCents": {
+    "type": "integer"
+   },
+   "burdenPercent": {
+    "type": "number",
+    "default": 0
+   },
+   "effectiveFrom": {
+    "type": "string",
+    "description": "YYYY-MM-DD"
+   },
+   "createdBy": {
+    "type": "string"
+   },
+   "createdAt": {
+    "type": "string"
+   },
+   "legacy_id": {
+    "type": "string",
+    "description": "App id (unique)"
+   },
+   "version": {
+    "type": "integer",
+    "default": 1
+   },
+   "extra": {
+    "type": "object",
+    "additionalProperties": true
+   },
+   "deletedAt": {
+    "type": "string",
+    "description": "Soft delete timestamp (ISO). Admins only.",
+    "rls": {
+     "write": {
+      "$or": [
+       {
+        "user_condition": {
+         "data.crm_role": "owner"
+        }
+       },
+       {
+        "user_condition": {
+         "data.crm_role": "admin"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  "required": [
+   "legacy_id",
+   "employeeId",
+   "rateCents",
+   "effectiveFrom"
+  ],
+  "rls": {
+   "read": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     }
+    ]
+   },
+   "create": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     }
+    ]
+   },
+   "update": {
+    "user_condition": {
+     "data.crm_role": "owner"
+    }
+   },
+   "delete": {
+    "user_condition": {
+     "data.crm_role": "owner"
+    }
+   }
+  }
+ },
+ {
+  "name": "ProjectBudget",
+  "type": "object",
+  "description": "Approved budget of a CRM project (cents per budget group), forecast inputs and closing. legacy_id = bud-<project>.",
+  "properties": {
+   "projectId": {
+    "type": "string",
+    "description": "CrmProject.legacy_id"
+   },
+   "lines": {
+    "type": "object",
+    "additionalProperties": true,
+    "description": "budget group -> cents"
+   },
+   "estLaborHours": {
+    "type": "number"
+   },
+   "forecastRateCents": {
+    "type": "integer"
+   },
+   "approvedAt": {
+    "type": "string"
+   },
+   "approvedBy": {
+    "type": "string"
+   },
+   "closedAt": {
+    "type": "string"
+   },
+   "closedBy": {
+    "type": "string"
+   },
+   "createdAt": {
+    "type": "string"
+   },
+   "updatedAt": {
+    "type": "string"
+   },
+   "legacy_id": {
+    "type": "string",
+    "description": "App id (unique)"
+   },
+   "version": {
+    "type": "integer",
+    "default": 1
+   },
+   "extra": {
+    "type": "object",
+    "additionalProperties": true
+   },
+   "deletedAt": {
+    "type": "string",
+    "description": "Soft delete timestamp (ISO). Admins only.",
+    "rls": {
+     "write": {
+      "$or": [
+       {
+        "user_condition": {
+         "data.crm_role": "owner"
+        }
+       },
+       {
+        "user_condition": {
+         "data.crm_role": "admin"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  "required": [
+   "legacy_id",
+   "projectId"
+  ],
+  "rls": {
+   "read": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "member"
+      }
+     }
+    ]
+   },
+   "create": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     }
+    ]
+   },
+   "update": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     }
+    ]
+   },
+   "delete": {
+    "user_condition": {
+     "data.crm_role": "owner"
+    }
+   }
+  }
+ },
+ {
+  "name": "CostEntry",
+  "type": "object",
+  "description": "Project cost ledger: material, labor or expense. Amounts in cents. Never deleted: voided with a reason. Approval is a separate CostApproval record.",
+  "properties": {
+   "projectId": {
+    "type": "string",
+    "description": "CrmProject.legacy_id ('' = company-wide)"
+   },
+   "type": {
+    "type": "string",
+    "enum": [
+     "material",
+     "labor",
+     "expense"
+    ]
+   },
+   "category": {
+    "type": "string"
+   },
+   "classification": {
+    "type": "string",
+    "enum": [
+     "direct",
+     "overhead",
+     "allocated"
+    ],
+    "default": "direct"
+   },
+   "description": {
+    "type": "string"
+   },
+   "vendor": {
+    "type": "string"
+   },
+   "date": {
+    "type": "string"
+   },
+   "quantity": {
+    "type": "number"
+   },
+   "unit": {
+    "type": "string"
+   },
+   "unitOther": {
+    "type": "string"
+   },
+   "estUnitCents": {
+    "type": "integer"
+   },
+   "actUnitCents": {
+    "type": "integer"
+   },
+   "employeeId": {
+    "type": "string"
+   },
+   "costMethod": {
+    "type": "string",
+    "enum": [
+     "hourly",
+     "fixed",
+     "subcontract"
+    ],
+    "default": "hourly"
+   },
+   "startTime": {
+    "type": "string"
+   },
+   "endTime": {
+    "type": "string"
+   },
+   "breakMinutes": {
+    "type": "integer"
+   },
+   "hours": {
+    "type": "number"
+   },
+   "workCategory": {
+    "type": "string"
+   },
+   "amountCents": {
+    "type": "integer"
+   },
+   "status": {
+    "type": "string",
+    "enum": [
+     "active",
+     "void"
+    ],
+    "default": "active"
+   },
+   "voidReason": {
+    "type": "string"
+   },
+   "receiptPhotoId": {
+    "type": "string"
+   },
+   "notes": {
+    "type": "string"
+   },
+   "createdBy": {
+    "type": "string"
+   },
+   "createdAt": {
+    "type": "string"
+   },
+   "updatedAt": {
+    "type": "string"
+   },
+   "legacy_id": {
+    "type": "string",
+    "description": "App id (unique)"
+   },
+   "version": {
+    "type": "integer",
+    "default": 1
+   },
+   "extra": {
+    "type": "object",
+    "additionalProperties": true
+   },
+   "deletedAt": {
+    "type": "string",
+    "description": "Soft delete timestamp (ISO). Admins only.",
+    "rls": {
+     "write": {
+      "$or": [
+       {
+        "user_condition": {
+         "data.crm_role": "owner"
+        }
+       },
+       {
+        "user_condition": {
+         "data.crm_role": "admin"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  "required": [
+   "legacy_id",
+   "projectId",
+   "type",
+   "date"
+  ],
+  "rls": {
+   "read": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "member"
+      }
+     }
+    ]
+   },
+   "create": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "member"
+      }
+     }
+    ]
+   },
+   "update": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     },
+     {
+      "$and": [
+       {
+        "user_condition": {
+         "data.crm_role": "member"
+        }
+       },
+       {
+        "created_by_id": "{{user.id}}"
+       }
+      ]
+     }
+    ]
+   },
+   "delete": {
+    "user_condition": {
+     "data.crm_role": "owner"
+    }
+   }
+  }
+ },
+ {
+  "name": "CostApproval",
+  "type": "object",
+  "description": "An owner's/admin's decision on a CostEntry, with the approved cost (cents), minutes and frozen rate. Only managers create these; never changed afterwards.",
+  "properties": {
+   "costId": {
+    "type": "string",
+    "description": "CostEntry.legacy_id"
+   },
+   "projectId": {
+    "type": "string"
+   },
+   "decision": {
+    "type": "string",
+    "enum": [
+     "approved",
+     "rejected"
+    ]
+   },
+   "contentHash": {
+    "type": "string"
+   },
+   "costCents": {
+    "type": "integer"
+   },
+   "estCents": {
+    "type": "integer"
+   },
+   "minutes": {
+    "type": "integer"
+   },
+   "group": {
+    "type": "string"
+   },
+   "rateCents": {
+    "type": "integer"
+   },
+   "reason": {
+    "type": "string"
+   },
+   "by": {
+    "type": "string"
+   },
+   "at": {
+    "type": "string"
+   },
+   "legacy_id": {
+    "type": "string",
+    "description": "App id (unique)"
+   },
+   "version": {
+    "type": "integer",
+    "default": 1
+   },
+   "extra": {
+    "type": "object",
+    "additionalProperties": true
+   },
+   "deletedAt": {
+    "type": "string",
+    "description": "Soft delete timestamp (ISO). Admins only.",
+    "rls": {
+     "write": {
+      "$or": [
+       {
+        "user_condition": {
+         "data.crm_role": "owner"
+        }
+       },
+       {
+        "user_condition": {
+         "data.crm_role": "admin"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  "required": [
+   "legacy_id",
+   "costId",
+   "decision"
+  ],
+  "rls": {
+   "read": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "member"
+      }
+     }
+    ]
+   },
+   "create": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     }
+    ]
+   },
+   "update": {
+    "user_condition": {
+     "data.crm_role": "owner"
+    }
+   },
+   "delete": {
+    "user_condition": {
+     "data.crm_role": "owner"
+    }
+   }
+  }
+ },
+ {
+  "name": "FinancialAuditLog",
+  "type": "object",
+  "description": "Who changed which financial record, when, from what to what, and why. Append only from the CRM.",
+  "properties": {
+   "at": {
+    "type": "string"
+   },
+   "actor": {
+    "type": "string"
+   },
+   "projectId": {
+    "type": "string"
+   },
+   "recordType": {
+    "type": "string"
+   },
+   "recordId": {
+    "type": "string"
+   },
+   "action": {
+    "type": "string"
+   },
+   "before": {
+    "type": "string"
+   },
+   "after": {
+    "type": "string"
+   },
+   "reason": {
+    "type": "string"
+   },
+   "legacy_id": {
+    "type": "string",
+    "description": "App id (unique)"
+   },
+   "version": {
+    "type": "integer",
+    "default": 1
+   },
+   "extra": {
+    "type": "object",
+    "additionalProperties": true
+   },
+   "deletedAt": {
+    "type": "string",
+    "description": "Soft delete timestamp (ISO). Admins only.",
+    "rls": {
+     "write": {
+      "$or": [
+       {
+        "user_condition": {
+         "data.crm_role": "owner"
+        }
+       },
+       {
+        "user_condition": {
+         "data.crm_role": "admin"
+        }
+       }
+      ]
+     }
+    }
+   }
+  },
+  "required": [
+   "legacy_id",
+   "action"
+  ],
+  "rls": {
+   "read": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "member"
+      }
+     }
+    ]
+   },
+   "create": {
+    "$or": [
+     {
+      "user_condition": {
+       "data.crm_role": "owner"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "admin"
+      }
+     },
+     {
+      "user_condition": {
+       "data.crm_role": "member"
+      }
+     }
+    ]
+   },
+   "update": {
+    "user_condition": {
+     "data.crm_role": "owner"
+    }
+   },
+   "delete": {
+    "user_condition": {
+     "data.crm_role": "owner"
+    }
+   }
+  }
+ }
+]

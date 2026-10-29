@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.11.15a">
+<link rel="stylesheet" href="css/styles.css?v=2026.11.16a">
 </head>
 <body>
 
@@ -295,6 +295,29 @@
           <p class="small" id="mapsKeyStatus"></p>
           <div class="btn-row end"><button type="submit" class="btn btn-primary">Save Settings</button></div>
         </section>
+        <section class="card terms-card" id="financeCard" hidden>
+          <h2>Financials: Team &amp; Labor Cost Rates</h2>
+          <p class="small" style="margin-top:-8px">Owners and admins only. The cost rate is what one hour of work costs the company (not the price billed to the client). A new rate applies from its date; entries already approved keep the rate they were approved with.</p>
+          <div class="table-wrap"><table class="table"><thead><tr><th>Person</th><th>Pay type</th><th class="num">Cost rate</th><th></th></tr></thead><tbody id="finTeamBody"></tbody></table></div>
+          <div class="fin-add-person">
+            <input id="finNewName" type="text" placeholder="Name" aria-label="Name" maxlength="120">
+            <select id="finNewPay" aria-label="Pay type"><option value="hourly">Hourly</option><option value="salary">Salaried</option><option value="fixed">Fixed price per job</option><option value="subcontractor">Subcontractor</option></select>
+            <input id="finNewRate" type="number" min="0" step="0.01" placeholder="Cost $/h" aria-label="Hourly cost rate">
+            <input id="finNewBurden" type="number" min="0" step="0.1" placeholder="Burden %" aria-label="Labor burden percent">
+            <input id="finNewEmail" type="email" placeholder="CRM login email (optional)" aria-label="CRM login email">
+            <button type="button" class="btn btn-light" id="btnFinAddPerson">+ Add person</button>
+          </div>
+          <h3>Financial defaults</h3>
+          <div class="form-grid two">
+            <div class="field"><label for="setFinLaborRate">Default forecast labor cost rate ($/h)</label><input id="setFinLaborRate" type="number" min="0" step="0.01" placeholder="not set"></div>
+            <div class="field"><label for="setFinBurden">Default labor burden (%)</label><input id="setFinBurden" type="number" min="0" step="0.1" placeholder="none"></div>
+            <div class="field"><label for="setFinWarn">Budget warning at (% of budget)</label><input id="setFinWarn" type="number" min="1" step="1"></div>
+            <div class="field"><label for="setFinCrit">Budget critical above (% of budget)</label><input id="setFinCrit" type="number" min="1" step="1"></div>
+          </div>
+          <label class="check"><input id="setFinAutoApprove" type="checkbox"> <span>Entries made by owners and admins are approved right away (members' entries always wait for approval)</span></label>
+          <p class="small">Currency: USD.</p>
+          <div class="btn-row end"><button type="submit" class="btn btn-primary">Save Settings</button></div>
+        </section>
         <section class="card terms-card" id="calendarCard">
           <h2>Google Calendar</h2>
           <p class="small" style="margin-top:-8px">Estimate visits (from Prospects on) go into the calendar below as "ESTIMATE (name), phone"; jobs (Client / Job and later) as "JOB (name), phone · technician", with the address as the location. They are updated whenever the date, time, address or technician changes here. The CRM is the source of truth: change jobs here, not in the calendar. Projects already in the CRM are added only once they are changed.</p>
@@ -384,6 +407,50 @@
     </div>
   </form>
 </div>
+<div id="costEntryModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="ceTitle">
+  <form class="modal-box" id="costEntryForm" novalidate>
+    <div class="modal-head"><h2 id="ceTitle">Add entry</h2><button type="button" class="btn-icon" data-close="costEntryModal" aria-label="Close">✕</button></div>
+    <div class="form-grid two">
+      <div class="field"><label for="ceType">Type</label><select id="ceType"></select></div>
+      <div class="field"><label for="ceDate">Date</label><input id="ceDate" type="date"></div>
+    </div>
+    <div class="form-grid two" data-ce-for="labor">
+      <div class="field"><label for="ceEmployee">Who worked</label><select id="ceEmployee"></select><p class="small" id="ceNoPeople" hidden>No people yet: an owner or admin adds them in Settings → Team &amp; Labor Cost Rates.</p></div>
+      <div class="field"><label for="ceMethod">How it is paid</label><select id="ceMethod"></select></div>
+    </div>
+    <div class="form-grid" data-ce-for="labor-hourly">
+      <div class="field"><label for="ceStart">Start time</label><input id="ceStart" type="time"></div>
+      <div class="field"><label for="ceEnd">End time</label><input id="ceEnd" type="time"></div>
+      <div class="field"><label for="ceBreak">Break (minutes)</label><input id="ceBreak" type="number" min="0" step="5" inputmode="numeric"></div>
+    </div>
+    <div class="form-grid two" data-ce-for="labor">
+      <div class="field" data-ce-for="labor-hourly labor-fixed labor-subcontract"><label for="ceHours">Total hours <span class="small">(or start / end above)</span></label><input id="ceHours" type="number" min="0" step="0.25" inputmode="decimal"></div>
+      <div class="field"><label for="ceWork">Work category</label><input id="ceWork" type="text" maxlength="100" placeholder="e.g. Painting, Prep, Drywall"></div>
+    </div>
+    <div class="field" data-ce-for="expense"><label for="ceCategory">Category</label><select id="ceCategory"></select></div>
+    <div class="field"><label for="ceDescription" id="ceDescLabel">Description</label><input id="ceDescription" type="text" maxlength="1000" autocomplete="off"></div>
+    <div class="form-grid" data-ce-for="material">
+      <div class="field"><label for="ceQty">Quantity</label><input id="ceQty" type="number" min="0" step="any" inputmode="decimal"></div>
+      <div class="field"><label for="ceUnit">Unit</label><select id="ceUnit"></select><input id="ceUnitOther" type="text" maxlength="40" placeholder="unit" aria-label="Other unit" hidden></div>
+      <div class="field"><label for="ceEstUnit">Estimated unit cost ($)</label><input id="ceEstUnit" type="number" min="0" step="0.01" inputmode="decimal"></div>
+      <div class="field"><label for="ceActUnit">Actual unit cost ($)</label><input id="ceActUnit" type="number" min="0" step="0.01" inputmode="decimal"></div>
+    </div>
+    <div class="form-grid two">
+      <div class="field" data-ce-for="expense labor-fixed labor-subcontract"><label for="ceAmount">Amount ($)</label><input id="ceAmount" type="number" min="0" step="0.01" inputmode="decimal"></div>
+      <div class="field" data-ce-for="expense"><label for="ceClass">Cost classification</label><select id="ceClass"></select></div>
+      <div class="field" data-ce-for="material expense labor-subcontract"><label for="ceVendor">Vendor / store / payee</label><input id="ceVendor" type="text" maxlength="200"></div>
+    </div>
+    <div class="field"><label for="ceNotes">Notes</label><textarea id="ceNotes" rows="2" maxlength="2000"></textarea></div>
+    <div class="field" id="ceReceiptRow" hidden><label>Receipt photos <span class="small">(kept on this device, like project photos)</span></label><div class="photo-gallery" id="ceReceipts"></div></div>
+    <div class="field" id="ceReasonRow" hidden><label for="ceReason">Reason for changing an approved entry (required, kept in the log)</label><input id="ceReason" type="text" maxlength="300"></div>
+    <p class="fin-preview" id="cePreview" aria-live="polite"></p>
+    <p class="small" id="ceStatus" role="status"></p>
+    <div class="btn-row end">
+      <button type="button" class="btn btn-light" data-close="costEntryModal">Cancel</button>
+      <button type="submit" class="btn btn-primary" id="ceSave">Save</button>
+    </div>
+  </form>
+</div>
 <div id="customServiceModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="customServiceTitle">
   <form class="modal-box modal-sm" id="customServiceForm">
     <div class="modal-head"><h2 id="customServiceTitle">Custom Service</h2><button type="button" class="btn-icon" data-close="customServiceModal" aria-label="Close">✕</button></div>
@@ -454,6 +521,11 @@
 <div id="projectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
   <form class="modal-box" id="projectForm">
     <div class="modal-head"><h2 id="projectModalTitle">CRM Project</h2><button type="button" class="btn-icon" data-close="projectModal" aria-label="Close">✕</button></div>
+    <div class="pm-tabs" id="pmTabs" role="tablist" hidden>
+      <button type="button" role="tab" data-pm-tab="project" class="active" aria-selected="true">Project</button>
+      <button type="button" role="tab" data-pm-tab="financials" aria-selected="false">💲 Financials</button>
+    </div>
+    <div class="fin" id="pmFinancials" hidden></div>
 
     <div class="pm-grid">
       <section>
@@ -707,24 +779,26 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.11.15a"></script>
-<script src="js/docstyles.js?v=2026.11.15a"></script>
-<script src="js/core.js?v=2026.11.15a"></script>
-<script src="js/calc.js?v=2026.11.15a"></script>
-<script src="js/settings.js?v=2026.11.15a"></script>
-<script src="js/address.js?v=2026.11.15a"></script>
-<script src="js/categories.js?v=2026.11.15a"></script>
-<script src="js/services.js?v=2026.11.15a"></script>
-<script src="js/photos.js?v=2026.11.15a"></script>
-<script src="js/cloud.js?v=2026.11.15a"></script>
-<script src="js/estimates.js?v=2026.11.15a"></script>
-<script src="js/calendar.js?v=2026.11.15a"></script>
-<script src="js/crm.js?v=2026.11.15a"></script>
-<script src="js/calview.js?v=2026.11.15a"></script>
-<script src="js/invoices.js?v=2026.11.15a"></script>
-<script src="js/importer.js?v=2026.11.15a"></script>
-<script src="js/mail.js?v=2026.11.15a"></script>
-<script src="js/signing.js?v=2026.11.15a"></script>
-<script src="js/app.js?v=2026.11.15a"></script>
+<script src="js/config.js?v=2026.11.16a"></script>
+<script src="js/docstyles.js?v=2026.11.16a"></script>
+<script src="js/core.js?v=2026.11.16a"></script>
+<script src="js/calc.js?v=2026.11.16a"></script>
+<script src="js/settings.js?v=2026.11.16a"></script>
+<script src="js/address.js?v=2026.11.16a"></script>
+<script src="js/categories.js?v=2026.11.16a"></script>
+<script src="js/services.js?v=2026.11.16a"></script>
+<script src="js/photos.js?v=2026.11.16a"></script>
+<script src="js/cloud.js?v=2026.11.16a"></script>
+<script src="js/estimates.js?v=2026.11.16a"></script>
+<script src="js/calendar.js?v=2026.11.16a"></script>
+<script src="js/finance.js?v=2026.11.16a"></script>
+<script src="js/crm.js?v=2026.11.16a"></script>
+<script src="js/financeui.js?v=2026.11.16a"></script>
+<script src="js/calview.js?v=2026.11.16a"></script>
+<script src="js/invoices.js?v=2026.11.16a"></script>
+<script src="js/importer.js?v=2026.11.16a"></script>
+<script src="js/mail.js?v=2026.11.16a"></script>
+<script src="js/signing.js?v=2026.11.16a"></script>
+<script src="js/app.js?v=2026.11.16a"></script>
 </body>
 </html>

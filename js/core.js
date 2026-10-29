@@ -8,7 +8,14 @@ const STORAGE_BASE_KEYS = {
   estimates: "constructionEstimatorSavedEstimates",
   crm: "constructionEstimatorCRM",
   categories: "constructionEstimatorCategories",
-  invoices: "constructionEstimatorInvoices"
+  invoices: "constructionEstimatorInvoices",
+  // Project financials (js/finance.js)
+  costs: "evercraftCostEntries",
+  approvals: "evercraftCostApprovals",
+  employees: "evercraftEmployees",
+  rates: "evercraftEmployeeRates",
+  budgets: "evercraftProjectBudgets",
+  finlog: "evercraftFinancialLog"
 };
 
 // With shared cloud data, each Base44 app (test / production) keeps its own copy of the data

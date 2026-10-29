@@ -29,11 +29,6 @@ function calViewRange(month){
   return {start,end};
 }
 
-function addDays(iso, n){
-  const [y,m,d]=iso.split("-").map(Number);
-  return localISODate(new Date(y,m-1,d+n));
-}
-
 // The local days (YYYY-MM-DD) an event is on.
 function calViewEventDays(e){
   let first, last;

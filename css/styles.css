@@ -412,3 +412,66 @@ a.btn{text-decoration:none}
   .calv-dots{display:flex}
   .calv-item{flex-direction:column;gap:2px}
 }
+
+/* Project financials */
+.pm-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:-4px 0 14px}
+.pm-tabs button{border:0;background:none;padding:8px 14px;font:inherit;font-weight:700;color:var(--muted);border-bottom:3px solid transparent;cursor:pointer}
+.pm-tabs button.active{color:var(--primary-text);border-bottom-color:var(--primary)}
+#projectForm.fin-mode > :not(.modal-head):not(.pm-tabs):not(#pmFinancials){display:none !important}
+.fin h3{margin:18px 0 8px}
+.fin-quick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.fin-alerts{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.fin-alert{padding:8px 12px;border-radius:8px;font-size:14px}
+.fin-alert-critical{background:#fee2e2;color:#991b1b;font-weight:700}
+.fin-alert-warning{background:#fef3c7;color:#92400e}
+.fin-alert-info{background:#eff6ff;color:#1e40af}
+.fin-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.fin-kpi{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;border-top:4px solid #cbd5e1;cursor:help}
+.fin-kpi-rev{border-top-color:#16a34a}.fin-kpi-budget{border-top-color:#64748b}.fin-kpi-actual{border-top-color:#2563eb}
+.fin-kpi-forecast{border-top-color:#f59e0b}.fin-kpi-final{border-top-color:#4F57FF}
+.fin-kpi-label{font-size:12px;color:var(--muted);font-weight:700}
+.fin-kpi-value{font-size:20px;font-weight:800;margin-top:2px}
+.fin-kpi-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.fin-tip{display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:50%;background:#e5e7eb;font-size:10px}
+.fin-tag{display:inline-block;padding:0 6px;border-radius:999px;background:#f1f5f9;color:#334155;font-weight:700;font-size:11px}
+.fin-table td,.fin-table th{white-space:nowrap}
+.fin-table td:first-child,.fin-ledger td:nth-child(2){white-space:normal;min-width:160px}
+.fin-table tfoot th{border-top:2px solid var(--line)}
+.fin-row-link{cursor:pointer}.fin-row-link:hover{background:#f8fafc}
+.fin-row-out{opacity:.55}.fin-row-out td:nth-child(4){text-decoration:line-through}
+.fin-over{color:#b91c1c}.fin-under{color:#047857}
+.fin-chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700}
+.fin-chip-pending{background:#fef3c7;color:#92400e}.fin-chip-approved{background:#d1fae5;color:#047857}
+.fin-chip-rejected{background:#fee2e2;color:#b91c1c}.fin-chip-void{background:#e5e7eb;color:#374151}
+.fin-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.fin-stats>div{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column}
+.fin-stats span{font-size:12px;color:var(--muted)}.fin-stats b{font-size:16px}
+.fin-budget,.fin-log{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:12px}
+.fin-budget summary,.fin-log summary{cursor:pointer}
+.fin-budget-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0 12px;margin-top:10px}
+.fin-filters{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin-bottom:8px;font-size:13px}
+.fin-filters label{display:flex;flex-direction:column;gap:2px;font-weight:600}
+.fin-filters input,.fin-filters select{padding:6px 8px;font-size:13px}
+.fin-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.fin-log-list{list-style:none;padding:0;margin:8px 0;font-size:13px;max-height:320px;overflow:auto}
+.fin-log-list li{padding:6px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.fin-preview{font-weight:700;margin:6px 0 0}
+.fin-add-person{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.fin-add-person input,.fin-add-person select{flex:1 1 140px;width:auto}
+@media (max-width:700px){
+  .fin-kpis{grid-template-columns:1fr 1fr}
+  .fin-kpi-value{font-size:16px}
+  .pm-tabs button{padding:8px 10px}
+}
+/* The entry window opens over the project window. */
+#costEntryModal{z-index:110}
+.fin-chip-changed{background:#ffedd5;color:#9a3412}
+@media (max-width:700px){
+  /* The entries list as cards on a phone: date, entry, category, cost and actions stacked. */
+  .fin-ledger thead{display:none}
+  .fin-ledger,.fin-ledger tbody,.fin-ledger tr,.fin-ledger td{display:block;width:100%}
+  .fin-ledger tr{border-bottom:1px solid var(--line);padding:8px 0}
+  .fin-ledger td{border:0;padding:2px 0;white-space:normal}
+  .fin-ledger td.num{text-align:left;font-weight:700}
+  .fin-ledger .fin-actions{justify-content:flex-start}
+}
