@@ -4,6 +4,7 @@
 //
 //   POST /calendar/calendars  the calendars the company account can write to
 //   POST /calendar/sync       add / update / remove the event of one CRM project
+//   POST /calendar/events     the events of some calendars in a date range (the CRM's Calendar page)
 //
 // A project has up to two events: its estimate visit ("ESTIMATE (name), phone") and its job
 // ("JOB (name), phone · technician"). Each always gets the same event id (made from the app,
@@ -14,6 +15,8 @@ const CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar.events", "htt
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const CAL_ID_RE = /^[A-Za-z0-9._%+#@-]{1,200}$/;
+const MAX_VIEW_CALENDARS = 15;
+const MAX_VIEW_DAYS = 62;
 const DAY_END = "17:00"; // a timed job with no end time ends at 5 PM (or 2 hours after a late start)
 
 // The fixed event id of a project's job / estimate event. Google allows a-v and digits; hex is a subset.
@@ -118,8 +121,23 @@ async function calendarRoutes(request, env, url, cors, h) {
     if (!r.ok) return h.json(await googleError(r, h), r.status === 401 || r.status === 403 ? 503 : 502, cors);
     const list = ((await r.json().catch(() => ({}))).items || [])
       .filter(c => !c.deleted)
-      .map(c => ({ id: c.id, name: c.summaryOverride || c.summary || c.id, primary: !!c.primary, timeZone: c.timeZone || "" }));
+      .map(c => ({ id: c.id, name: c.summaryOverride || c.summary || c.id, primary: !!c.primary, timeZone: c.timeZone || "", color: /^#[0-9a-f]{6}$/i.test(c.backgroundColor || "") ? c.backgroundColor : "" }));
     return h.json({ calendars: list }, 200, cors);
+  }
+
+  if (url.pathname === "/calendar/events") {
+    const ids = Array.isArray(body.calendarIds) ? [...new Set(body.calendarIds.map(String))] : [];
+    const from = Date.parse(body.timeMin), to = Date.parse(body.timeMax);
+    if (!ids.length || ids.length > MAX_VIEW_CALENDARS || !ids.every(id => CAL_ID_RE.test(id))) return h.json({ error: `Choose 1 to ${MAX_VIEW_CALENDARS} calendars.` }, 400, cors);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from || to - from > MAX_VIEW_DAYS * 86400000) return h.json({ error: "The date range is not valid." }, 400, cors);
+    const q = new URLSearchParams({ timeMin: new Date(from).toISOString(), timeMax: new Date(to).toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: "250" });
+    const results = await Promise.all(ids.map(async id => {
+      const r = await api(`/calendars/${encodeURIComponent(id)}/events?${q}`);
+      if (!r.ok) return { calendarId: id, error: (await googleError(r, h)).error, events: [] };
+      const items = (await r.json().catch(() => ({}))).items || [];
+      return { calendarId: id, events: items.filter(e => e.status !== "cancelled" && e.start).map(e => viewEvent(e, id, who.appId)) };
+    }));
+    return h.json({ ok: true, calendars: results }, 200, cors);
   }
 
   if (url.pathname === "/calendar/sync") {
@@ -163,6 +181,25 @@ async function calendarRoutes(request, env, url, cors, h) {
     return h.json({ ok: true, eventId: ev.id || eventId, calendarId, link: ev.htmlLink || "" }, 200, cors);
   }
   return h.json({ error: "Not found" }, 404, cors);
+}
+
+// What the CRM's Calendar page needs of one event.
+function viewEvent(e, calendarId, appId) {
+  const own = (e.extendedProperties && e.extendedProperties.private) || {};
+  const crm = own.evercraftApp === appId ? own : {}; // a project of this CRM (not of the dev app)
+  return {
+    id: String(e.id || ""),
+    calendarId,
+    summary: String(e.summary || "(no title)").slice(0, 300),
+    location: String(e.location || "").slice(0, 500),
+    description: String(e.description || "").slice(0, 2000),
+    allDay: !!e.start.date,
+    start: e.start.dateTime || e.start.date || "",
+    end: (e.end && (e.end.dateTime || e.end.date)) || "",
+    link: String(e.htmlLink || ""),
+    crmProject: String(crm.evercraftProject || ""),
+    crmKind: String(crm.evercraftKind || "")
+  };
 }
 
 // Google's answer → {error, retry}. retry: worth trying again later by itself.

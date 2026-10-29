@@ -2,7 +2,7 @@
 
 /* Navigation, event wiring and start-up. */
 
-const PAGES = ["builder","estimates","services","crm","invoices","signatures","settings"];
+const PAGES = ["builder","estimates","services","crm","calendar","invoices","signatures","settings"];
 
 function showPage(name){
   if(!PAGES.includes(name)) name="builder";
@@ -16,6 +16,7 @@ function showPage(name){
   if(name==="estimates") renderSavedEstimates();
   else if(name==="services") renderServicesPage();
   else if(name==="crm") renderCrmBoard();
+  else if(name==="calendar") renderCalendarPage();
   else if(name==="invoices") renderInvoicesPage();
   else if(name==="signatures") renderSignaturesPage();
   else if(name==="settings") loadSettingsForm();
@@ -132,6 +133,7 @@ function init(){
   wireInvoiceEvents();
   wireMailEvents();
   wireCalendarEvents();
+  wireCalendarPage();
   wireSignEvents();
   wireCloudEvents();
   newEstimate();
