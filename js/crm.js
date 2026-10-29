@@ -593,6 +593,7 @@ function openProjectModal(id, focusField){
        ${id?`<button class="btn btn-light btn-sm" data-pm-action="create-estimate">Create Estimate</button>`:`<div class="small">Save the lead first, then create an estimate.</div>`}`;
   $("pmDelete").hidden=!id;
   setPhotoGalleryOwner($("pmPhotos"),"project",id ? p.id : "","Save the lead first, then add photos.");
+  prepareFinancialsTab(id ? p.id : null);
 
   openModal("projectModal");
   (focusField ? $(focusField) : $("pmClientName")).focus();

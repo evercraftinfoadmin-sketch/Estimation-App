@@ -134,6 +134,7 @@ function init(){
   wireMailEvents();
   wireCalendarEvents();
   wireCalendarPage();
+  wireFinanceEvents();
   wireSignEvents();
   wireCloudEvents();
   newEstimate();

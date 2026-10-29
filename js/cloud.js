@@ -45,17 +45,31 @@ const CLOUD_LISTS = [
     "followUpDate","followUpType","followUpNotes","followUpCompleted","createdAt","updatedAt"]},
   {key:STORAGE_KEYS.invoices, entity:"Invoice", fields:["invoiceNumber","date","dueDate","estimateId","estimateNumber","crmProjectId",
     "clientName","clientEmail","clientPhone","address","items","markup","taxRate","taxMode","subtotal","markupAmount","taxAmount",
-    "total","payments","paid","balance","status","clientMessage","createdAt","updatedAt"]}
+    "total","payments","paid","balance","status","clientMessage","createdAt","updatedAt"]},
+  // Project financials. optional: the table may not exist in Base44 yet (the rest still syncs).
+  // managersOnly: never asked for by members (Base44 refuses them anyway).
+  {key:STORAGE_KEYS.employees, entity:"Employee", optional:true, fields:["name","payType","userEmail","active","createdAt","updatedAt"]},
+  {key:STORAGE_KEYS.rates, entity:"EmployeeRate", optional:true, managersOnly:true, fields:["employeeId","rateCents","burdenPercent","effectiveFrom","createdBy","createdAt"]},
+  {key:STORAGE_KEYS.budgets, entity:"ProjectBudget", optional:true, fields:["projectId","lines","estLaborHours","forecastRateCents","approvedAt","approvedBy",
+    "closedAt","closedBy","createdAt","updatedAt"]},
+  {key:STORAGE_KEYS.costs, entity:"CostEntry", optional:true, fields:["projectId","type","category","classification","description","vendor","date",
+    "quantity","unit","unitOther","estUnitCents","actUnitCents","employeeId","costMethod","startTime","endTime","breakMinutes","hours","workCategory",
+    "amountCents","status","voidReason","receiptPhotoId","notes","createdBy","createdAt","updatedAt"]},
+  {key:STORAGE_KEYS.approvals, entity:"CostApproval", optional:true, fields:["costId","projectId","decision","contentHash","costCents","estCents","minutes","group",
+    "rateCents","reason","by","at"]},
+  {key:STORAGE_KEYS.finlog, entity:"FinancialAuditLog", optional:true, fields:["at","actor","projectId","recordType","recordId","action","before","after","reason"]}
 ];
 const CLOUD_NUMBER_FIELDS = new Set(["addressLatitude","addressLongitude","defaultPrice","drywallTotal","stuccoTotal","paintingTotal",
   "otherTotal","subtotal","markup","markupAmount","taxRate","taxAmount","customerTotal","estimateTotal","salesTax",
-  "total","paid","balance"]);
+  "total","paid","balance","rateCents","burdenPercent","estLaborHours","forecastRateCents","quantity","estUnitCents","actUnitCents",
+  "breakMinutes","hours","amountCents","costCents","estCents","minutes"]);
 // Shared business settings. The Google Maps key and the local estimate counter are never uploaded.
 const CLOUD_SETTINGS_FIELDS = ["companyName","companyEmail","companyPhone","companyAddress","licenseNumber",
   "markup","salesTax","taxMode","estimateFooter","terms"];
 // Settings kept in the CompanySettings record's "extra" field (no table change needed).
 const CLOUD_SETTINGS_EXTRA = ["signTextEstimate","signTextWork","signTextCompletion",
-  "calendarEnabled","calendarSince","calendarMain","calendarTeam","calendarOnCancel"];
+  "calendarEnabled","calendarSince","calendarMain","calendarTeam","calendarOnCancel",
+  "finLaborRate","finBurdenPercent","finWarnPct","finCritPct","finAutoApprove"];
 // Fields Base44 adds to every record.
 const CLOUD_SYSTEM_FIELDS = new Set(["id","legacy_id","version","extra","deletedAt","created_date","updated_date",
   "created_by_id","created_by","is_sample","app_id","entity_name"]);
@@ -124,7 +138,13 @@ const CLOUD_NORMALIZE = {
   Service:r=>normalizeService(r),
   Estimate:r=>normalizeEstimate(r),
   CrmProject:r=>normalizeProject(r),
-  Invoice:r=>normalizeInvoice(r)
+  Invoice:r=>normalizeInvoice(r),
+  Employee:r=>normalizeEmployee(r),
+  EmployeeRate:r=>normalizeRate(r),
+  ProjectBudget:r=>normalizeBudget(r),
+  CostEntry:r=>normalizeCostEntry(r),
+  CostApproval:r=>normalizeApproval(r),
+  FinancialAuditLog:r=>normalizeLogEntry(r)
 };
 function cloudRecordHash(def, rec){
   let r=rec;
@@ -516,7 +536,16 @@ async function cloudSyncOnce(){
   try{
     // Categories and services first: estimates refer to them.
     for(const def of CLOUD_LISTS){
-      const res=await cloudSyncList(def,meta,opts);
+      if(def.managersOnly && !cloudIsAdmin()) continue;
+      let res;
+      try{
+        res=await cloudSyncList(def,meta,opts);
+      }catch(err){
+        // A table not set up in Base44 yet must not stop everything else from syncing.
+        if(!def.optional || cloudFatalError(err)) throw err;
+        cloudRecordFailure(def.entity,"",`${def.entity}: ${cloudErrorMessage(err)} (is the table set up in Base44?)`);
+        continue;
+      }
       changed=changed || res.changed;
       conflicts+=res.conflicts;
       unmigrated+=res.unmigrated;
