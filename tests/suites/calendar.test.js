@@ -1,7 +1,7 @@
 // CRM projects → Google Calendar (js/calendar.js): what is sent and when, retries, cancel, delete,
 // the status in the project window, Settings and the log. The calendar service is faked inside
 // the page (no network); it keeps one event per project like the real one.
-const { launch, FILE, OUT, TEST_APP_ID, SIGNED_OUT_SDK } = require('../helpers');
+const { launch, FILE, OUT, TEST_APP_ID, SIGNED_OUT_SDK, pacificDate } = require('../helpers');
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+m);};
 const MAIL='https://mail.test.invalid';
 const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-test.base44.invalid', base44ServerUrl:'https://preview--ci-test.base44.invalid', mailServiceUrl:MAIL };
@@ -37,7 +37,7 @@ const YURA='yura@group.calendar.google.com';
   const syncs=()=>svc.requests.filter(r=>r.path==='/calendar/sync');
   const settle=async()=>{ await p.waitForTimeout(150); await p.waitForFunction(()=>!CALENDAR_RUNNING); };
   const cal=id=>p.evaluate(id=>getProject(id).calendar,id);
-  const future=(days)=>{ const d=new Date(); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); };
+  const future=days=>pacificDate(days);
   const D1=future(10), D2=future(12), D3=future(20);
 
   // a project that was in the CRM before the sync was turned on (it may already be in the calendar by hand)

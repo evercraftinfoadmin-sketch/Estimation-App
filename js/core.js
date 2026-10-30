@@ -92,23 +92,57 @@ function capitalize(s){
   return s.charAt(0).toUpperCase()+s.slice(1);
 }
 
-// Local calendar date (YYYY-MM-DD). toISOString() would give the UTC date,
-// which is already "tomorrow" in US evenings.
-function localISODate(d=new Date()){
-  const pad=n=>String(n).padStart(2,"0");
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+/* The company works in Pacific time (Los Angeles: PST in winter, PDT in summer). Every date and
+   time the CRM shows or counts with is Pacific time, whatever time zone the device is set to
+   (a laptop in Europe still sees the Los Angeles date and time). */
+const COMPANY_TIME_ZONE = "America/Los_Angeles";
+const COMPANY_CLOCK = new Intl.DateTimeFormat("en-US",{timeZone:COMPANY_TIME_ZONE,year:"numeric",month:"2-digit",day:"2-digit",
+  hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
+
+// The Pacific date and time of a moment: {year, month, day, hour, minute}.
+function companyParts(d=new Date()){
+  const o={};
+  for(const p of COMPANY_CLOCK.formatToParts(d)) o[p.type]=Number(p.value);
+  return {year:o.year, month:o.month, day:o.day, hour:o.hour%24, minute:o.minute};
 }
+
+// Today's date in Pacific time (YYYY-MM-DD), or the Pacific date of the moment d.
+// (toISOString() would give the UTC date, which is already "tomorrow" in US evenings.)
+function localISODate(d=new Date()){
+  const p=companyParts(d);
+  const pad=n=>String(n).padStart(2,"0");
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+}
+
+function companyYear(){ return companyParts().year; }
+
+// A calendar date plus n days. Pure date arithmetic: no time zone can shift it.
+function addDays(isoDate, n){
+  const [y,m,d]=String(isoDate).split("-").map(Number);
+  const t=new Date(Date.UTC(y,(m||1)-1,(d||1)+n));
+  return isNaN(t) ? "" : t.toISOString().slice(0,10);
+}
+
+// Day of the week of a calendar date (0 = Sunday).
+function weekdayOf(isoDate){ return new Date(String(isoDate)+"T12:00:00Z").getUTCDay(); }
 
 function formatDate(isoDate){
   if(!isoDate) return "";
   const [y,m,d]=String(isoDate).split("-").map(Number);
-  const date=new Date(y,(m||1)-1,d||1);
-  return isNaN(date) ? String(isoDate) : date.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+  const date=new Date(Date.UTC(y,(m||1)-1,d||1,12));
+  return isNaN(date) ? String(isoDate) : date.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"});
 }
 
+// A moment in Pacific time, with the zone: "Oct 30, 2026, 9:48 AM PDT".
 function formatDateTime(iso){
   const d=new Date(iso);
-  return isNaN(d) ? "" : d.toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"});
+  return isNaN(d) ? "" : d.toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit",timeZone:COMPANY_TIME_ZONE,timeZoneName:"short"});
+}
+
+// The time of a moment in Pacific time: "9:48 AM" (with the zone: "9:48 AM PDT").
+function formatTimeOfDay(d, withZone=false){
+  const t=new Date(d);
+  return isNaN(t) ? "" : t.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",timeZone:COMPANY_TIME_ZONE,...(withZone ? {timeZoneName:"short"} : {})});
 }
 
 function nowISO(){ return new Date().toISOString(); }

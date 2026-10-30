@@ -1,5 +1,5 @@
 // Invoices: from a saved estimate and from a completed CRM job, payments, balance, status, print, email, numbering.
-const { launch, FILE, OUT } = require('../helpers');
+const { launch, FILE, OUT, pacificDate } = require('../helpers');
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+m);};
 (async()=>{
   const b=await launch(); const p=await b.newPage({viewport:{width:1360,height:1000}});
@@ -7,7 +7,7 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   const dialogs=[]; p.on('dialog',d=>{dialogs.push(d.message()); d.accept();});
   await p.addInitScript(()=>{ window.__prints=0; window.print=()=>{window.__prints++;}; });
   await p.goto(FILE);
-  const year=new Date().getFullYear();
+  const year=Number(pacificDate().slice(0,4));
   const invoices=()=>p.evaluate(()=>loadInvoices());
 
   // an estimate: 1000 sq ft painting at $3 → $3,000 (no markup)
