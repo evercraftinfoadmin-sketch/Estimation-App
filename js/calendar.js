@@ -288,7 +288,7 @@ function calendarLogEntries(){
 /* ---------- Showing it ---------- */
 
 function formatCalendarTime(ms){
-  return new Date(ms).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+  return formatTimeOfDay(ms,true);
 }
 
 function formatTime12(hhmm){
@@ -297,7 +297,7 @@ function formatTime12(hhmm){
 }
 
 function dateTimeText(date, time){
-  return `${formatDate(date)}${time ? " at "+formatTime12(time) : " (all day)"}`;
+  return `${formatDate(date)}${time ? " at "+formatTime12(time)+" PT" : " (all day)"}`;
 }
 
 function projectStartText(p){

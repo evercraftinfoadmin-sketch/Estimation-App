@@ -88,17 +88,10 @@ function invoiceSeq(number){
   return m ? {year:Number(m[1]),n:Number(m[2])} : null;
 }
 function nextInvoiceNumber(list=loadInvoices()){
-  const year=new Date().getFullYear();
+  const year=companyYear();
   const used=list.map(i=>invoiceSeq(i.invoiceNumber)).filter(s=>s && s.year===year).map(s=>s.n);
   const n=Math.max(1000,...used)+1;
   return `INV-${year}-${String(n).padStart(4,"0")}`;
-}
-
-function addDays(isoDate, days){
-  const d=new Date(isoDate+"T12:00:00");
-  if(isNaN(d)) return "";
-  d.setDate(d.getDate()+days);
-  return localISODate(d);
 }
 
 function newInvoiceRecord(data={}){

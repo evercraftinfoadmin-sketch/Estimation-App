@@ -2,7 +2,7 @@
 // The fake server enforces the same access rules as the Base44 apps' RLS:
 //  read/create/update: crm_role owner|admin|member; delete + deletedAt: owner|admin;
 //  CompanySettings create/update: owner|admin; EstimateCounter create: owner|admin.
-const { launch, FILE, OUT } = require('../helpers');
+const { launch, FILE, OUT, pacificDate } = require('../helpers');
 // The app runs with this fake Base44 app; every SDK call goes to the in-memory server below.
 const CLOUD_CONFIG={base44AppId:'ci-cloud-test-app-00000000',base44AppBaseUrl:'https://preview--ci-cloud-test.base44.app',base44ServerUrl:'https://preview--ci-cloud-test.base44.app'};
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+m);};
@@ -218,7 +218,7 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
   let s=await store(A,'constructionEstimatorSettings');
   ok(s.companyName==='TEST Company (fake data)' && s.googleMapsApiKey==='LOCAL-KEY','A: shared settings downloaded; Google Maps key stays local');
   ok(s.nextEstimateNumber>=9003,'A: next estimate number moved past the shared counter ('+s.nextEstimateNumber+')');
-  ok((await A.inputValue('#estimateNumber'))===`EST-${new Date().getFullYear()}-${s.nextEstimateNumber}`,'A: the new estimate in the builder shows the updated number');
+  ok((await A.inputValue('#estimateNumber'))===`EST-${pacificDate().slice(0,4)}-${s.nextEstimateNumber}`,'A: the new estimate in the builder shows the updated number');
   ok(!table('CompanySettings').some(r=>'googleMapsApiKey' in r),'cloud settings never contain the Maps key');
   await A.click('#mainNav [data-page=crm]');
   ok(await A.locator('.kcard',{hasText:'TEST Carol Lead'}).count()===1,'A: CRM board shows the cloud lead');

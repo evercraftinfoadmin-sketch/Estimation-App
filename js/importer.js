@@ -112,14 +112,15 @@ function parseImportDate(v){
   const s=String(v ?? "").trim();
   if(!s) return "";
   let m;
-  if((m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return localISODate(new Date(+m[1],m[2]-1,+m[3]));
+  // A calendar date as written: built from its numbers, never shifted by a time zone.
+  const ymd=(y,mo,d)=>addDays(`${y}-${String(mo).padStart(2,"0")}-01`,d-1);
+  if((m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return ymd(+m[1],+m[2],+m[3]);
   if((m=s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})$/))){
     const y=m[3].length===2 ? 2000+Number(m[3]) : Number(m[3]);
-    return localISODate(new Date(y,m[1]-1,+m[2]));
+    return ymd(y,+m[1],+m[2]);
   }
   if(/^\d{5}$/.test(s)){ // Excel serial date
-    const d=new Date(Date.UTC(1899,11,30)+Number(s)*86400000);
-    return localISODate(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));
+    return addDays("1899-12-30",Number(s));
   }
   const d=new Date(s);
   return isNaN(d) ? "" : localISODate(d);

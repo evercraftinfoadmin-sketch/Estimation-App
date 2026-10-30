@@ -129,7 +129,7 @@ function companyName(){ return SETTINGS.companyName || "Construction Estimate"; 
 /* ---------- Estimate numbers ---------- */
 
 function formatEstimateNumber(n){
-  return `EST-${new Date().getFullYear()}-${String(n).padStart(4,"0")}`;
+  return `EST-${companyYear()}-${String(n).padStart(4,"0")}`;
 }
 
 // Next number not used by any saved estimate. Advances the stored counter past used numbers.

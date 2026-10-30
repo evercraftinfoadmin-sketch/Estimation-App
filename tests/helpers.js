@@ -42,9 +42,20 @@ async function launch(opts = {}) {
     return ctx;
   };
   const newContext = browser.newContext.bind(browser);
-  browser.newContext = async (o) => prepare(await newContext(o));
+  // The browsers run in a European time zone (like the team's laptops), so the tests prove the
+  // CRM uses Pacific time whatever the device is set to.
+  browser.newContext = async (o) => prepare(await newContext({ timezoneId: DEVICE_TIME_ZONE, ...(o || {}) }));
   browser.newPage = async (o) => { const ctx = await browser.newContext(o); const p = await ctx.newPage(); p.close = async () => ctx.close(); return p; };
   return browser;
 }
 
-module.exports = { MODE, ROOT, FILE, OUT, FIXTURES, TEST_APP_ID, SIGNED_OUT_SDK, launch };
+const DEVICE_TIME_ZONE = 'Europe/Kyiv';
+// Today (or today + days) in Pacific time, the company's time zone: YYYY-MM-DD.
+function pacificDate(days = 0) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(new Date()).map(x => [x.type, x.value]));
+  const t = new Date(Date.UTC(+p.year, +p.month - 1, +p.day + days));
+  return t.toISOString().slice(0, 10);
+}
+
+module.exports = { MODE, ROOT, FILE, OUT, FIXTURES, TEST_APP_ID, SIGNED_OUT_SDK, DEVICE_TIME_ZONE, pacificDate, launch };

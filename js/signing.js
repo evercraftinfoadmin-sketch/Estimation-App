@@ -60,7 +60,7 @@ function signValues({estimate, project, invoice}){
     startDate:p.scheduledDate ? formatDate(p.scheduledDate) : "as scheduled",
     invoiceNumber:inv.invoiceNumber || "",
     balance:totals ? money(totals.balance) : "",
-    date:formatDate(new Date().toISOString().slice(0,10))
+    date:formatDate(localISODate())
   };
 }
 
@@ -336,7 +336,7 @@ function signedCopyHtml(rec){
     <section class="pv pv-signature">
       <h3>ELECTRONIC SIGNATURE</h3>
       <img src="${escapeHtml(rec.signature)}" alt="Signature">
-      <div><b>${escapeHtml(rec.signerName)}</b> · signed ${escapeHtml(when.toLocaleString())} (${escapeHtml(when.toUTCString())})</div>
+      <div><b>${escapeHtml(rec.signerName)}</b> · signed ${escapeHtml(formatDateTime(when))} (${escapeHtml(when.toUTCString())})</div>
       <table class="pv-audit">
         <tr><td>Document</td><td>${escapeHtml(rec.title)}</td></tr>
         <tr><td>Fingerprint (SHA-256)</td><td>${escapeHtml(rec.docHash)}</td></tr>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.11.15a">
+<link rel="stylesheet" href="css/styles.css?v=2026.11.17a">
 </head>
 <body>
 
@@ -214,7 +214,7 @@
     <!-- ============ SIGNATURES ============ -->
     <section id="page-calendar" class="page" hidden>
       <div class="page-head">
-        <div><h1>Calendar</h1><div class="page-sub">The company Google Calendar. Jobs and estimate visits come from the CRM: change them in the CRM project.</div></div>
+        <div><h1>Calendar</h1><div class="page-sub">The company Google Calendar, in Pacific time. Jobs and estimate visits come from the CRM: change them in the CRM project.</div></div>
         <div class="btn-row">
           <button class="btn btn-light" id="calViewRefresh">Refresh</button>
           <a class="btn btn-light" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">Open Google Calendar</a>
@@ -376,7 +376,7 @@
     <p class="small">When is the estimate visit for <b id="visitClient"></b>? It goes into the main Google Calendar as "ESTIMATE (name), phone" with the address.</p>
     <div class="form-grid two">
       <div class="field"><label for="visitDate">Date</label><input id="visitDate" type="date"></div>
-      <div class="field"><label for="visitTime">Time <span class="small">(empty = all day)</span></label><input id="visitTime" type="time"></div>
+      <div class="field"><label for="visitTime">Time <span class="small">(Pacific time; empty = all day)</span></label><input id="visitTime" type="time"></div>
     </div>
     <div class="btn-row end">
       <button type="button" class="btn btn-light" data-close="estimateVisitModal">Later</button>
@@ -502,7 +502,7 @@
             </select>
           </div>
           <div class="field"><label for="pmVisitDate">Estimate Visit Date</label><input id="pmVisitDate" type="date"></div>
-          <div class="field"><label for="pmVisitTime">Estimate Visit Time <span class="small">(empty = all day)</span></label><input id="pmVisitTime" type="time"></div>
+          <div class="field"><label for="pmVisitTime">Estimate Visit Time <span class="small">(Pacific time; empty = all day)</span></label><input id="pmVisitTime" type="time"></div>
         </div>
       </section>
 
@@ -510,7 +510,7 @@
         <h3>Client / Job</h3>
         <div class="form-grid two">
           <div class="field"><label for="pmScheduledDate">Scheduled Date</label><input id="pmScheduledDate" type="date"></div>
-          <div class="field"><label for="pmScheduledTime">Start Time <span class="small">(empty = all day)</span></label><input id="pmScheduledTime" type="time"></div>
+          <div class="field"><label for="pmScheduledTime">Start Time <span class="small">(Pacific time; empty = all day)</span></label><input id="pmScheduledTime" type="time"></div>
           <div class="field"><label for="pmScheduledEnd">End Date <span class="small">(optional)</span></label><input id="pmScheduledEnd" type="date"></div>
           <div class="field"><label for="pmTechnician">Assigned Technician</label><input id="pmTechnician" type="text" autocomplete="off"></div>
         </div>
@@ -707,24 +707,24 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.11.15a"></script>
-<script src="js/docstyles.js?v=2026.11.15a"></script>
-<script src="js/core.js?v=2026.11.15a"></script>
-<script src="js/calc.js?v=2026.11.15a"></script>
-<script src="js/settings.js?v=2026.11.15a"></script>
-<script src="js/address.js?v=2026.11.15a"></script>
-<script src="js/categories.js?v=2026.11.15a"></script>
-<script src="js/services.js?v=2026.11.15a"></script>
-<script src="js/photos.js?v=2026.11.15a"></script>
-<script src="js/cloud.js?v=2026.11.15a"></script>
-<script src="js/estimates.js?v=2026.11.15a"></script>
-<script src="js/calendar.js?v=2026.11.15a"></script>
-<script src="js/crm.js?v=2026.11.15a"></script>
-<script src="js/calview.js?v=2026.11.15a"></script>
-<script src="js/invoices.js?v=2026.11.15a"></script>
-<script src="js/importer.js?v=2026.11.15a"></script>
-<script src="js/mail.js?v=2026.11.15a"></script>
-<script src="js/signing.js?v=2026.11.15a"></script>
-<script src="js/app.js?v=2026.11.15a"></script>
+<script src="js/config.js?v=2026.11.17a"></script>
+<script src="js/docstyles.js?v=2026.11.17a"></script>
+<script src="js/core.js?v=2026.11.17a"></script>
+<script src="js/calc.js?v=2026.11.17a"></script>
+<script src="js/settings.js?v=2026.11.17a"></script>
+<script src="js/address.js?v=2026.11.17a"></script>
+<script src="js/categories.js?v=2026.11.17a"></script>
+<script src="js/services.js?v=2026.11.17a"></script>
+<script src="js/photos.js?v=2026.11.17a"></script>
+<script src="js/cloud.js?v=2026.11.17a"></script>
+<script src="js/estimates.js?v=2026.11.17a"></script>
+<script src="js/calendar.js?v=2026.11.17a"></script>
+<script src="js/crm.js?v=2026.11.17a"></script>
+<script src="js/calview.js?v=2026.11.17a"></script>
+<script src="js/invoices.js?v=2026.11.17a"></script>
+<script src="js/importer.js?v=2026.11.17a"></script>
+<script src="js/mail.js?v=2026.11.17a"></script>
+<script src="js/signing.js?v=2026.11.17a"></script>
+<script src="js/app.js?v=2026.11.17a"></script>
 </body>
 </html>

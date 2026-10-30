@@ -610,7 +610,7 @@ function renderCloudStatus(){
     signed_out:"☁ Sign in",
     no_access:"☁ No access",
     syncing:"☁ Syncing…",
-    synced:CLOUD.unsaved ? `☁ ${CLOUD.unsaved} not saved` : "☁ Synced"+(CLOUD.lastSync ? " "+CLOUD.lastSync.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : ""),
+    synced:CLOUD.unsaved ? `☁ ${CLOUD.unsaved} not saved` : "☁ Synced"+(CLOUD.lastSync ? " "+formatTimeOfDay(CLOUD.lastSync) : ""),
     error:"☁ "+(CLOUD.message || "Cloud error")
   };
   chip.textContent=labels[CLOUD.state] || "☁";
