@@ -36,6 +36,10 @@ const CLOUD_ADDRESS_FIELDS = ["address","addressStatus","addressStreetNumber","a
 // Fields not listed here travel in the entity's "extra" object, so nothing is lost.
 const CLOUD_LISTS = [
   {key:STORAGE_KEYS.categories, entity:"Category", fields:["name"]},
+  // Clients first: properties and projects refer to them. optional: a table that is not set up in
+  // Base44 yet does not stop the rest of the sync.
+  {key:STORAGE_KEYS.clients, entity:"Client", optional:true, fields:["clientName","clientEmail","clientPhone","notes","createdAt","updatedAt"]},
+  {key:STORAGE_KEYS.properties, entity:"Property", optional:true, fields:["clientId",...CLOUD_ADDRESS_FIELDS,"notes","archived","createdAt","updatedAt"]},
   {key:STORAGE_KEYS.services, entity:"Service", fields:["category","name","defaultPrice","description","active","createdAt","updatedAt"]},
   {key:STORAGE_KEYS.estimates, entity:"Estimate", fields:["estimateNumber","date","client_id","clientName","clientEmail","clientPhone",
     ...CLOUD_ADDRESS_FIELDS,"items","drywallTotal","stuccoTotal","paintingTotal","otherTotal","customCategories","categoryTotals",
@@ -124,6 +128,8 @@ const CLOUD_NORMALIZE = {
   Service:r=>normalizeService(r),
   Estimate:r=>normalizeEstimate(r),
   CrmProject:r=>normalizeProject(r),
+  Client:r=>normalizeClient(r),
+  Property:r=>normalizeProperty(r),
   Invoice:r=>normalizeInvoice(r)
 };
 function cloudRecordHash(def, rec){
@@ -516,7 +522,15 @@ async function cloudSyncOnce(){
   try{
     // Categories and services first: estimates refer to them.
     for(const def of CLOUD_LISTS){
-      const res=await cloudSyncList(def,meta,opts);
+      let res;
+      try{
+        res=await cloudSyncList(def,meta,opts);
+      }catch(err){
+        // A table not set up in Base44 yet must not stop everything else from syncing.
+        if(!def.optional || cloudFatalError(err)) throw err;
+        cloudRecordFailure(def.entity,"",`${def.entity}: ${cloudErrorMessage(err)} (is the table set up in Base44?)`);
+        continue;
+      }
       changed=changed || res.changed;
       conflicts+=res.conflicts;
       unmigrated+=res.unmigrated;

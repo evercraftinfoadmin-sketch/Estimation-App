@@ -2,7 +2,7 @@
 
 /* Navigation, event wiring and start-up. */
 
-const PAGES = ["builder","estimates","services","crm","calendar","invoices","signatures","settings"];
+const PAGES = ["builder","estimates","services","crm","clients","calendar","invoices","signatures","settings"];
 
 function showPage(name){
   if(!PAGES.includes(name)) name="builder";
@@ -17,6 +17,7 @@ function showPage(name){
   else if(name==="services") renderServicesPage();
   else if(name==="crm") renderCrmBoard();
   else if(name==="calendar") renderCalendarPage();
+  else if(name==="clients") renderClientsPage();
   else if(name==="invoices") renderInvoicesPage();
   else if(name==="signatures") renderSignaturesPage();
   else if(name==="settings") loadSettingsForm();
@@ -104,6 +105,8 @@ function wireEvents(){
   $("btnDefaultTerms").addEventListener("click",restoreDefaultTerms);
   $("btnDefaultSignTexts").addEventListener("click",restoreDefaultSignTexts);
 
+  wireConfirmDialog();
+  wireClientEvents();
   // Modals: close buttons and Escape
   document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("click",()=>closeModal(btn.dataset.close)));
   document.addEventListener("keydown",e=>{

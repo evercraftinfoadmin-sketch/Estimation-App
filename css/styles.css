@@ -412,3 +412,21 @@ a.btn{text-decoration:none}
   .calv-dots{display:flex}
   .calv-item{flex-direction:column;gap:2px}
 }
+#confirmModal{z-index:120}
+
+/* Clients and properties */
+#addressModal,#propertyModal{z-index:105}
+#clientReportModal{z-index:105}
+.pm-match{background:#eff6ff;color:#1e40af;border-radius:8px;padding:8px 10px;margin:-4px 0 10px;font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pm-prop-row{display:flex;gap:8px;align-items:center}
+.pm-prop-row select{flex:1;min-width:0}
+.cl-prop{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.cl-prop-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.cl-prop-addr{font-size:16px;text-align:left;padding:0}
+.cl-prop-archived{opacity:.6}
+.cl-prop-review{border-style:dashed;background:#fffbeb}
+.cl-projects{margin:8px 0 0;padding-left:18px}
+.cl-projects li{margin:3px 0}
+.cl-stage{color:var(--muted);font-size:13px}
+.cl-archived{margin-top:8px}
+.cr-stats{padding-left:18px}

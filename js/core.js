@@ -8,7 +8,10 @@ const STORAGE_BASE_KEYS = {
   estimates: "constructionEstimatorSavedEstimates",
   crm: "constructionEstimatorCRM",
   categories: "constructionEstimatorCategories",
-  invoices: "constructionEstimatorInvoices"
+  invoices: "constructionEstimatorInvoices",
+  // Clients and their properties (js/clients.js)
+  clients: "evercraftClients",
+  properties: "evercraftProperties"
 };
 
 // With shared cloud data, each Base44 app (test / production) keeps its own copy of the data
@@ -183,6 +186,41 @@ function openModal(id){
 function closeModal(id){
   $(id).classList.remove("open");
   if(!document.querySelector(".modal.open")) document.body.classList.remove("modal-open");
+}
+
+/* Confirmation dialog: confirmAction({title, message, details, confirmLabel}) → Promise<boolean>.
+   Cancel is the safe default (focused, Enter = Cancel); Escape and a click outside also cancel.
+   Only one dialog at a time: asking again while one is open answers the second request "no". */
+let CONFIRM_RESOLVE = null;
+
+function confirmAction({title, message, details="", confirmLabel="Yes"}){
+  if(CONFIRM_RESOLVE) return Promise.resolve(false);
+  $("confirmTitle").textContent=title;
+  $("confirmMessage").textContent=message;
+  $("confirmDetails").textContent=details;
+  $("confirmDetails").hidden=!details;
+  $("confirmYes").textContent=confirmLabel;
+  openModal("confirmModal");
+  $("confirmCancel").focus();
+  return new Promise(resolve=>{ CONFIRM_RESOLVE=resolve; });
+}
+
+function answerConfirm(yes){
+  if(!CONFIRM_RESOLVE) return;
+  const resolve=CONFIRM_RESOLVE;
+  CONFIRM_RESOLVE=null;
+  closeModal("confirmModal");
+  resolve(yes);
+}
+
+function wireConfirmDialog(){
+  $("confirmCancel").addEventListener("click",()=>answerConfirm(false));
+  $("confirmYes").addEventListener("click",()=>answerConfirm(true));
+  $("confirmModal").addEventListener("click",e=>{ if(e.target===$("confirmModal")) answerConfirm(false); });
+  // Escape closes only this dialog (not the window under it); runs before the general handler.
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape" && CONFIRM_RESOLVE){ e.stopImmediatePropagation(); answerConfirm(false); }
+  },true);
 }
 
 let TOAST_TIMER = null;

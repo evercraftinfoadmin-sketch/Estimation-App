@@ -213,15 +213,42 @@ function saveSettings(){
   alert("Settings saved.");
 }
 
-function resetSettings(){
-  if(!confirm("Reset company details, Terms & Conditions and pricing defaults? The estimate number counter, services, estimates and CRM data are kept.")) return;
+let SETTINGS_RESETTING = false;
+
+async function resetSettings(){
+  if(SETTINGS_RESETTING) return;
+  SETTINGS_RESETTING=true;
+  const btn=$("btnResetSettings");
+  try{
+    const ok=await confirmAction({
+      title:"Are you sure you want to reset?",
+      message:"Are you sure you want to delete/reset this data? This action may not be reversible.",
+      details:"Company details, Terms & Conditions, signature texts, pricing defaults, the Google Calendar settings (the sync is turned off) and the Google Maps key go back to the defaults. The estimate number counter, services, estimates, CRM projects and clients are kept.",
+      confirmLabel:"Yes, Reset"
+    });
+    if(!ok) return;
+    btn.disabled=true;
+    btn.textContent="Resetting…";
+    if(applyResetSettings()) showToast("Settings reset to the defaults.");
+    else alert("The reset did not work: the settings could not be saved on this device. Nothing was changed.");
+  }finally{
+    btn.disabled=false;
+    btn.textContent="Reset Defaults";
+    SETTINGS_RESETTING=false;
+  }
+}
+
+// Returns false (and keeps the settings as they were) when they cannot be saved.
+function applyResetSettings(){
+  const before=SETTINGS;
   const next=SETTINGS.nextEstimateNumber;
   SETTINGS=clone(DEFAULT_SETTINGS);
   SETTINGS.nextEstimateNumber=next;
-  persistSettings();
+  if(!persistSettings()){ SETTINGS=before; return false; }
   loadSettingsForm();
   renderBrand();
   updateBuilderTotals();
+  return true;
 }
 
 function restoreDefaultSignTexts(){

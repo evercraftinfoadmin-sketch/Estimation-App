@@ -68,7 +68,7 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   ok(body.includes('ROOFING') && want.every(w=>body.includes(w)),'the PDF sent with the email has the custom categories (client prices) '+exp.line+' · '+exp.floor);
 
   // new estimate: pick saved category
-  await p.click('#btnReset');
+  await p.click('#btnReset'); await p.click('#confirmYes');
   ok(await p.locator('.category-card').count()===3,'new estimate starts with the 3 main sections');
   await p.click('[data-action=add-category]');
   const opts=await p.locator('#catExisting option').allTextContents();

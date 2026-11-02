@@ -77,6 +77,10 @@ function normalizeProject(p){
     clientPhone:String(p.clientPhone ?? ""),
     address:String(p.address ?? ""),
     ...normalizeAddressFields(p),
+    // The client and the property (address) of this job (js/clients.js). The client details and
+    // the address above stay on the project too, so everything that reads them keeps working.
+    client_id:String(p.client_id ?? ""),
+    propertyId:String(p.propertyId ?? ""),
     estimateId:p.estimateId || null,
     estimateNumber:String(p.estimateNumber ?? ""),
     estimateTotal:round2(amount(p.estimateTotal)),
@@ -549,7 +553,8 @@ function handleCrmBoard(event){
 
 /* ---------- Project modal (open / edit / new lead) ---------- */
 
-function openProjectModal(id, focusField){
+// prefill (new project only): {clientId, propertyId} when started from a client's property.
+function openProjectModal(id, focusField, prefill){
   const p=id ? getProject(id) : newProjectRecord({stage:"lead"});
   if(!p) return;
   EDITING_PROJECT_ID=id ? p.id : null;
@@ -592,6 +597,7 @@ function openProjectModal(id, focusField){
     : `<div class="muted">No estimate linked.</div>
        ${id?`<button class="btn btn-light btn-sm" data-pm-action="create-estimate">Create Estimate</button>`:`<div class="small">Save the lead first, then create an estimate.</div>`}`;
   $("pmDelete").hidden=!id;
+  preparePmClient(p,id ? null : prefill);
   setPhotoGalleryOwner($("pmPhotos"),"project",id ? p.id : "","Save the lead first, then add photos.");
 
   openModal("projectModal");
@@ -694,6 +700,11 @@ function saveProjectForm(){
     $("pmClientName").focus();
     return;
   }
+  // Client → property: the project is saved with both (a new client / address is created once).
+  const links=projectLinksFromForm(data);
+  if(links.error){ alert(links.error); return; }
+  data.client_id=links.client_id;
+  data.propertyId=links.propertyId;
 
   let saved;
   if(EDITING_PROJECT_ID){
