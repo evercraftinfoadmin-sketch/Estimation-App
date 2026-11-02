@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.11.17a">
+<link rel="stylesheet" href="css/styles.css?v=2026.11.18a">
 </head>
 <body>
 
@@ -21,6 +21,7 @@
         <button data-page="estimates">Saved Estimates</button>
         <button data-page="services">Services</button>
         <button data-page="crm">CRM</button>
+        <button data-page="clients">Clients</button>
         <button data-page="calendar">Calendar</button>
         <button data-page="invoices">Invoices</button>
         <button data-page="signatures">Signatures</button>
@@ -212,6 +213,18 @@
     </section>
 
     <!-- ============ SIGNATURES ============ -->
+    <section id="page-clients" class="page" hidden>
+      <div class="page-head">
+        <div><h1>Clients</h1><div class="page-sub">Each client with their properties (addresses) and the projects at each address.</div></div>
+        <div class="btn-row"><button class="btn btn-primary" id="btnNewClient">+ New Lead</button></div>
+      </div>
+      <section class="card">
+        <p class="small" id="clientsNote"></p>
+        <div class="toolbar"><input id="clientSearch" type="search" placeholder="Search name, phone, email or address" aria-label="Search clients"></div>
+        <div class="table-wrap"><table class="table"><thead><tr><th>Client</th><th>Contact</th><th class="num">Properties</th><th class="num">Projects</th></tr></thead><tbody id="clientsBody"></tbody></table></div>
+      </section>
+    </section>
+
     <section id="page-calendar" class="page" hidden>
       <div class="page-head">
         <div><h1>Calendar</h1><div class="page-sub">The company Google Calendar, in Pacific time. Jobs and estimate visits come from the CRM: change them in the CRM project.</div></div>
@@ -331,6 +344,7 @@
             <button type="button" class="btn btn-light" id="btnImportTemplate">Download Import Template</button>
             <button type="button" class="btn btn-light" id="btnExportBackup">⬇ Download Backup</button>
             <button type="button" class="btn btn-light" id="btnRestoreBackup">Restore Backup</button>
+            <button type="button" class="btn btn-light" id="btnClientReport">Link Projects to Clients &amp; Addresses…</button>
           </div>
         </section>
         <section class="card terms-card">
@@ -383,6 +397,76 @@
       <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </form>
+</div>
+<div id="clientModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="clientModalTitle">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="clientModalTitle">Client</h2><button type="button" class="btn-icon" data-close="clientModal" aria-label="Close">✕</button></div>
+    <div class="form-grid">
+      <div class="field"><label for="clName">Name</label><input id="clName" type="text" maxlength="200"></div>
+      <div class="field"><label for="clPhone">Phone</label><input id="clPhone" type="tel" maxlength="60"></div>
+      <div class="field"><label for="clEmail">Email</label><input id="clEmail" type="email" maxlength="200"></div>
+    </div>
+    <div class="field"><label for="clNotes">Notes</label><textarea id="clNotes" rows="2" maxlength="4000"></textarea></div>
+    <div class="btn-row end"><button type="button" class="btn btn-light btn-sm" data-cl-action="save">Save Client</button></div>
+    <div class="categories-head"><h3>Properties / Addresses</h3><button type="button" class="btn btn-primary btn-sm" data-cl-action="add-address">+ Add Address</button></div>
+    <div id="clProperties"></div>
+  </div>
+</div>
+<div id="propertyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="propTitle">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="propTitle">Property</h2><button type="button" class="btn-icon" data-close="propertyModal" aria-label="Close">✕</button></div>
+    <div class="field"><label>Address</label><div id="propAddress"></div></div>
+    <div class="field"><label>Client</label><div id="propClient"></div></div>
+    <div class="field"><label for="propNotes">Property notes</label><textarea id="propNotes" rows="2" maxlength="4000"></textarea>
+      <div class="btn-row end"><button type="button" class="btn btn-light btn-sm" data-prop-action="save-notes">Save Notes</button></div></div>
+    <div class="categories-head"><h3>Projects at this address</h3><button type="button" class="btn btn-primary btn-sm" id="propNewProject" data-prop-action="new-project">+ Create Project</button></div>
+    <div id="propProjects"></div>
+    <div class="btn-row between"><button type="button" class="btn btn-light btn-sm" id="propArchive" data-prop-action="archive">Archive address</button></div>
+  </div>
+</div>
+<div id="addressModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addrTitle">
+  <form class="modal-box modal-sm" id="addressForm" novalidate>
+    <div class="modal-head"><h2 id="addrTitle">Add Address</h2><button type="button" class="btn-icon" data-close="addressModal" aria-label="Close">✕</button></div>
+    <p class="small">A property of <b id="addrClient"></b>.</p>
+    <div class="field"><label for="addrSearch">Find the address <span class="small">(Google suggestions, optional)</span></label><input id="addrSearch" type="text" autocomplete="off"></div>
+    <div class="field"><label for="addrStreet">Street Address</label><input id="addrStreet" type="text" maxlength="200" autocomplete="off"></div>
+    <div class="form-grid two">
+      <div class="field"><label for="addrUnit">Apartment / Unit <span class="small">(optional)</span></label><input id="addrUnit" type="text" maxlength="40"></div>
+      <div class="field"><label for="addrCity">City</label><input id="addrCity" type="text" maxlength="100"></div>
+      <div class="field"><label for="addrState">State</label><input id="addrState" type="text" maxlength="40"></div>
+      <div class="field"><label for="addrZip">ZIP Code</label><input id="addrZip" type="text" maxlength="20" inputmode="numeric"></div>
+      <div class="field"><label for="addrCountry">Country</label><input id="addrCountry" type="text" maxlength="60"></div>
+    </div>
+    <div class="field"><label for="addrNotes">Property Notes <span class="small">(optional)</span></label><textarea id="addrNotes" rows="2" maxlength="4000"></textarea></div>
+    <p class="small fin-over" id="addrStatus" role="status"></p>
+    <div class="btn-row end">
+      <button type="button" class="btn btn-light" data-close="addressModal">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save Address</button>
+    </div>
+  </form>
+</div>
+<div id="clientReportModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="crTitle">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="crTitle">Link Projects to Clients &amp; Addresses</h2><button type="button" class="btn-icon" data-close="clientReportModal" aria-label="Close">✕</button></div>
+    <p class="small">The report first: nothing is changed until you press <b>Link projects</b>. Projects with the same email or phone become one client; each different address becomes a property. Nothing is deleted.</p>
+    <div id="crBody"></div>
+    <div class="btn-row end">
+      <button type="button" class="btn btn-light" id="crCsv">Download report (CSV)</button>
+      <button type="button" class="btn btn-light" data-close="clientReportModal">Close</button>
+      <button type="button" class="btn btn-primary" id="crApply">Link projects</button>
+    </div>
+  </div>
+</div>
+<div id="confirmModal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+  <div class="modal-box modal-sm">
+    <div class="modal-head"><h2 id="confirmTitle">Are you sure?</h2></div>
+    <p id="confirmMessage"></p>
+    <p class="small" id="confirmDetails" hidden></p>
+    <div class="btn-row end">
+      <button type="button" class="btn btn-light" id="confirmCancel">Cancel</button>
+      <button type="button" class="btn btn-danger" id="confirmYes">Yes</button>
+    </div>
+  </div>
 </div>
 <div id="customServiceModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="customServiceTitle">
   <form class="modal-box modal-sm" id="customServiceForm">
@@ -458,11 +542,15 @@
     <div class="pm-grid">
       <section>
         <h3>Client</h3>
+        <div class="field"><label for="pmClientPick">Client</label><select id="pmClientPick"></select></div>
+        <div class="pm-match" id="pmClientMatch" hidden></div>
         <div class="field"><label for="pmClientName">Client Name</label><input id="pmClientName" type="text" autocomplete="off"></div>
         <div class="form-grid two">
           <div class="field"><label for="pmClientEmail">Email</label><input id="pmClientEmail" type="email" autocomplete="off"></div>
           <div class="field"><label for="pmClientPhone">Phone</label><input id="pmClientPhone" type="tel" autocomplete="off"></div>
         </div>
+        <div class="field"><label for="pmPropertyPick">Property (address of this job)</label>
+          <div class="pm-prop-row"><select id="pmPropertyPick"></select><button type="button" class="btn btn-light btn-sm" id="pmAddAddress">+ Add Address</button></div></div>
         <div class="field"><label for="pmAddress">Address</label><input id="pmAddress" type="text" autocomplete="off"></div>
 
         <h3>Estimate</h3>
@@ -707,24 +795,25 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.11.17a"></script>
-<script src="js/docstyles.js?v=2026.11.17a"></script>
-<script src="js/core.js?v=2026.11.17a"></script>
-<script src="js/calc.js?v=2026.11.17a"></script>
-<script src="js/settings.js?v=2026.11.17a"></script>
-<script src="js/address.js?v=2026.11.17a"></script>
-<script src="js/categories.js?v=2026.11.17a"></script>
-<script src="js/services.js?v=2026.11.17a"></script>
-<script src="js/photos.js?v=2026.11.17a"></script>
-<script src="js/cloud.js?v=2026.11.17a"></script>
-<script src="js/estimates.js?v=2026.11.17a"></script>
-<script src="js/calendar.js?v=2026.11.17a"></script>
-<script src="js/crm.js?v=2026.11.17a"></script>
-<script src="js/calview.js?v=2026.11.17a"></script>
-<script src="js/invoices.js?v=2026.11.17a"></script>
-<script src="js/importer.js?v=2026.11.17a"></script>
-<script src="js/mail.js?v=2026.11.17a"></script>
-<script src="js/signing.js?v=2026.11.17a"></script>
-<script src="js/app.js?v=2026.11.17a"></script>
+<script src="js/config.js?v=2026.11.18a"></script>
+<script src="js/docstyles.js?v=2026.11.18a"></script>
+<script src="js/core.js?v=2026.11.18a"></script>
+<script src="js/calc.js?v=2026.11.18a"></script>
+<script src="js/settings.js?v=2026.11.18a"></script>
+<script src="js/address.js?v=2026.11.18a"></script>
+<script src="js/categories.js?v=2026.11.18a"></script>
+<script src="js/services.js?v=2026.11.18a"></script>
+<script src="js/photos.js?v=2026.11.18a"></script>
+<script src="js/cloud.js?v=2026.11.18a"></script>
+<script src="js/estimates.js?v=2026.11.18a"></script>
+<script src="js/calendar.js?v=2026.11.18a"></script>
+<script src="js/crm.js?v=2026.11.18a"></script>
+<script src="js/clients.js?v=2026.11.18a"></script>
+<script src="js/calview.js?v=2026.11.18a"></script>
+<script src="js/invoices.js?v=2026.11.18a"></script>
+<script src="js/importer.js?v=2026.11.18a"></script>
+<script src="js/mail.js?v=2026.11.18a"></script>
+<script src="js/signing.js?v=2026.11.18a"></script>
+<script src="js/app.js?v=2026.11.18a"></script>
 </body>
 </html>

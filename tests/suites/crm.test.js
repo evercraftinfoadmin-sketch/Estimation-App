@@ -46,7 +46,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   await p.goto(FILE);
   ok(await p.isVisible('#page-builder'), '1. page load: builder visible');
   ok(await v('#estimateNumber') === 'EST-2026-1001', '1. page load: estimate # EST-2026-1001');
-  ok((await p.locator('#mainNav button').allTextContents()).join('|') === 'Estimate Builder|Saved Estimates|Services|CRM|Calendar|Invoices|Signatures|Settings', '1. navigation has 8 pages (incl. Calendar, Invoices, Signatures)');
+  ok((await p.locator('#mainNav button').allTextContents()).join('|') === 'Estimate Builder|Saved Estimates|Services|CRM|Clients|Calendar|Invoices|Signatures|Settings', '1. navigation has 9 pages (incl. Clients, Calendar, Invoices, Signatures)');
   ok((await services()).length === 22, '1. default services seeded (7+7+8)');
   ok(await p.locator('.category-card h2').allTextContents().then(x => x.join(',')) === 'DRYWALL,STUCCO,PAINTING', '1. 3 main categories');
   ok(await p.isVisible('[data-action=add-category]'), '1. + Add Category available');
@@ -402,7 +402,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   const ids = prj.map(x => x.estimateId).filter(Boolean);
   ok(new Set(ids).size === ids.length, '36. no duplicate CRM projects per estimate');
   await nav('builder');
-  await p.click('#btnReset');
+  await p.click('#btnReset'); await p.click('#confirmYes');
   await p.fill('#clientName', 'Dup Test'); await p.fill('#estimateNumber', 'EST-2026-1001');
   await p.click('#btnSaveEstimate');
   est = await estimates();
@@ -430,7 +430,7 @@ const money = n => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
   await p.fill('#setCompanyName', 'EverCraft Pro'); await p.fill('#setSalesTax', '5');
   await p.click('#settingsForm button[type=submit]');
   ok(await t('#brandName') === 'EverCraft Pro' && (await store('constructionEstimatorSettings')).salesTax === 5, 'settings saved (company name, default sales tax)');
-  await nav('builder'); await p.click('#btnReset');
+  await nav('builder'); await p.click('#btnReset'); await p.click('#confirmYes');
   ok(await v('#estTaxRate') === '5', 'new estimate uses default sales tax from Settings');
 
   // ---------- 38–39. NaN / Infinity ----------

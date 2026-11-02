@@ -397,10 +397,37 @@ function newEstimate(prefill={}){
   markClean();
 }
 
-function resetBuilder(){
-  if(hasUnsavedChanges() && !confirm("Clear this estimate and start a new one? Unsaved changes will be lost.")) return;
-  newEstimate();
-  showToast("New estimate started.");
+// Reset = clear the Estimate Builder form and start a new estimate. Saved estimates, CRM projects
+// and clients are not deleted. Always asks first; a second click while it runs does nothing.
+let RESET_RUNNING = false;
+
+async function resetBuilder(){
+  if(RESET_RUNNING) return;
+  RESET_RUNNING=true;
+  const btn=$("btnReset");
+  try{
+    const ok=await confirmAction({
+      title:"Are you sure you want to reset?",
+      message:"Are you sure you want to delete/reset this data? This action may not be reversible.",
+      details:"Reset clears the estimate form (client, address, services, totals) and starts a new estimate."
+        +(hasUnsavedChanges() ? " Changes not saved yet will be lost." : "")
+        +" Saved estimates, CRM projects and clients are not deleted.",
+      confirmLabel:"Yes, Reset"
+    });
+    if(!ok) return;
+    btn.disabled=true;
+    btn.textContent="Resetting…";
+    try{
+      newEstimate();
+      showToast("Reset done: a new estimate is started. Saved estimates are kept.");
+    }catch(e){
+      alert("The reset did not work: "+(e && e.message ? e.message : "unknown error")+". Nothing was deleted.");
+    }
+  }finally{
+    btn.disabled=false;
+    btn.textContent="Reset";
+    RESET_RUNNING=false;
+  }
 }
 
 function loadEstimateIntoBuilder(est){

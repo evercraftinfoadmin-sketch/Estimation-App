@@ -1,0 +1,29 @@
+{
+ "name": "Property",
+ "type": "object",
+ "description": "A property (physical address) of a client. Client (1) -> Properties (many) -> CrmProjects (many, via CrmProject.extra.propertyId). Archived, never deleted. legacy_id = app id (prop-xxxx).",
+ "properties": {
+  "legacy_id": {"type": "string", "description": "App id, e.g. prop-xxxx (unique)"},
+  "clientId": {"type": "string", "description": "Client.legacy_id"},
+  "address": {"type": "string"},
+  "addressStatus": {"type": "string", "enum": ["verified", "unverified", "needs_review"], "default": "unverified"},
+  "addressStreetNumber": {"type": "string"}, "addressRoute": {"type": "string"}, "addressUnit": {"type": "string"},
+  "addressCity": {"type": "string"}, "addressState": {"type": "string"}, "addressPostalCode": {"type": "string"},
+  "addressCountry": {"type": "string"}, "addressLatitude": {"type": "number"}, "addressLongitude": {"type": "number"},
+  "addressPlaceId": {"type": "string"}, "addressLastVerifiedAt": {"type": "string"},
+  "notes": {"type": "string"},
+  "archived": {"type": "boolean", "default": false},
+  "createdAt": {"type": "string"}, "updatedAt": {"type": "string"},
+  "version": {"type": "integer", "default": 1},
+  "extra": {"type": "object", "additionalProperties": true},
+  "deletedAt": {"type": "string", "description": "Soft delete timestamp (ISO). Admins only.",
+   "rls": {"write": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}]}}}
+ },
+ "required": ["legacy_id", "clientId"],
+ "rls": {
+  "read": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}, {"user_condition": {"data.crm_role": "member"}}]},
+  "create": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}, {"user_condition": {"data.crm_role": "member"}}]},
+  "update": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}, {"user_condition": {"data.crm_role": "member"}}]},
+  "delete": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}]}
+ }
+}
