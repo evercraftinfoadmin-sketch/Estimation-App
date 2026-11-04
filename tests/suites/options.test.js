@@ -73,8 +73,11 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.evaluate(()=>renderPrintView(getEstimateData()));
   ok((await p.innerText('#printView .pv-meta')).includes('Option A'),'the PDF says which option it is');
 
-  // Email: all options in one email, all PDFs attached
+  // Email: first asked which options to send (all ticked); all of them → one email, all PDFs attached
   await p.click('#btnEmail');
+  await p.waitForSelector('#optionPickModal.open');
+  ok(await p.locator('#optPickList input:checked').count()===3 && (await p.textContent('#optPickTitle')).includes('send'),'Email asks which options to send; all 3 are ticked at first');
+  await p.click('#optPickSend');
   await p.waitForFunction(()=>$('smFrom').textContent.includes('evercraft'));
   const text=await p.inputValue('#smText');
   ok((await p.textContent('#smTitle')).startsWith('Send 3 options') && (await p.textContent('#smFile')).split(' · ').length===3,'Email sends all 3 options: the window lists 3 PDFs');
@@ -86,6 +89,8 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
 
   // Send for signature: one link per option, one email
   await p.click('#btnSign');
+  await p.waitForSelector('#optionPickModal.open');
+  await p.click('#optPickSend');
   await p.waitForFunction(()=>document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:30000});
   const created=[...docs.values()];
   const stext=await p.inputValue('#smText');
@@ -110,6 +115,45 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   await p.click('#mainNav [data-page=estimates]');
   const rowA=p.locator('#estimatesBody tr',{hasText:A.estimateNumber});
   ok((await rowA.innerText()).includes('not chosen (client signed Option B)'),'the other options say they were not chosen');
+
+  // sending only some of the options
+  await p.click('#mainNav [data-page=builder]');
+  await p.evaluate(id=>openEstimate(id),A.id);
+  await p.click('#btnEmail'); await p.waitForSelector('#optionPickModal.open');
+  await p.click('#optPickCancel');
+  ok(!(await p.isVisible('#sendMailModal')),'Cancel in the options window sends nothing');
+  await p.click('#btnEmail'); await p.waitForSelector('#optionPickModal.open');
+  await p.locator('#optPickList input').evaluateAll(l=>l.forEach(i=>{ i.checked=false; }));
+  await p.click('#optPickSend');
+  ok(await p.isVisible('#optionPickModal') && (await p.textContent('#optPickStatus')).includes('at least one'),'nothing ticked: it asks to tick at least one option');
+  await p.click('#optPickOnly');
+  ok((await p.locator('#optPickList input:checked').evaluateAll(l=>l.map(i=>i.value))).join()===A.id,'"Only the option open now" leaves just that option ticked');
+  await p.click('#optPickSend');
+  await p.waitForFunction(()=>$('smFrom').textContent.includes('evercraft'));
+  ok((await p.textContent('#smTitle'))===`Send estimate ${A.estimateNumber}` && (await p.textContent('#smFile')).split(' · ').length===1 && (await p.inputValue('#smSubject')).includes('(Option A)'),
+    'one option ticked: it is emailed as a normal single estimate (one PDF, the subject says which option)');
+  const one=await p.inputValue('#smText');
+  ok(one.includes(`Estimate #: ${A.estimateNumber}`) && one.includes('TOTAL: $3,000.00') && !one.includes('options'),'the email text is the single-estimate text, without the other options');
+  const n0=mails.length;
+  await p.click('#smSend');
+  await p.waitForFunction(()=>!document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:60000});
+  ok(mails.length===n0+1 && !mails.at(-1).attachments && mails.at(-1).attachment && mails.at(-1).attachment.filename.endsWith('Option A.pdf'),'only Option A\'s PDF is sent');
+  await p.click('#btnEmail'); await p.waitForSelector('#optionPickModal.open');
+  await p.locator(`#optPickList input[value="${B.id}"]`).uncheck();
+  await p.click('#optPickSend');
+  await p.waitForFunction(()=>$('smFrom').textContent.includes('evercraft'));
+  ok((await p.textContent('#smTitle')).startsWith('Send 2 options') && (await p.textContent('#smFile')).split(' · ').length===2 && !(await p.inputValue('#smText')).includes('Option B'),'two options ticked (A and C): one email with those 2, Option B left out');
+  await p.click('[data-close=sendMailModal]');
+  // for signature: only one option
+  const before=docs.size;
+  await p.click('#btnSign'); await p.waitForSelector('#optionPickModal.open');
+  await p.locator('#optPickList input').evaluateAll((l,c)=>l.forEach(i=>{ i.checked=i.value===c; }),C.id);
+  await p.click('#optPickSend');
+  await p.waitForFunction(()=>document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:30000});
+  const made=[...docs.values()].slice(before);
+  ok(made.length===1 && made[0].option==='Option C' && made[0].group===A.optionGroup && (await p.inputValue('#smText')).split('/s/token').length===2,'for signature, one option ticked: one signing link (still part of its offer)');
+  await p.click('[data-close=sendMailModal]');
+  await p.click('#mainNav [data-page=estimates]');
 
   // a duplicate is a separate estimate, not another option
   await rowA.locator('[data-action=duplicate]').click();

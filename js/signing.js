@@ -207,18 +207,32 @@ async function sendEstimateForSignature(){
   if(!d0.clientEmail){ alert("Please enter the client's email address."); showPage("builder"); $("clientEmail").focus(); return; }
   const options=builderOptionsForSending("sent for signature");
   if(options===false) return;
-  if(options) return sendOptionsForSignature(options);
+  if(options){
+    // All the options to choose from, or only some of them (one = a normal single estimate).
+    const chosen=await pickOptionsToSend(options,"send for signature");
+    if(!chosen) return;
+    if(chosen.length>1) return sendOptionsForSignature(chosen);
+    return signOneEstimate(chosen[0],getEstimate(chosen[0].id));
+  }
   if(!BUILDER.id || hasUnsavedChanges()){
     if(!confirm("The estimate is saved first, so the client signs exactly what is saved. Save now?")) return;
     if(!saveEstimate()) return;
   }
-  const d=getEstimateData(), est=getEstimate(BUILDER.id);
+  return signOneEstimate(getEstimateData(),getEstimate(BUILDER.id));
+}
+
+// One saved estimate (or one option of an offer) for signature. An option keeps its offer, so if
+// another option of the same offer was signed meanwhile, the signing service refuses this one.
+async function signOneEstimate(d, est){
+  if(!est) return;
   const prior=latestSignature(est.signatures,"estimate");
   if(prior && prior.status==="signed" && !confirm(`This estimate was already signed by ${prior.signerName} on ${formatDate(prior.signedAt.slice(0,10))}. Send a new copy for signature anyway?`)) return;
   showToast("Preparing the estimate for signature…");
-  const title=`Estimate ${d.estimateNumber}${d.address?` - ${d.address}`:""}`;
+  const option=est.optionGroup && d.optionLabel ? d.optionLabel : "";
+  const title=`Estimate ${d.estimateNumber}${option?` - ${option}`:""}${d.address?` - ${d.address}`:""}`;
   const res=await createSignRequest({type:"estimate",title,html:estimateSignHtml(d,est),clientName:d.clientName,clientEmail:d.clientEmail,
-    ref:{estimateId:est.id,estimateNumber:d.estimateNumber,projectId:est.crmProjectId||""},estimateId:est.id});
+    ref:{estimateId:est.id,estimateNumber:d.estimateNumber,projectId:est.crmProjectId||"",...(option?{option}:{})},estimateId:est.id,
+    ...(option?{group:est.optionGroup,option}:{})});
   if(res.error){ alert(res.error); return; }
   issueEstimateNumber(d.estimateNumber);
   sendSignLink({to:d.clientEmail,subject:`Please sign: ${companyName()} Estimate ${d.estimateNumber}`,

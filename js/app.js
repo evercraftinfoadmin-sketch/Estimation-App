@@ -106,6 +106,7 @@ function wireEvents(){
   $("btnDefaultSignTexts").addEventListener("click",restoreDefaultSignTexts);
 
   wireConfirmDialog();
+  wireOptionPick();
   wireClientEvents();
   // Modals: close buttons and Escape
   document.querySelectorAll("[data-close]").forEach(btn=>btn.addEventListener("click",()=>closeModal(btn.dataset.close)));
