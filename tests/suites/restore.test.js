@@ -34,6 +34,18 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   await p.waitForFunction(()=>!location.search.includes('restore') && typeof BUILDER_ADDRESS!=='undefined' && BUILDER_ADDRESS,null,{timeout:10000});
   ok(await p.evaluate(()=>!RESTORE_WAITING && !document.body.classList.contains('restore-waiting')) && await p.isVisible('#page-builder'),'as soon as the token is visible the app starts normally');
 
+  // 2b. the mark has arrived but a restored list has not (Chromium can deliver writes out of
+  // order): the app keeps waiting until every list matches the mark's fingerprint
+  const estKey=await p.evaluate(()=>STORAGE_KEYS.estimates);
+  const want=JSON.stringify([{id:'est-late',estimateNumber:'EST-2020-0002',date:'2020-01-02',clientName:'Arrived Late',items:[],status:'draft'}]);
+  await p.evaluate(({mark,estKey,want})=>localStorage.setItem(mark,JSON.stringify({token:'late-token',keys:{[estKey]:storageFingerprint(want)}})),{mark,estKey,want});
+  await p.goto(FILE.replace(/#.*$/,'')+'?restore=late-token#builder');
+  ok(await p.evaluate(()=>RESTORE_WAITING),'the mark is there but the restored estimates are not yet: the app still waits (saves nothing)');
+  await p.waitForURL(/restoreTry=\d/,{timeout:5000});
+  await p.evaluate(({estKey,want})=>localStorage.setItem(estKey,want),{estKey,want});
+  await p.waitForFunction(()=>!location.search.includes('restore') && typeof BUILDER_ADDRESS!=='undefined' && BUILDER_ADDRESS,null,{timeout:10000});
+  ok(await p.evaluate(()=>!RESTORE_WAITING && loadEstimates().map(e=>e.clientName).join())==='Arrived Late','once every restored list matches, the app starts with the restored data');
+
   // 3. the token never arrives: after about 5 seconds the app starts and says so
   const n0=dialogs.length;
   await p.goto(FILE.replace(/#.*$/,'')+'?restore=never-written&restoreTry=20#builder');

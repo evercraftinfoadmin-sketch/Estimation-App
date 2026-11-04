@@ -1035,6 +1035,48 @@ function builderOptionsForSending(action){
   return estimateOptions(getEstimate(BUILDER.id)).map(estimateDataFromRecord);
 }
 
+/* Which options to send: a window with one checkbox per option (all ticked at first). Resolves
+   with the chosen options (in their order), or null when cancelled. */
+let OPTION_PICK = null;
+
+function pickOptionsToSend(ds, action){
+  if(OPTION_PICK) return Promise.resolve(null);
+  const current=BUILDER.id;
+  $("optPickTitle").textContent=`Which options do you want to ${action}?`;
+  $("optPickList").innerHTML=ds.map(d=>`<label class="check opt-pick">
+      <input type="checkbox" value="${escapeHtml(d.id)}" checked>
+      <span><b>${escapeHtml(d.optionLabel || "Estimate")}</b> · ${escapeHtml(d.estimateNumber)} · ${money(d.grandTotal)}${d.id===current?` <span class="small">(open now)</span>`:""}</span>
+    </label>`).join("");
+  $("optPickStatus").textContent="";
+  openModal("optionPickModal");
+  $("optPickList").querySelector("input").focus();
+  return new Promise(resolve=>{ OPTION_PICK={ds,resolve}; });
+}
+
+function answerOptionPick(send){
+  if(!OPTION_PICK) return;
+  const {ds,resolve}=OPTION_PICK;
+  let chosen=null;
+  if(send){
+    const ids=new Set([...$("optPickList").querySelectorAll("input:checked")].map(i=>i.value));
+    chosen=ds.filter(d=>ids.has(d.id));
+    if(!chosen.length){ $("optPickStatus").textContent="Tick at least one option."; return; }
+  }
+  OPTION_PICK=null;
+  closeModal("optionPickModal");
+  resolve(chosen);
+}
+
+function wireOptionPick(){
+  $("optPickSend").addEventListener("click",()=>answerOptionPick(true));
+  $("optPickCancel").addEventListener("click",()=>answerOptionPick(false));
+  $("optPickClose").addEventListener("click",()=>answerOptionPick(false));
+  $("optPickOnly").addEventListener("click",()=>{
+    $("optPickList").querySelectorAll("input").forEach(i=>{ i.checked=i.value===BUILDER.id; });
+  });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape" && OPTION_PICK){ e.stopImmediatePropagation(); answerOptionPick(false); } },true);
+}
+
 function emailEstimateOptions(ds){
   const first=ds[0];
   const subject=`${companyName()} Estimate - ${ds.length} options - ${first.address || first.clientName || "Project"}`;
@@ -1050,7 +1092,7 @@ function emailEstimateOptions(ds){
   });
 }
 
-function emailEstimate(){
+async function emailEstimate(){
   const d=getEstimateData();
   if(!d.clientEmail){
     alert("Please enter the client's email address.");
@@ -1060,8 +1102,18 @@ function emailEstimate(){
   }
   const options=builderOptionsForSending("emailed");
   if(options===false) return;
-  if(options) return emailEstimateOptions(options);
-  const subject=`${companyName()} Estimate ${d.estimateNumber} - ${d.address || d.clientName || "Project"}`;
+  if(options){
+    // Send all the options together, or only some of them (one = a normal single estimate).
+    const chosen=await pickOptionsToSend(options,"send");
+    if(!chosen) return;
+    return chosen.length===1 ? emailOneEstimate(chosen[0]) : emailEstimateOptions(chosen);
+  }
+  emailOneEstimate(d);
+}
+
+// One estimate (or one option of an offer) by email, with its PDF.
+function emailOneEstimate(d){
+  const subject=`${companyName()} Estimate ${d.estimateNumber}${d.optionLabel && d.optionGroup ? ` (${d.optionLabel})` : ""} - ${d.address || d.clientName || "Project"}`;
   issueEstimateNumber(d.estimateNumber);
   const pdf={filename:estimatePdfName(d),render:()=>renderPrintView(d)};
   const viaGmail=(to=d.clientEmail,subj=subject)=>{ openMailto(to,subj,buildEmailSummary(d)); downloadPdfsForGmail([pdf]); };

@@ -430,3 +430,7 @@ a.btn{text-decoration:none}
 .cl-stage{color:var(--muted);font-size:13px}
 .cl-archived{margin-top:8px}
 .cr-stats{padding-left:18px}
+
+/* Which options to send */
+#optionPickModal{z-index:115}
+.opt-pick{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
