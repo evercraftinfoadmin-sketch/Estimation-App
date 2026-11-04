@@ -492,13 +492,18 @@ async function restoreBackupFile(file){
     // A sync still running finishes first (it writes nothing more once paused).
     if(CLOUD.running){ try{ await CLOUD.running; }catch(e){} }
   }
+  const keys={};
   for(const [name,key] of Object.entries(STORAGE_KEYS)){
     if(d[name]===null || d[name]===undefined) localStorage.removeItem(key);
     else if(!writeStore(key,d[name])) return;
+    let v=null;
+    try{ v=localStorage.getItem(key); }catch(e){}
+    keys[key]=storageFingerprint(v);
   }
-  // Written last: the reloaded page waits until it can see it (see RESTORE_WAITING in core.js).
+  // Written last: the reloaded page waits until it sees this mark and every restored list
+  // matches it (see RESTORE_WAITING in core.js).
   const token=uid("restore");
-  try{ localStorage.setItem(RESTORE_MARK_KEY,token); }catch(e){}
+  try{ localStorage.setItem(RESTORE_MARK_KEY,JSON.stringify({token,keys})); }catch(e){}
   alert("Backup restored. The app will now reload.");
   const url=new URL(location.href);
   url.searchParams.set("restore",token); url.searchParams.delete("restoreTry");

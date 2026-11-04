@@ -25,24 +25,47 @@ function storageKey(base){ return base+STORAGE_NAMESPACE; }
 const STORAGE_KEYS = Object.fromEntries(Object.entries(STORAGE_BASE_KEYS).map(([k,v])=>[k,storageKey(v)]));
 
 /* After a backup is restored the page reloads with ?restore=<token>. The reloaded page can read
-   this browser's storage before the restore's last writes have arrived there (Chromium delivers
-   them separately), so it would see the data from before the restore and might even save it
-   again. The restore writes the token last: until the token is visible, nothing is saved and the
-   page reloads again shortly (gives up after about 5 seconds and says so). */
+   this browser's storage before the restore's writes have arrived there (Chromium delivers them
+   separately, and not always in the order they were made), so it would see the data from before
+   the restore, or none, and might even save that. The restore writes a mark last: the token and a
+   fingerprint (length + checksum) of every list it restored. Until the mark AND every list match,
+   nothing is saved and the page reloads again shortly (gives up after about 5 seconds and says so). */
 const RESTORE_MARK_KEY = storageKey("constructionEstimatorRestoreMark");
+
+function storageFingerprint(text){
+  if(text===null || text===undefined) return null;
+  let h=0x811c9dc5;
+  for(let i=0;i<text.length;i++){ h^=text.charCodeAt(i); h=Math.imul(h,0x01000193); }
+  return text.length+":"+(h>>>0).toString(36);
+}
+
+// The mark holds {token, keys:{storage key: fingerprint | null}}; an old plain token still works.
+function restoreMarkMatches(token){
+  let raw="";
+  try{ raw=localStorage.getItem(RESTORE_MARK_KEY) || ""; }catch(e){ return false; }
+  if(raw===token) return true;
+  let mark;
+  try{ mark=JSON.parse(raw); }catch(e){ return false; }
+  if(!mark || mark.token!==token || !mark.keys) return false;
+  return Object.entries(mark.keys).every(([k,fp])=>{
+    let v=null;
+    try{ v=localStorage.getItem(k); }catch(e){ return false; }
+    return storageFingerprint(v)===fp;
+  });
+}
+
 const RESTORE_WAITING = (()=>{
   let params;
   try{ params=new URLSearchParams(location.search); }catch(e){ return false; }
   const token=params.get("restore");
   if(!token) return false;
   const tries=Number(params.get("restoreTry")) || 0;
-  let seen="";
-  try{ seen=localStorage.getItem(RESTORE_MARK_KEY) || ""; }catch(e){}
+  const arrived=restoreMarkMatches(token);
   const url=new URL(location.href);
-  if(seen===token || tries>=20){
+  if(arrived || tries>=20){
     url.searchParams.delete("restore"); url.searchParams.delete("restoreTry");
     try{ history.replaceState(null,"",url.href); }catch(e){}
-    if(seen!==token) setTimeout(()=>alert("The restored backup may not have been saved completely in this browser. Please check your data, or restore the backup again."),800);
+    if(!arrived) setTimeout(()=>alert("The restored backup may not have been saved completely in this browser. Please check your data, or restore the backup again."),800);
     return false;
   }
   url.searchParams.set("restoreTry",String(tries+1));
