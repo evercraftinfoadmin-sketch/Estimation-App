@@ -168,6 +168,14 @@ function prospectStatusForEstimate(est){
 }
 
 // Called when a linked estimate is saved: the project takes its number and total.
+// The project's total for its estimate. Options of one offer are signed independently: when the
+// client signed several, the project's total is the sum of the signed options.
+function projectTotalFor(est){
+  if(!est.optionGroup || est.status!=="accepted") return est.customerTotal;
+  const signed=estimateOptions(est).filter(o=>o.status==="accepted");
+  return signed.length>1 ? round2(signed.reduce((t,o)=>t+amount(o.customerTotal),0)) : est.customerTotal;
+}
+
 function linkProjectToEstimate(projectId, est){
   const list=loadProjects();
   const p=list.find(x=>x.id===projectId);
@@ -179,7 +187,7 @@ function linkProjectToEstimate(projectId, est){
   Object.assign(p,{
     estimateId:est.id,
     estimateNumber:est.estimateNumber,
-    estimateTotal:est.customerTotal,
+    estimateTotal:projectTotalFor(est),
     clientName:p.clientName || est.clientName,
     clientEmail:p.clientEmail || est.clientEmail,
     clientPhone:p.clientPhone || est.clientPhone,

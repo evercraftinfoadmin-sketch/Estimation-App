@@ -7,8 +7,10 @@
 //   GET  /s/<token>     (client)    the signing page (or the signed copy)
 //   POST /s/<token>     (client)    sign: typed name, drawn signature, consent
 //
-// Options: several estimates sent together as choices (Option A, B, C) share a group. The client
-// signs one; the others are withdrawn at that moment, so two options can never both be signed.
+// Options: several estimates sent together (Option A, B, C …) share a group, for labels only. Each
+// option is signed on its own: the client may sign one, several or all of them, at any time, and
+// signing one never closes or blocks the others. An option already signed cannot be signed again
+// through its link (a new signature needs a new link, sent from the CRM).
 //
 // The link token is the only key to the page; storage uses its SHA-256 as the document id, so the
 // id the CRM keeps cannot be turned back into a working link. The audit trail keeps the time, IP
@@ -131,17 +133,6 @@ async function clientSign(request, rec, token, env, url, h) {
   if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(sig) || sig.length > MAX_SIGNATURE || !atob(sig.slice(22, 34)).startsWith("\x89PNG")) {
     return reply({ error: "Draw your signature in the box." }, 400);
   }
-  // Another option of the same offer already signed: this one is no longer available.
-  const siblings = [];
-  if (rec.group) {
-    for (const id of await groupIds(env, rec.appId, rec.group)) {
-      if (id === rec.id) continue;
-      const other = await load(env, id);
-      if (!other) continue;
-      if (other.status === "signed") return reply({ error: `${other.option || "Another option"} was already chosen and signed, so this option is no longer available.` }, 409);
-      siblings.push(other);
-    }
-  }
   rec.status = "signed";
   rec.signedAt = new Date().toISOString();
   rec.signerName = name;
@@ -150,11 +141,6 @@ async function clientSign(request, rec, token, env, url, h) {
   rec.userAgent = String(request.headers.get("User-Agent") || "").slice(0, 300);
   rec.consent = CONSENT;
   await save(env, rec);
-  for (const other of siblings) {
-    if (other.status !== "pending") continue;
-    Object.assign(other, { status: "cancelled", cancelledAt: rec.signedAt, cancelledBy: "client chose another option", chosenOption: rec.option || "another option" });
-    await save(env, other);
-  }
 
   // Notify the company and send the client a link to the signed copy (best effort).
   const link = `${url.origin}/s/${token}`;

@@ -105,25 +105,27 @@ global.fetch=async(url,opts={})=>{
   await page.goto(c3.url); ok((await page.textContent('h1')).includes('withdrawn'),'a withdrawn link says so');
   r=await team('/sign/cancel',{id:c.id}); ok(r.status===409,'a signed document cannot be withdrawn');
   await page.goto(W+'/s/'+'A'.repeat(43)); ok((await page.textContent('h1')).includes('not valid'),'an unknown link says it is not valid');
-  // options: Option A, B, C of one offer; the client signs one, the others are withdrawn
-  const opt=async(o,group='grp-offer-1')=>(await (await team('/sign/create',{...DOC,type:'estimate',title:'Estimate EST-2026-1010 - '+o,group,option:o})).json());
-  const A=await opt('Option A'), B=await opt('Option B'), C=await opt('Option C');
-  j=await (await team('/sign/status',{ids:[A.id,B.id,C.id]})).json();
-  ok(j.items.every(i=>i.group==='grp-offer-1' && i.status==='pending') && j.items.map(i=>i.option).join()==='Option A,Option B,Option C','options are stored as one offer (group and option name)');
-  const tokB=B.url.split('/s/')[1];
-  r=await call('/s/'+tokB,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Ann Lee',agree:true,signature:rec.signature})});
-  j=await (await team('/sign/status',{ids:[A.id,B.id,C.id]})).json();
-  const st=Object.fromEntries(j.items.map(i=>[i.option,i]));
-  ok(r.status===200 && st['Option B'].status==='signed' && st['Option A'].status==='cancelled' && st['Option C'].status==='cancelled' && st['Option A'].chosenOption==='Option B','signing Option B withdraws Options A and C at once');
-  r=await call('/s/'+C.url.split('/s/')[1],{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Ann Lee',agree:true,signature:rec.signature})});
-  ok(r.status===410,'a withdrawn option can no longer be signed');
-  await page.goto(A.url);
-  ok((await page.textContent('h1')).includes('Option A is no longer available') && (await page.textContent('.card')).includes('Option B'),'opening another option\'s link says which option was chosen');
-  // two options signed at nearly the same moment: the second is refused
-  const X=await opt('Option A','grp-offer-2'), Y=await opt('Option B','grp-offer-2');
-  const xr=JSON.parse(await E.MAIL_KV.get('sig:'+X.id)); xr.status='signed'; await E.MAIL_KV.put('sig:'+X.id,JSON.stringify(xr));
-  r=await call('/s/'+Y.url.split('/s/')[1],{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Ann Lee',agree:true,signature:rec.signature})});
-  ok(r.status===409 && (await r.json()).error.includes('Option A was already chosen'),'if another option is already signed, this one is refused (never two signed options)');
+  // options: 5 options of one offer, each signed on its own (the client may sign several)
+  const opt=async(o,group='grp-offer-1')=>(await (await team('/sign/create',{...DOC,type:'estimate',title:'Estimate EST-2026-1010 - '+o,html:DOC.html+'<p>'+o+'</p>',group,option:o})).json());
+  const O=[]; for(const n of [1,2,3,4,5]) O.push(await opt('Option '+n));
+  const ids=O.map(o=>o.id);
+  const signOpt=o=>call('/s/'+o.url.split('/s/')[1],{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Ann Lee',agree:true,signature:rec.signature})});
+  const stat=async()=>Object.fromEntries((await (await team('/sign/status',{ids})).json()).items.map(i=>[i.option,i]));
+  let st=await stat();
+  ok(Object.values(st).every(i=>i.group==='grp-offer-1' && i.status==='pending') && Object.keys(st).join()==='Option 1,Option 2,Option 3,Option 4,Option 5','5 options are stored as one offer (group and option name), all waiting');
+  r=await signOpt(O[0]); st=await stat();
+  ok(r.status===200 && st['Option 1'].status==='signed' && ['Option 2','Option 3','Option 4','Option 5'].every(o=>st[o].status==='pending' && !st[o].chosenOption),'signing Option 1 leaves Options 2–5 open for signing (nothing withdrawn)');
+  await page.goto(O[2].url);
+  ok(await page.isVisible('#signCard') && !(await page.textContent('body')).includes('no longer available'),'Option 3\'s link still shows its signing page after Option 1 was signed');
+  r=await signOpt(O[2]); st=await stat();
+  ok(r.status===200 && st['Option 1'].status==='signed' && st['Option 3'].status==='signed' && ['Option 2','Option 4','Option 5'].every(o=>st[o].status==='pending'),'Option 3 can be signed too: Options 1 and 3 signed, 2, 4 and 5 still pending');
+  ok(st['Option 1'].signedAt && st['Option 3'].signedAt && st['Option 1'].signedAt<=st['Option 3'].signedAt,'each signed option keeps its own signing time');
+  r=await signOpt(O[0]);
+  ok(r.status===409 && (await r.json()).error.includes('already signed'),'an option already signed cannot be signed again through its link (no duplicate signature)');
+  const g1=await (await team('/sign/get',{id:O[0].id})).json(), g3=await (await team('/sign/get',{id:O[2].id})).json();
+  ok(g1.status==='signed' && g3.status==='signed' && g1.signature && g3.signature && g1.docHash && g3.docHash && g1.docHash!==g3.docHash,'each signed option keeps its own signature and fingerprint of its own document');
+  r=await team('/sign/cancel',{id:O[4].id});
+  ok(r.status===200 && (await stat())['Option 2'].status==='pending','the company can still withdraw one option without touching the others');
   r=await team('/sign/create',{...DOC,group:'bad group!',option:'Option A'}); j=await r.json();
   ok(r.status===200 && !(await (await team('/sign/status',{ids:[j.id]})).json()).items[0].group,'an invalid group name is ignored (a normal single document)');
 
