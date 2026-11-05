@@ -165,11 +165,10 @@ function signNotReadyMessage(){
   return "Sign in to the shared CRM (☁ button) to send documents for signature.";
 }
 
-// Several options sent together: one signing link per option. When the client signs one,
-// the signing service withdraws the others (so only one can ever be signed).
+// Several options sent together: one signing link per option. Each option is signed on its own:
+// the client may sign one, several or all of them, and signing one never closes the others.
 async function sendOptionsForSignature(ds){
-  const signedBefore=ds.map(d=>latestSignature(d.signatures,"estimate")).find(s=>s && s.status==="signed");
-  if(signedBefore && !confirm(`An option of this offer was already signed by ${signedBefore.signerName}. Send all options for signature again anyway?`)) return;
+  if(!confirmResign(ds)) return;
   showToast(`Preparing ${ds.length} options for signature…`);
   const links=[];
   for(const d of ds){
@@ -184,12 +183,12 @@ async function sendOptionsForSignature(ds){
   const first=ds[0];
   const text=[`Hello ${first.clientName || "there"},`,"",
     `Thank you for asking ${companyName()} to quote your project${first.address ? ` at ${first.address}` : ""}. We prepared ${ds.length} options for you. `+
-    `Please review them and sign the one you choose:`,"",
+    `Each option has its own link: sign the ones you want, one or several, now or later:`,"",
     ...links.flatMap(({d,url})=>[optionLine(d),`Review & sign ${d.optionLabel}: ${url}`,""]),
-    `All prices include taxes. The full details of each option are in the attached PDFs. When you sign one option, the others are closed automatically. `+
-    `Signing takes about a minute, on a phone or a computer, and you will receive a copy of the signed document.`,"",
+    `All prices include taxes. The full details of each option are in the attached PDFs. Signing one option does not close the others. `+
+    `Signing takes about a minute, on a phone or a computer, and you will receive a copy of each signed document.`,"",
     "Best regards,",...[SETTINGS.companyName,...companyContactParts()]].join("\n");
-  const subject=`Please choose and sign: ${companyName()} Estimate - ${ds.length} options`;
+  const subject=`Please review and sign: ${companyName()} Estimate - ${ds.length} options`;
   const files=ds.map(d=>({filename:estimatePdfName(d),render:()=>renderPrintView(d)}));
   const viaGmail=(t=first.clientEmail,s=subject)=>{ openMailto(t,s,text); downloadPdfsForGmail(files); };
   if(canSendFromCrm()){
@@ -221,12 +220,11 @@ async function sendEstimateForSignature(){
   return signOneEstimate(getEstimateData(),getEstimate(BUILDER.id));
 }
 
-// One saved estimate (or one option of an offer) for signature. An option keeps its offer, so if
-// another option of the same offer was signed meanwhile, the signing service refuses this one.
+// One saved estimate (or one option of an offer) for signature. An option keeps its offer name
+// for its label; it is signed independently of the other options.
 async function signOneEstimate(d, est){
   if(!est) return;
-  const prior=latestSignature(est.signatures,"estimate");
-  if(prior && prior.status==="signed" && !confirm(`This estimate was already signed by ${prior.signerName} on ${formatDate(prior.signedAt.slice(0,10))}. Send a new copy for signature anyway?`)) return;
+  if(!confirmResign([{...d,id:est.id,signatures:est.signatures}])) return;
   showToast("Preparing the estimate for signature…");
   const option=est.optionGroup && d.optionLabel ? d.optionLabel : "";
   const title=`Estimate ${d.estimateNumber}${option?` - ${option}`:""}${d.address?` - ${d.address}`:""}`;
@@ -270,6 +268,19 @@ function offerWorkAuthorization(projectId){
   if(confirm(`Send the Work Authorization to ${p.clientName || "the client"} for signature now?`)) sendProjectDocument(projectId,"work_authorization");
 }
 
+// Sending an option that is already signed again (re-signing or an amendment) needs an owner or
+// admin, and is asked about. Returns false when it must not be sent.
+function confirmResign(ds){
+  const signed=ds.filter(d=>{ const s=latestSignature((getEstimate(d.id) || d).signatures,"estimate"); return s && s.status==="signed"; });
+  if(!signed.length) return true;
+  const names=signed.map(d=>d.optionLabel || `estimate ${d.estimateNumber}`).join(", ");
+  if(typeof cloudActive==="function" && cloudActive() && !cloudIsAdmin()){
+    alert(`${names} ${signed.length===1?"is":"are"} already signed. Only an owner or admin can send a signed option for signature again (re-signing or an amendment).`);
+    return false;
+  }
+  return confirm(`${names} ${signed.length===1?"is":"are"} already signed by the client.\n\nSend for signature again as a re-signing or amendment? The earlier signed copy is kept in the history.`);
+}
+
 // For the invoice Send window: adds the Certificate of Completion link to the email.
 function completionSignOption(inv){
   const p=getProject(inv && inv.crmProjectId);
@@ -290,8 +301,9 @@ function completionSignOption(inv){
 /* ---------- Status and signed copies ---------- */
 
 // Checks pending requests with the service (at most once a minute) and saves any change.
-// An option of an offer was decided by the client: the signed one is Accepted (and the CRM
-// project shows it), the ones closed because another was chosen are Rejected.
+// An option of an offer was signed: it is Accepted, and the CRM project shows it (with several
+// signed options, all of them and their total). Options are independent: nothing else changes.
+// (Options closed by the old one-option-only rule, before this change, still show as Rejected.)
 // The newest estimate signature, including one closed because another option was chosen.
 function lastOptionSignature(signatures){
   const of=(signatures || []).filter(s=>s.type==="estimate");
@@ -304,9 +316,13 @@ function settleOption(est, signatures){
   if(!s) return;
   if(s.status==="signed"){
     updateEstimate(est.id,{status:"accepted",updatedAt:nowISO()});
-    if(est.crmProjectId && getProject(est.crmProjectId)){
-      linkProjectToEstimate(est.crmProjectId,getEstimate(est.id));
-      syncProjectFromEstimateStatus(getEstimate(est.id));
+    const p=est.crmProjectId && getProject(est.crmProjectId);
+    if(p){
+      // The project keeps the option it shows if that one is signed too; its total covers all signed options.
+      const shown=getEstimate(p.estimateId);
+      const primary=shown && shown.optionGroup===est.optionGroup && shown.status==="accepted" ? shown : getEstimate(est.id);
+      linkProjectToEstimate(p.id,primary);
+      syncProjectFromEstimateStatus(primary);
     }
   }else if(s.status==="cancelled" && s.chosenOption){
     updateEstimate(est.id,{status:"rejected",updatedAt:nowISO()});
@@ -378,10 +394,14 @@ function signBadgeHtml(s, label){
     title="${escapeHtml(signed?`Signed by ${s.signerName}. Click to download the signed PDF.`:"Waiting for the client's signature. Click to copy the link.")}">✍ ${escapeHtml(label)}: ${signed?`signed ✓${s.signedAt?` ${escapeHtml(formatDate(s.signedAt.slice(0,10)))}`:""}`:"waiting"}</button>`;
 }
 
-// Badges on a CRM card: estimate, Work Authorization, Certificate of Completion.
+// Badges on a CRM card: the estimate (each option of an offer on its own), Work Authorization,
+// Certificate of Completion.
 function signBadgesHtml(p){
   const est=getEstimate(p.estimateId);
-  const rows=[["estimate",est ? est.signatures : []],["work_authorization",p.signatures],["completion",p.signatures]]
+  const estRows=est && est.optionGroup
+    ? estimateOptions(est).map(o=>signBadgeHtml(latestSignature(o.signatures,"estimate"),o.optionLabel || SIGN_TYPES.estimate.short)).join("")
+    : signBadgeHtml(latestSignature(est ? est.signatures : [],"estimate"),SIGN_TYPES.estimate.short);
+  const rows=estRows+[["work_authorization",p.signatures],["completion",p.signatures]]
     .map(([type,list])=>signBadgeHtml(latestSignature(list,type),SIGN_TYPES[type].short)).join("");
   return rows ? `<div class="kcard-signs">${rows}</div>` : "";
 }

@@ -643,7 +643,7 @@ function saveEstimate(){
 
 /* ---------- Options: several estimates offered to one client as choices ---------- */
 
-const MAX_OPTIONS = 5;
+const MAX_OPTIONS = 26; // Option A … Option Z
 
 // The saved estimates of one offer (Option A, B, C…), in order.
 function estimateOptions(est){
@@ -681,7 +681,7 @@ function addEstimateOption(){
   const options=estimateOptions({...est,optionGroup:group});
   if(options.length>=MAX_OPTIONS){ alert(`An offer can have at most ${MAX_OPTIONS} options.`); return; }
   const used=new Set(options.map(o=>o.optionLabel));
-  const label=["A","B","C","D","E"].map(l=>"Option "+l).find(l=>!used.has(l));
+  const label=[..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map(l=>"Option "+l).find(l=>!used.has(l));
   const now=nowISO();
   const copy={
     ...clone(getEstimate(est.id)),
@@ -1043,10 +1043,16 @@ function pickOptionsToSend(ds, action){
   if(OPTION_PICK) return Promise.resolve(null);
   const current=BUILDER.id;
   $("optPickTitle").textContent=`Which options do you want to ${action}?`;
-  $("optPickList").innerHTML=ds.map(d=>`<label class="check opt-pick">
-      <input type="checkbox" value="${escapeHtml(d.id)}" checked>
-      <span><b>${escapeHtml(d.optionLabel || "Estimate")}</b> · ${escapeHtml(d.estimateNumber)} · ${money(d.grandTotal)}${d.id===current?` <span class="small">(open now)</span>`:""}</span>
-    </label>`).join("");
+  // For signature, options the client already signed start unticked (signing again is a re-signing).
+  const signedOf=d=>{ const s=latestSignature((getEstimate(d.id) || d).signatures || [],"estimate"); return s && s.status==="signed" ? s : null; };
+  $("optPickList").innerHTML=ds.map(d=>{
+    const s=signedOf(d);
+    return `<label class="check opt-pick">
+      <input type="checkbox" value="${escapeHtml(d.id)}" ${s && /sign/.test(action) ? "" : "checked"}>
+      <span><b>${escapeHtml(d.optionLabel || "Estimate")}</b> · ${escapeHtml(d.estimateNumber)} · ${money(d.grandTotal)}${d.id===current?` <span class="small">(open now)</span>`:""}
+        ${s ? `<span class="sign-badge sign-done">signed ✓ ${escapeHtml(formatDate(String(s.signedAt).slice(0,10)))}</span>` : ""}</span>
+    </label>`;
+  }).join("");
   $("optPickStatus").textContent="";
   openModal("optionPickModal");
   $("optPickList").querySelector("input").focus();

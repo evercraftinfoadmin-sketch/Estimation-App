@@ -1,6 +1,7 @@
 // Several options for one client (Option A, B, C): made from the builder, sent together in one
-// email (all PDFs), sent for signature together (one link each); when the client signs one, it is
-// Accepted, the others Rejected, and the CRM project follows the chosen option.
+// email (all PDFs), sent for signature together (one link each), or only some of them. Options are
+// signed independently (see multisign.test.js); offers closed by the old one-option rule still show
+// the other options as Rejected and the CRM project follows the signed option.
 // The signing and mail services are faked inside the page (no network).
 const { launch, FILE, OUT, TEST_APP_ID, SIGNED_OUT_SDK } = require('../helpers');
 let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL ')+m);};
@@ -95,13 +96,13 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   const created=[...docs.values()];
   const stext=await p.inputValue('#smText');
   ok(created.length===3 && created.every(d=>d.group===A.optionGroup && d.type==='estimate') && created.map(d=>d.option).join()==='Option A,Option B,Option C','Send for Signature makes one signing link per option, all in the same offer');
-  ok(created.every((d,i)=>stext.includes(`Review & sign Option ${'ABC'[i]}: ${SIGN}/s/token${i+1}`)) && stext.includes('the others are closed automatically'),'the email has a "Review & sign" link for each option and explains the choice');
+  ok(created.every((d,i)=>stext.includes(`Review & sign Option ${'ABC'[i]}: ${SIGN}/s/token${i+1}`)) && stext.includes('sign the ones you want, one or several') && stext.includes('Signing one option does not close the others'),'the email has a "Review & sign" link for each option and says several can be signed');
   await p.click('#smSend');
   await p.waitForFunction(()=>!document.getElementById('sendMailModal').classList.contains('open'),null,{timeout:60000});
   ok(mails.length===2 && mails[1].attachments.length===3,'it is sent as one email with the 3 PDFs');
   ok((await ests()).every(e=>e.signatures.length===1 && e.signatures[0].status==='pending'),'each option waits for its signature');
 
-  // the client signs Option B → B accepted, A and C rejected, the CRM project shows B
+  // (offers sent before options became independent: the old service closed the others) B signed, A and C closed → B accepted, A and C rejected, the CRM project shows B
   await p.evaluate(()=>updateProject(loadProjects()[0].id,{stage:'prospect'}));
   const byOpt=o=>[...docs.values()].find(d=>d.option===o);
   Object.assign(byOpt('Option B'),{status:'signed',signedAt:new Date().toISOString(),signerName:'Jackie'});

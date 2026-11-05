@@ -110,8 +110,13 @@ global.fetch=async(url,opts={})=>{
   const graw=(calls.find(c=>c.url.includes('gmail.googleapis.com'))||{opts:{}}).opts.body||'';
   const parts=['A','B','C'].map(o=>(graw.split(`filename="EST-2026-1001 Option ${o}.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\n`)[1]||'').split('\r\n--')[0].replace(/\r\n/g,''));
   ok(r.status===200 && (graw.match(/Content-Type: application\/pdf;/g)||[]).length===3 && parts.every(x=>x===PDF) && graw.split('\r\n').every(l=>l.length<=78),'three PDFs go out in one email, each intact, with its own file name');
-  r=await sendReq({...good,attachment:undefined,attachments:Array.from({length:6},(_,i)=>({filename:`x${i}.pdf`,base64:PDF}))},{token:'tok-data'});
-  ok(r.status===400 && (await r.json()).error.includes('At most 5'),'more than 5 PDFs in one email is refused');
+  const counts=new Map([...E.MAIL_KV.m].filter(([k])=>k.startsWith('count:')));
+  r=await sendReq({...good,attachment:undefined,attachments:Array.from({length:10},(_,i)=>({filename:`EST Option ${i+1}.pdf`,base64:PDF}))},{token:'tok-data'});
+  ok(r.status===200,'ten PDFs (e.g. ten estimate options) can go out in one email');
+  for(const k of [...E.MAIL_KV.m.keys()]) if(k.startsWith('count:')) E.MAIL_KV.m.delete(k);
+  for(const [k,v] of counts) E.MAIL_KV.m.set(k,v); // that extra send does not count against the daily-limit check below
+  r=await sendReq({...good,attachment:undefined,attachments:Array.from({length:21},(_,i)=>({filename:`x${i}.pdf`,base64:PDF}))},{token:'tok-data'});
+  ok(r.status===400 && (await r.json()).error.includes('At most 20'),'more than 20 PDFs in one email is refused');
   r=await sendReq({...good,attachment:undefined,attachments:[{filename:'a.pdf',base64:PDF},{filename:'b.pdf',base64:Buffer.from('hello world!').toString('base64')}]},{token:'tok-data'});
   ok(r.status===400 && (await r.json()).error.includes('not a PDF'),'every attachment must be a PDF');
   ok(raw.split('\r\n').every(l=>l.length<=78) && !/[^\r]\n/.test(raw),'every line of the email is at most 78 characters and ends in CRLF (what strict mail apps expect)');
