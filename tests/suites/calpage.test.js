@@ -31,7 +31,9 @@ const YURA='yura@group.calendar.google.com';
         'evercraft.pro@gmail.com':[{id:'e1',calendarId:'evercraft.pro@gmail.com',summary:'ESTIMATE (Ann Lee), 818-555-0100',location:'42 Elm St, Reseda, CA',allDay:false,start:pt(day(10),'10:00'),end:pt(day(10),'11:00'),link:'https://calendar.google.com/e/1',crmProject:projectId,crmKind:'estimate'}],
         [YURA]:[{id:'e2',calendarId:YURA,summary:'Margo painting Yurii + Kirill',location:'19802 Bassett St',allDay:false,start:pt(day(10),'09:00'),end:pt(day(10),'17:00'),link:'https://calendar.google.com/e/2',crmProject:'',crmKind:''},
                 {id:'e3',calendarId:YURA,summary:'JOB (Big Job), 818 · Yura',location:'',allDay:true,start:day(12),end:day(15),link:'https://calendar.google.com/e/3',crmProject:'',crmKind:'job'}],
-        'oleg@group.calendar.google.com':[]
+        // a busy day: 10 jobs on the 20th in Oleg's calendar
+        'oleg@group.calendar.google.com':Array.from({length:10},(_,i)=>({id:'busy'+i,calendarId:'oleg@group.calendar.google.com',summary:`JOB (Busy Client ${i+1}), (818) 555-01${String(i).padStart(2,'0')} · Oleh`,
+          location:`${100+i} Busy St, Los Angeles, CA`,allDay:false,start:pt(day(20),`${String(7+i).padStart(2,'0')}:00`),end:pt(day(20),`${String(8+i).padStart(2,'0')}:00`),link:'https://calendar.google.com/e/b'+i,crmProject:'',crmKind:'job'}))
       };
       return {status:200,body:{ok:true,calendars:b.calendarIds.map(id=>({calendarId:id,events:all[id]||[]}))}};
     }
@@ -62,6 +64,25 @@ const YURA='yura@group.calendar.google.com';
   ok(await cell10.locator('.calv-chip').count()===2 && (await cell10.innerText()).includes('ESTIMATE (Ann Lee)') && (await cell10.innerText()).includes('Margo painting'),'events show on their day: CRM ones and ones entered by hand in Google');
   ok(await p.locator(`#calViewGrid [data-day="${day(12)}"] .calv-chip`).count()===1 && await p.locator(`#calViewGrid [data-day="${day(14)}"] .calv-chip`).count()===1 && await p.locator(`#calViewGrid [data-day="${day(15)}"] .calv-chip`).count()===0,'an all-day job over several days shows on each of its days (not the day after)');
   ok(await p.locator('#calViewGrid .calv-today').count()===1,'today is marked');
+
+  // a busy day: all 10 events are shown, the day grows, nothing is hidden or cut off
+  const cell20=p.locator(`#calViewGrid [data-day="${day(20)}"]`);
+  ok(await cell20.locator('.calv-chip').count()===10 && !(await cell20.innerText()).includes('more') && (await cell20.locator('.calv-count').textContent())==='10','a day with 10 events shows all 10 directly (no "+ more"), with its count');
+  ok(await cell20.locator('.calv-chip').evaluateAll(l=>l.every(c=>c.scrollWidth<=c.clientWidth+1 && c.offsetHeight>0 && getComputedStyle(c).whiteSpace!=='nowrap')),'event titles wrap instead of being cut off');
+  const box=async d=>p.locator(`#calViewGrid [data-day="${d}"]`).boundingBox();
+  const busy=await box(day(20)), quiet=await box(day(27)), nextCol=await box(day(21));
+  ok(busy.height>quiet.height*2,`the busy week's row grows to fit (${Math.round(busy.height)} px vs ${Math.round(quiet.height)} px for a quiet week)`);
+  ok(busy.width>nextCol.width*1.4,`the busy weekday's column is wider (${Math.round(busy.width)} px vs ${Math.round(nextCol.width)} px)`);
+  const fits=await cell20.evaluate(c=>{ const r=c.getBoundingClientRect(); return [...c.querySelectorAll('.calv-chip')].every(x=>{ const b=x.getBoundingClientRect(); return b.bottom<=r.bottom+1 && b.right<=r.right+1; }); });
+  ok(fits,'every event fits inside its day (nothing overflows the cell)');
+  await p.locator('#calViewGrid').screenshot({path:OUT+'/calendar-busy-day.png'});
+  // automatic: hiding that calendar shrinks the day and its column again
+  await p.locator('#calViewLegend input[data-cal="oleg@group.calendar.google.com"]').uncheck();
+  await p.waitForFunction(()=>!$('calViewStatus').textContent.includes('Loading'));
+  const after=await box(day(20));
+  ok(await cell20.locator('.calv-chip').count()===0 && after.height<busy.height/2 && Math.abs(after.width-(await box(day(21))).width)<busy.width*0.3,'the layout adjusts by itself when events go away (row and column shrink back)');
+  await p.locator('#calViewLegend input[data-cal="oleg@group.calendar.google.com"]').check();
+  await p.waitForFunction(()=>!$('calViewStatus').textContent.includes('Loading'));
   await p.locator('#page-calendar').screenshot({path:OUT+'/calendar-page.png'});
 
   // a day's list
@@ -97,6 +118,7 @@ const YURA='yura@group.calendar.google.com';
   await p.setViewportSize({width:390,height:844});
   await p.waitForTimeout(200);
   ok(await p.locator(`#calViewGrid [data-day="${day(10)}"] .calv-dots .calv-dot`).count()===2 && !(await cell10.locator('.calv-chip').first().isVisible()),'on a phone the days show colored dots; the day list has the details');
+  ok(await p.isVisible('#calViewList') && await p.locator(`#calViewList [data-day="${day(20)}"] .calv-chip`).count()===10 && (await p.innerText(`#calViewList [data-day="${day(20)}"]`)).includes('Busy Client 10'),'on a phone every event is listed day by day (all 10 of the busy day, readable)');
   const overflow=await p.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
   ok(!overflow,'no sideways scrolling on a phone');
   await p.locator('#page-calendar').screenshot({path:OUT+'/calendar-page-phone.png'});

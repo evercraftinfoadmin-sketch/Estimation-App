@@ -135,6 +135,19 @@ function calViewEventsOn(day){
   return CALVIEW.events.filter(e=>e.days.includes(day));
 }
 
+const calViewChip=e=>`<button type="button" class="calv-chip" style="--cal:${escapeHtml(e.color)}" data-event="${escapeHtml(e.calendarId+"|"+e.id)}" title="${escapeHtml(calViewTime(e)+" · "+e.summary+(e.location?" · "+e.location:""))}">
+        ${e.allDay?"":`<span class="calv-time">${escapeHtml(calViewTime(e))}</span> `}${escapeHtml(e.summary)}</button>`;
+
+// Column widths follow the workload: a weekday with more events on its busiest day gets a wider
+// column (never narrower than the others), so busy days stay readable. Rows grow by themselves.
+function calViewColumnWidths(start){
+  const most=[0,0,0,0,0,0,0];
+  for(let i=0;i<42;i++) most[i%7]=Math.max(most[i%7],calViewEventsOn(addDays(start,i)).length);
+  return most.map(n=>`minmax(0,${(1+Math.min(n,12)*0.15).toFixed(2)}fr)`).join(" ");
+}
+
+// The month: every event of every day is shown (no "+ more"); a day with many events makes its
+// week's row taller and its column wider. Redrawn whenever the events are loaded again.
 function renderCalViewGrid(){
   const {start}=calViewRange(CALVIEW.month);
   const today=localISODate();
@@ -143,16 +156,31 @@ function renderCalViewGrid(){
   for(let i=0;i<42;i++){
     const iso=addDays(start,i);
     const list=calViewEventsOn(iso);
-    const chips=list.slice(0,3).map(e=>`<button type="button" class="calv-chip" style="--cal:${escapeHtml(e.color)}" data-event="${escapeHtml(e.calendarId+"|"+e.id)}" title="${escapeHtml(calViewTime(e)+" · "+e.summary)}">
-        ${e.allDay?"":`<span class="calv-time">${escapeHtml(calViewTime(e))}</span> `}${escapeHtml(e.summary)}</button>`).join("");
-    cells+=`<div class="calv-cell ${iso.slice(0,7)!==CALVIEW.month?"calv-out":""} ${iso===today?"calv-today":""} ${iso===CALVIEW.day?"calv-sel":""}" data-day="${iso}">
-      <div class="calv-num">${Number(iso.slice(8))}</div>
-      <div class="calv-chips">${chips}${list.length>3?`<div class="calv-more">+${list.length-3} more</div>`:""}</div>
-      <div class="calv-dots">${list.slice(0,4).map(e=>`<span class="calv-dot" style="--cal:${escapeHtml(e.color)}"></span>`).join("")}</div>
+    cells+=`<div class="calv-cell ${iso.slice(0,7)!==CALVIEW.month?"calv-out":""} ${iso===today?"calv-today":""} ${iso===CALVIEW.day?"calv-sel":""} ${list.length?"calv-busy":""}" data-day="${iso}">
+      <div class="calv-num">${Number(iso.slice(8))}${list.length>1?` <span class="calv-count">${list.length}</span>`:""}</div>
+      <div class="calv-chips">${list.map(calViewChip).join("")}</div>
+      <div class="calv-dots">${list.map(e=>`<span class="calv-dot" style="--cal:${escapeHtml(e.color)}"></span>`).join("")}</div>
     </div>`;
   }
+  $("calViewGrid").style.gridTemplateColumns=calViewColumnWidths(start);
   $("calViewGrid").innerHTML=head+cells;
+  renderCalViewList();
   renderCalViewDay();
+}
+
+// Phones: the month as a list of days, with every event of each day (the grid is too narrow to
+// read there; it keeps colored dots for the overview).
+function renderCalViewList(){
+  const first=CALVIEW.month+"-01";
+  const days=[];
+  for(let d=first; d.slice(0,7)===CALVIEW.month; d=addDays(d,1)){
+    const list=calViewEventsOn(d);
+    if(list.length) days.push({d,list});
+  }
+  $("calViewList").innerHTML=days.length ? days.map(({d,list})=>`<div class="calv-lday ${d===localISODate()?"calv-today":""}" data-day="${d}">
+      <div class="calv-lhead">${escapeHtml(new Date(d+"T12:00:00Z").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",timeZone:"UTC"}))} <span class="calv-count">${list.length}</span></div>
+      <div class="calv-chips">${list.map(calViewChip).join("")}</div>
+    </div>`).join("") : `<p class="muted">No events this month.</p>`;
 }
 
 function renderCalViewDay(){
@@ -208,6 +236,14 @@ function wireCalendarPage(){
       if(ev && ev.crmProject && getProject(ev.crmProject)) openProjectModal(ev.crmProject);
       else if(cell) $("calViewDay").scrollIntoView({behavior:"smooth",block:"nearest"});
     }
+  });
+  $("calViewList").addEventListener("click",e=>{
+    const chip=e.target.closest("[data-event]");
+    const day=e.target.closest("[data-day]");
+    if(!chip || !day) return;
+    const ev=CALVIEW.events.find(x=>x.calendarId+"|"+x.id===chip.dataset.event);
+    if(ev && ev.crmProject && getProject(ev.crmProject)) openProjectModal(ev.crmProject);
+    else{ CALVIEW.day=day.dataset.day; renderCalViewDay(); $("calViewDay").scrollIntoView({behavior:"smooth",block:"nearest"}); }
   });
   $("calViewDay").addEventListener("click",e=>{
     const btn=e.target.closest("[data-calv-project]");
