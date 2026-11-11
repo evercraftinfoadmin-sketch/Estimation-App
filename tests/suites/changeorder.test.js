@@ -45,7 +45,7 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   ok(await p.inputValue('#estimateNumber')===orig.estimateNumber+'-CO1','change order number: original + -CO1');
   ok(await p.inputValue('#clientName')==='Ann Lee' && await p.inputValue('#clientEmail')==='ann@x.com' && await p.inputValue('#estTaxRate')==='0','client, email and tax rate copied from the original');
   ok(await p.locator('.category-card[data-category=credit]').count()===1 && (await p.innerText('.category-card[data-category=credit] h2')).includes('CREDIT'),'change order has a Credit (work removed) section');
-  ok(await p.textContent('#sumTitle')==='Change Order Total' && await p.isHidden('#btnAddOption'),'side panel: Change Order Total; no + Add Option');
+  ok(await p.textContent('#sumTitle')==='Change Order Total' && await p.isHidden('#btnAddOption') && await p.textContent('#btnSaveEstimate')==='Save Change Order','side panel: Change Order Total, Save Change Order; no + Add Option');
   ok((await p.innerText('#builderMeta')).includes('Change Order 1') && (await p.innerText('#builderMeta')).includes(orig.estimateNumber),'header: Change Order 1 of the original estimate');
   await addLine('drywall','Drywall Repair',4,200);
   await addLine('credit','Interior Painting',1,500);

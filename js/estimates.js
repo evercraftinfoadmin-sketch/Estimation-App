@@ -243,6 +243,7 @@ function updateBuilderMeta(){
   // A change order has no options.
   const count=saved ? estimateOptions(saved).length : 1;
   $("btnAddOption").hidden=count>=MAX_OPTIONS || co;
+  $("btnSaveEstimate").textContent=co ? "Save Change Order" : "Save Estimate";
   $("btnRemoveOption").hidden=count<2;
   if(count>=2) $("btnRemoveOption").textContent=`🗑 Remove ${saved.optionLabel || "this option"} (${saved.estimateNumber})`;
   $("btnAddOption").textContent=count<2 ? "+ Add Option B (give the client a choice)" : `+ Add Option ${"ABCDE"[count]}`;
