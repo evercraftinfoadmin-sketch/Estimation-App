@@ -43,6 +43,11 @@ function wireEvents(){
     if(!btn) return;
     if(btn.dataset.action==="open-crm" && BUILDER.crmProjectId){ showPage("crm"); openProjectModal(BUILDER.crmProjectId); }
     if(btn.dataset.action==="add-option") addEstimateOption();
+    if(btn.dataset.action==="create-co" && BUILDER.id){
+      if(hasUnsavedChanges() && !confirm("Save this estimate first, then start the change order?")) return;
+      if(hasUnsavedChanges() && !saveEstimate()) return;
+      createChangeOrder(BUILDER.id);
+    }
     if(btn.dataset.action==="remove-option" && BUILDER.id) deleteEstimate(BUILDER.id);
     if(btn.dataset.action==="open-option" && btn.dataset.id!==BUILDER.id) openEstimate(btn.dataset.id);
     if(btn.dataset.action==="create-crm" && BUILDER.id){

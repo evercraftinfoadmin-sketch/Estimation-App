@@ -8,7 +8,8 @@ const ESTIMATE_STATUSES = ["draft","sent","accepted","rejected","completed"];
 // line items live here and are rendered into the category sections.
 // customCategories: ids of the custom categories shown in this estimate (in order);
 // categoryNames: names saved with the estimate, used if a category is later deleted.
-let BUILDER = {id:null, crmProjectId:null, status:null, taxMode:null, items:[], customCategories:[], categoryNames:{}};
+// changeOrderOf / changeOrderSeq: set when the builder holds a change order (js/changeorders.js).
+let BUILDER = {id:null, crmProjectId:null, status:null, taxMode:null, items:[], customCategories:[], categoryNames:{}, changeOrderOf:"", changeOrderSeq:0};
 let CLEAN_SNAPSHOT = "";
 let CUSTOM_SERVICE_CATEGORY = "drywall";
 
@@ -29,14 +30,16 @@ function readBuilderInput(){
     taxMode:BUILDER.taxMode || SETTINGS.taxMode,
     customCategories:BUILDER.customCategories.map(id=>({id,name:builderCategoryLabel(id)})),
     optionGroup:BUILDER.optionGroup || "",
-    optionLabel:BUILDER.optionLabel || ""
+    optionLabel:BUILDER.optionLabel || "",
+    changeOrderOf:BUILDER.changeOrderOf || "",
+    changeOrderSeq:BUILDER.changeOrderSeq || 0
   };
 }
 
 // Builder data + totals from the single calculation engine.
 function getEstimateData(){
   const input=readBuilderInput();
-  return {...input, ...computeEstimateTotals(input)};
+  return {...input, id:BUILDER.id, ...computeEstimateTotals(input)};
 }
 
 function builderSnapshot(){
@@ -69,15 +72,21 @@ function builderCategoryLabel(key){
   return categoryLabel(key, BUILDER.categoryNames[key] || (item && item.categoryName));
 }
 
-// Main categories always, then the custom categories added to this estimate.
+// Main categories always, then the custom categories added to this estimate; a change order
+// also has the Credit section (work removed, subtracted).
 function builderCategories(){
-  return [
+  const list=[
     ...MAIN_CATEGORIES.map(c=>({...c,custom:false})),
     ...BUILDER.customCategories.map(id=>({key:id,label:builderCategoryLabel(id),custom:true}))
   ];
+  if(BUILDER.changeOrderOf || BUILDER.items.some(it=>it.category===CREDIT_CATEGORY)){
+    list.push({key:CREDIT_CATEGORY,label:categoryLabel(CREDIT_CATEGORY),custom:false,credit:true});
+  }
+  return list;
 }
 
 function ensureCategoryInBuilder(key){
+  if(key===CREDIT_CATEGORY) return;
   if(!isMainCategory(key) && !BUILDER.customCategories.includes(key)) BUILDER.customCategories.push(key);
 }
 
@@ -125,7 +134,7 @@ function renderBuilderSections(){
   $("builderSections").innerHTML=builderCategories().map(c=>{
     const key=escapeHtml(c.key);
     return `
-    <section class="card category-card ${c.custom?"category-custom":""}" data-category="${key}">
+    <section class="card category-card ${c.custom?"category-custom":""} ${c.credit?"category-credit":""}" data-category="${key}">
       <div class="category-head">
         <h2>${escapeHtml(c.label.toUpperCase())}${c.custom?` <span class="cat-tag">custom</span>`:""}</h2>
         <div class="category-head-right">
@@ -133,6 +142,7 @@ function renderBuilderSections(){
           ${c.custom?`<button class="btn-link danger-link" data-action="remove-category" data-category="${key}">Remove</button>`:""}
         </div>
       </div>
+      ${c.credit?`<p class="small credit-note">Work taken out of the job. These lines are subtracted from the change order total.</p>`:""}
       <div class="line-head" aria-hidden="true"><span>Service</span><span>Quantity</span><span>Price</span><span>Total</span><span></span></div>
       <div class="line-items" id="items-${key}"></div>
       <div class="category-actions">
@@ -148,7 +158,8 @@ function renderBuilderSections(){
 }
 
 function serviceOptions(item){
-  const services=activeServices(item.category);
+  // A credit line can be any service of the job.
+  const services=item.category===CREDIT_CATEGORY ? loadServices().filter(s=>s.active) : activeServices(item.category);
   const linked=item.serviceId ? services.find(s=>s.id===item.serviceId) : null;
   // Show the item's own name when it is custom, or its service was renamed/disabled/deleted.
   const ownName=item.name && (!linked || linked.name!==item.name);
@@ -206,6 +217,8 @@ function updateBuilderTotals(){
   $("sumSubtotal").textContent=money(d.subtotal);
   $("sumTax").textContent=money(d.taxAmount);
   $("sumTotal").textContent=money(d.grandTotal);
+  $("sumTitle").textContent=BUILDER.changeOrderOf ? "Change Order Total" : "Estimate Total";
+  renderBuilderContract(d);
 }
 
 function updateBuilderMeta(){
@@ -215,19 +228,21 @@ function updateBuilderMeta(){
   badge.textContent=saved ? capitalize(saved.status) : "Not saved";
 
   const project=BUILDER.crmProjectId ? getProject(BUILDER.crmProjectId) : null;
-  let html="";
+  const co=!!BUILDER.changeOrderOf;
+  let html=co ? changeOrderMetaHtml({...(saved||{}),changeOrderOf:BUILDER.changeOrderOf,changeOrderSeq:BUILDER.changeOrderSeq}) : "";
   if(project){
-    html=`🔗 Linked to CRM project <b>${escapeHtml(project.clientName || project.address || "")}</b> (${escapeHtml(stageLabel(project.stage))})
+    html+=`🔗 Linked to CRM project <b>${escapeHtml(project.clientName || project.address || "")}</b> (${escapeHtml(stageLabel(project.stage))})
       <button class="btn btn-link" data-action="open-crm">Open CRM Project</button>`;
-  }else if(saved){
-    html=`<button class="btn btn-link" data-action="create-crm">+ Create CRM Project</button>`;
+  }else if(saved && !co){
+    html+=`<button class="btn btn-link" data-action="create-crm">+ Create CRM Project</button>`;
   }
   if(saved) html+=estimateSignBadgeHtml(saved);
-  if(saved) html+=optionsBarHtml(saved);
+  if(saved && !co) html+=optionsBarHtml(saved)+changeOrdersBarHtml(saved);
   $("builderMeta").innerHTML=html;
   // The big "+ Add Option" button under Save Estimate (also for an estimate not saved yet).
+  // A change order has no options.
   const count=saved ? estimateOptions(saved).length : 1;
-  $("btnAddOption").hidden=count>=MAX_OPTIONS;
+  $("btnAddOption").hidden=count>=MAX_OPTIONS || co;
   $("btnRemoveOption").hidden=count<2;
   if(count>=2) $("btnRemoveOption").textContent=`🗑 Remove ${saved.optionLabel || "this option"} (${saved.estimateNumber})`;
   $("btnAddOption").textContent=count<2 ? "+ Add Option B (give the client a choice)" : `+ Add Option ${"ABCDE"[count]}`;
@@ -322,7 +337,7 @@ function submitLineEdit(){
   const name=$("leName").value.trim(), description=$("leDescription").value.replace(/\s+$/,"");
   if(!name){ alert("Please enter a service name."); $("leName").focus(); return; }
   let note="Line updated for this estimate.";
-  if($("leSave").checked){
+  if($("leSave").checked && (item.serviceId || item.category!==CREDIT_CATEGORY)){
     const service=item.serviceId ? getService(item.serviceId) : null;
     if(service){
       if(!updateServiceText(service.id,{name,description})) return;
@@ -365,7 +380,7 @@ function submitCustomService(){
   if(!name){ alert("Please enter a service name."); $("csName").focus(); return; }
 
   let serviceId=null;
-  if($("csSave").checked){
+  if($("csSave").checked && category!==CREDIT_CATEGORY){
     const service=createService({category,name,defaultPrice,description});
     if(!service) return;
     serviceId=service.id;
@@ -384,15 +399,16 @@ function submitCustomService(){
 /* ---------- New / reset / open ---------- */
 
 function newEstimate(prefill={}){
-  BUILDER={id:null,crmProjectId:prefill.crmProjectId||null,status:null,taxMode:null,items:[],customCategories:[],categoryNames:{}};
+  BUILDER={id:null,crmProjectId:prefill.crmProjectId||null,status:null,taxMode:null,items:[],customCategories:[],categoryNames:{},
+    changeOrderOf:prefill.changeOrderOf||"",changeOrderSeq:prefill.changeOrderSeq||0};
   $("clientName").value=prefill.clientName||"";
   $("clientEmail").value=prefill.clientEmail||"";
   $("clientPhone").value=prefill.clientPhone||"";
   $("clientMessage").value=prefill.clientMessage||"";
   BUILDER_ADDRESS.setData(prefill.addressFields || {address:prefill.address||""});
-  $("estimateNumber").value=nextAvailableEstimateNumber();
+  $("estimateNumber").value=prefill.estimateNumber || nextAvailableEstimateNumber();
   $("estimateDate").value=localISODate();
-  $("estTaxRate").value=SETTINGS.salesTax;
+  $("estTaxRate").value=prefill.taxRate ?? SETTINGS.salesTax;
   renderBuilderItems();
   markClean();
 }
@@ -440,7 +456,9 @@ function loadEstimateIntoBuilder(est){
     customCategories:[],
     categoryNames:{},
     optionGroup:est.optionGroup || "",
-    optionLabel:est.optionLabel || ""
+    optionLabel:est.optionLabel || "",
+    changeOrderOf:est.changeOrderOf || "",
+    changeOrderSeq:est.changeOrderSeq || 0
   };
   // Custom categories of this estimate: the saved list first, then any used by its lines.
   est.customCategories.forEach(c=>{ ensureCategoryInBuilder(c.id); BUILDER.categoryNames[c.id]=c.name; });
@@ -486,7 +504,7 @@ function normalizeEstimate(e){
       description:String(it.description ?? ""),
       quantity:amount(it.quantity),
       price:amount(it.price),
-      total:round2(amount(it.total))
+      total:round2(it.category===CREDIT_CATEGORY ? -amount(Math.abs(num(it.total))) : amount(it.total))
     }));
   return {
     id:String(e.id),
@@ -504,22 +522,26 @@ function normalizeEstimate(e){
     paintingTotal:round2(amount(e.paintingTotal)),
     otherTotal:round2(amount(e.otherTotal)),
     customCategories:(Array.isArray(e.customCategories) ? e.customCategories : [])
-      .filter(c=>c && c.id && !isMainCategory(c.id))
+      .filter(c=>c && c.id && !isMainCategory(c.id) && c.id!==CREDIT_CATEGORY)
       .map(c=>({id:String(c.id),name:String(c.name ?? "")})),
     categoryTotals:(e.categoryTotals && typeof e.categoryTotals==="object") ? e.categoryTotals : {},
-    subtotal:round2(amount(e.subtotal)),
+    // A change order that removes work has negative totals.
+    subtotal:round2(signedAmount(e.subtotal)),
     markup:amount(e.markup),
     markupAmount:round2(amount(e.markupAmount)),
     taxRate:amount(e.taxRate),
     taxMode:e.taxMode==="subtotal" ? "subtotal" : "all",
-    taxAmount:round2(amount(e.taxAmount)),
-    customerTotal:round2(amount(e.customerTotal ?? e.customer)),
+    taxAmount:round2(signedAmount(e.taxAmount)),
+    customerTotal:round2(signedAmount(e.customerTotal ?? e.customer)),
     status:ESTIMATE_STATUSES.includes(e.status) ? e.status : "draft",
     crmProjectId:e.crmProjectId || null,
     signatures:normalizeSignatures(e.signatures),
     // Options: estimates offered together as choices (Option A, B, C) share an optionGroup.
     optionGroup:String(e.optionGroup ?? ""),
     optionLabel:String(e.optionLabel ?? ""),
+    // Change orders: the original estimate's id and the change order's number (1, 2, 3…).
+    changeOrderOf:String(e.changeOrderOf ?? ""),
+    changeOrderSeq:e.changeOrderOf ? Math.max(1,parseInt(e.changeOrderSeq,10) || 1) : 0,
     createdAt:e.createdAt || nowISO(),
     updatedAt:e.updatedAt || e.createdAt || nowISO(),
     legacy
@@ -565,7 +587,7 @@ function buildEstimateRecord(d, existing){
     stuccoTotal:d.categoryTotals.stucco,
     paintingTotal:d.categoryTotals.painting,
     // Sum of all custom categories; per-category amounts are in categoryTotals.
-    otherTotal:round2(Object.keys(d.categoryTotals).filter(k=>!isMainCategory(k)).reduce((s,k)=>s+d.categoryTotals[k],0)),
+    otherTotal:round2(Object.keys(d.categoryTotals).filter(k=>!isMainCategory(k) && k!==CREDIT_CATEGORY).reduce((s,k)=>s+d.categoryTotals[k],0)),
     customCategories:d.customCategories,
     categoryTotals:d.categoryTotals,
     subtotal:d.subtotal,
@@ -578,8 +600,10 @@ function buildEstimateRecord(d, existing){
     status:existing ? existing.status : "draft",
     crmProjectId:BUILDER.crmProjectId || (existing && existing.crmProjectId) || null,
     signatures:existing ? existing.signatures : [],
-    optionGroup:d.optionGroup || "",
-    optionLabel:d.optionLabel || "",
+    optionGroup:d.changeOrderOf ? "" : d.optionGroup || "",
+    optionLabel:d.changeOrderOf ? "" : d.optionLabel || "",
+    changeOrderOf:d.changeOrderOf || "",
+    changeOrderSeq:d.changeOrderOf ? d.changeOrderSeq : 0,
     createdAt:existing ? existing.createdAt : now,
     updatedAt:now
   };
@@ -605,6 +629,13 @@ function saveEstimate(){
 
   // Estimate numbers are never duplicated.
   if(list.some(e=>e.estimateNumber===d.estimateNumber && e.id!==(existing && existing.id))){
+    const parent=BUILDER.changeOrderOf ? getEstimate(BUILDER.changeOrderOf) : null;
+    if(parent){
+      // Another change order took this number meanwhile: this one takes the next.
+      BUILDER.changeOrderSeq=nextChangeOrderSeq(parent);
+      $("estimateNumber").value=changeOrderNumber(parent,BUILDER.changeOrderSeq);
+      return saveEstimate();
+    }
     const next=nextAvailableEstimateNumber();
     if(!confirm(`Estimate # ${d.estimateNumber} is already used by another saved estimate.\nUse ${next} instead?`)) return false;
     $("estimateNumber").value=next;
@@ -627,7 +658,10 @@ function saveEstimate(){
   // Options share one CRM project; it stays on the option it shows until the client chooses one.
   const onSibling=project && project.estimateId && project.estimateId!==record.id && record.optionGroup &&
     (getEstimate(project.estimateId)||{}).optionGroup===record.optionGroup;
-  if(record.crmProjectId && !onSibling){
+  if(record.changeOrderOf){
+    // The project stays on the original estimate; its total follows the accepted change orders.
+    if(record.crmProjectId) refreshProjectContract(record.crmProjectId);
+  }else if(record.crmProjectId && !onSibling){
     const link=linkProjectToEstimate(record.crmProjectId,record);
     if(link && link.addressBlocked) setTimeout(()=>showToast("The CRM project keeps its verified address. Verify this address to update both."),2700);
   }
@@ -635,7 +669,8 @@ function saveEstimate(){
   markClean();
   renderSavedEstimates();
   renderCrmBoard();
-  showToast(existing ? `Estimate ${record.estimateNumber} updated.` : `Estimate ${record.estimateNumber} saved.`);
+  const what=record.changeOrderOf ? changeOrderLabel(record) : "Estimate";
+  showToast(existing ? `${what} ${record.estimateNumber} updated.` : `${what} ${record.estimateNumber} saved.`);
   return true;
 }
 
@@ -670,6 +705,7 @@ function optionsBarHtml(est){
 
 // Makes another option of the estimate in the builder (saved first) and opens it.
 function addEstimateOption(){
+  if(BUILDER.changeOrderOf){ alert("A change order has no options. Make another change order instead."); return; }
   if(!BUILDER.id || hasUnsavedChanges()){
     if(!confirm("The estimate is saved first, then a copy is made as the next option. Save now?")) return;
     if(!saveEstimate()) return;
@@ -710,18 +746,23 @@ function duplicateEstimate(id){
   const builderWasClean=!hasUnsavedChanges();
   const builderWasAuto=isBuilderAutoNumber();
 
-  const number=takeEstimateNumber();
+  // A copy of a change order is the next change order of the same estimate.
+  const parent=changeOrderParent(original);
+  const seq=parent ? nextChangeOrderSeq(parent) : 0;
+  const number=parent ? changeOrderNumber(parent,seq) : takeEstimateNumber();
   const now=nowISO();
   const copy={
     ...clone(original),
     id:uid("est"),
     estimateNumber:number,
     status:"draft",
-    crmProjectId:null,
+    crmProjectId:parent ? original.crmProjectId : null,
     signatures:[],
     optionGroup:"",
     optionLabel:"",
-    items:original.items.map(it=>({...it,id:uid("li")})),
+    changeOrderOf:parent ? parent.id : "",
+    changeOrderSeq:seq,
+    items:original.items.filter(it=>parent || it.category!==CREDIT_CATEGORY).map(it=>({...it,id:uid("li")})),
     createdAt:now,
     updatedAt:now
   };
@@ -735,7 +776,7 @@ function duplicateEstimate(id){
     if(builderWasClean) markClean();
   }
   renderSavedEstimates();
-  showToast(`Duplicated as ${number} (draft).`);
+  showToast(parent ? `Duplicated as ${changeOrderLabel(copy)} (${number}, draft).` : `Duplicated as ${number} (draft).`);
 }
 
 function deleteEstimate(id){
@@ -743,12 +784,22 @@ function deleteEstimate(id){
   if(!est) return;
   if(typeof cloudDeleteRefused==="function" && cloudDeleteRefused()) return;
   const others=estimateOptions(est).filter(o=>o.id!==id);
-  const question=others.length
+  const ownCos=loadEstimates().filter(e=>e.changeOrderOf===id);
+  const question=isChangeOrder(est)
+    ? `Delete ${changeOrderLabel(est)} (${est.estimateNumber})? This cannot be undone.`
+    : ownCos.length && !others.length
+    ? `Delete estimate ${est.estimateNumber} for ${est.clientName || est.address || "this client"}? Its ${ownCos.length} change order${ownCos.length===1?" is":"s are"} kept as separate estimates. This cannot be undone.`
+    : others.length
     ? `Delete ${est.optionLabel || "this option"} (estimate ${est.estimateNumber})? The other ${others.length===1?"option stays":`${others.length} options stay`}. This cannot be undone.`
     : `Delete estimate ${est.estimateNumber} for ${est.clientName || est.address || "this client"}? This cannot be undone.`;
   if(!confirm(question)) return;
-  if(!saveEstimates(loadEstimates().filter(e=>e.id!==id))) return;
-  if(others.length){
+  // Change orders of a deleted option move to a remaining option; otherwise they stand alone.
+  const rest=loadEstimates().filter(e=>e.id!==id);
+  rest.forEach(e=>{ if(e.changeOrderOf===id) Object.assign(e,others.length ? {changeOrderOf:others[0].id} : {changeOrderOf:"",changeOrderSeq:0},{updatedAt:nowISO()}); });
+  if(!saveEstimates(rest)) return;
+  if(isChangeOrder(est)){
+    if(est.crmProjectId) refreshProjectContract(est.crmProjectId);
+  }else if(others.length){
     // The CRM project moves to a remaining option; a single remaining one is a normal estimate again.
     if(others.length===1) updateEstimate(others[0].id,{optionGroup:"",optionLabel:"",updatedAt:nowISO()});
     const project=loadProjects().find(p=>p.estimateId===id);
@@ -767,7 +818,8 @@ function deleteEstimate(id){
   }
   renderSavedEstimates();
   renderCrmBoard();
-  showToast(others.length ? `${est.optionLabel || "Option"} (${est.estimateNumber}) deleted.` : `Estimate ${est.estimateNumber} deleted.`);
+  showToast(isChangeOrder(est) ? `${changeOrderLabel(est)} (${est.estimateNumber}) deleted.`
+    : others.length ? `${est.optionLabel || "Option"} (${est.estimateNumber}) deleted.` : `Estimate ${est.estimateNumber} deleted.`);
 }
 
 function setEstimateStatus(id, status){
@@ -775,7 +827,8 @@ function setEstimateStatus(id, status){
   const est=updateEstimate(id,{status,updatedAt:nowISO()});
   if(!est) return;
   if(BUILDER.id===id) BUILDER.status=status;
-  syncProjectFromEstimateStatus(est);
+  if(isChangeOrder(est)){ if(est.crmProjectId) refreshProjectContract(est.crmProjectId); }
+  else syncProjectFromEstimateStatus(est);
   updateBuilderMeta();
   renderSavedEstimates();
   renderCrmBoard();
@@ -786,6 +839,7 @@ function printSavedEstimate(id){
 }
 
 function estimatePdfName(d){
+  if(d.changeOrderOf) return `${companyName()} Change Order ${d.estimateNumber}.pdf`.trim();
   if(d.optionLabel) return `${companyName()} Estimate ${d.estimateNumber} ${d.optionLabel}.pdf`.trim();
   return `${companyName()} Estimate ${d.estimateNumber}.pdf`.trim();
 }
@@ -825,7 +879,7 @@ function renderSavedEstimates(){
     const hasProject=e.crmProjectId && projects.some(p=>p.id===e.crmProjectId);
     return `
     <tr data-id="${escapeHtml(e.id)}" class="${e.id===BUILDER.id?"row-current":""}">
-      <td data-label="Estimate #" class="nowrap"><b>${escapeHtml(e.estimateNumber)}</b>${e.optionLabel?`<div><span class="opt-badge">${escapeHtml(e.optionLabel)}</span></div>`:""}${e.legacy?`<div class="small">old calculator</div>`:""}</td>
+      <td data-label="Estimate #" class="nowrap"><b>${escapeHtml(e.estimateNumber)}</b>${e.optionLabel?`<div><span class="opt-badge">${escapeHtml(e.optionLabel)}</span></div>`:""}${e.changeOrderOf?`<div><span class="co-badge">🔁 ${escapeHtml(changeOrderLabel(e))}</span></div>`:""}${e.legacy?`<div class="small">old calculator</div>`:""}</td>
       <td data-label="Client">${escapeHtml(e.clientName||"—")}<div class="small">${escapeHtml([e.clientEmail,e.clientPhone].filter(Boolean).join(" · "))}</div></td>
       <td data-label="Address">${escapeHtml(e.address||"—")}<div>${addressBadgeHtml(e)}</div></td>
       <td data-label="Date" class="nowrap">${escapeHtml(formatDate(e.date))}</td>
@@ -845,7 +899,8 @@ function renderSavedEstimates(){
           <button class="btn btn-light btn-sm" data-action="pdf">PDF</button>
           <button class="btn btn-light btn-sm" data-action="email">Email</button>
           <button class="btn btn-light btn-sm" data-action="crm">${hasProject?"Open CRM Project":"Create CRM Project"}</button>
-          <button class="btn btn-light btn-sm" data-action="invoice">${invoicesForEstimate(e.id).length?"Open Invoice":"Create Invoice"}</button>
+          ${e.changeOrderOf ? "" : `<button class="btn btn-light btn-sm" data-action="invoice">${invoicesForEstimate(e.id).length?"Open Invoice":"Create Invoice"}</button>`}
+          ${!e.changeOrderOf && !e.legacy && ["accepted","completed"].includes(e.status) ? `<button class="btn btn-light btn-sm" data-action="change-order">+ Change Order</button>` : ""}
           <button class="btn btn-danger btn-sm" data-action="delete">Delete</button>
         </div>
       </td>
@@ -875,6 +930,7 @@ function handleEstimatesAction(event){
     email:()=>emailSavedEstimate(id),
     crm:()=>createOrOpenCrmFromEstimate(id),
     invoice:()=>createOrOpenInvoiceForEstimate(id),
+    "change-order":()=>createChangeOrder(id),
     delete:()=>deleteEstimate(id)
   })[action]?.();
 }
@@ -886,7 +942,8 @@ function estimateCategories(d){
   const list=MAIN_CATEGORIES.map(c=>({key:c.key,label:c.label}));
   const add=(key,label)=>{ if(!list.some(c=>c.key===key)) list.push({key,label}); };
   (d.customCategories||[]).forEach(c=>add(c.id,c.name));
-  d.items.forEach(it=>add(it.category,categoryLabel(it.category,it.categoryName)));
+  d.items.filter(it=>it.category!==CREDIT_CATEGORY).forEach(it=>add(it.category,categoryLabel(it.category,it.categoryName)));
+  if(d.items.some(it=>it.category===CREDIT_CATEGORY)) add(CREDIT_CATEGORY,categoryLabel(CREDIT_CATEGORY));
   return list;
 }
 
@@ -914,15 +971,18 @@ function renderPrintView(d){
       </section>`;
   }).join("");
 
+  const co=!!d.changeOrderOf;
+  const parent=co ? changeOrderParent(d) : null;
   $("printView").innerHTML=`
     <div class="pv">
       <header class="pv-header">
         ${docBrandHtml(companyLine)}
         <div class="pv-title">
-          <div class="pv-doc">ESTIMATE</div>
+          <div class="pv-doc">${co?"CHANGE ORDER":"ESTIMATE"}</div>
           <table class="pv-meta">
-            ${d.optionLabel?`<tr><td>Option</td><td><b>${escapeHtml(d.optionLabel)}</b></td></tr>`:""}
-            <tr><td>Estimate #</td><td>${escapeHtml(d.estimateNumber)}</td></tr>
+            ${d.optionLabel && !co?`<tr><td>Option</td><td><b>${escapeHtml(d.optionLabel)}</b></td></tr>`:""}
+            <tr><td>${co?"Change Order #":"Estimate #"}</td><td>${escapeHtml(d.estimateNumber)}</td></tr>
+            ${parent?`<tr><td>Original Estimate #</td><td>${escapeHtml(parent.estimateNumber)}</td></tr>`:""}
             <tr><td>Date</td><td>${escapeHtml(formatDate(d.date))}</td></tr>
           </table>
         </div>
@@ -938,9 +998,10 @@ function renderPrintView(d){
       ${d.clientMessage?`<section class="pv-message">${escapeHtml(d.clientMessage)}</section>`:""}
       ${sections || `<p class="pv-muted">No services added.</p>`}
       <table class="pv-totals">
-        <tr class="pv-grand"><td>TOTAL</td><td class="num">${money(d.grandTotal)}</td></tr>
+        <tr class="pv-grand"><td>${co?"CHANGE ORDER TOTAL":"TOTAL"}</td><td class="num">${money(d.grandTotal)}</td></tr>
         <tr><td colspan="2" class="pv-muted">All taxes included</td></tr>
       </table>
+      ${co?changeOrderPrintSummary(d):""}
       ${SETTINGS.terms.trim()?`
       <section class="pv-terms">
         <h3>TERMS AND CONDITIONS</h3>
@@ -963,7 +1024,7 @@ function printEstimate(){
   const d=getEstimateData();
   renderPrintView(d);
   const originalTitle=document.title;
-  document.title=`${companyName()} Estimate ${d.estimateNumber}`.trim();
+  document.title=`${companyName()} ${d.changeOrderOf?"Change Order":"Estimate"} ${d.estimateNumber}`.trim();
   issueEstimateNumber(d.estimateNumber);
   window.print();
   document.title=originalTitle;
@@ -988,6 +1049,7 @@ function emailSignature(){
 // The email sent from the CRM with the PDF attached: only the basics. Everything else
 // (services, prices, terms) is in the PDF.
 function buildEmailSummary(d){
+  if(d.changeOrderOf) return buildChangeOrderEmail(d);
   const pct=termsDepositPercent();
   const lines=[`Hello ${d.clientName || "there"},`,"",
     `Thank you for asking ${companyName()} to quote your project${d.address ? ` at ${d.address}` : ""}.`,""];
@@ -1119,13 +1181,14 @@ async function emailEstimate(){
 
 // One estimate (or one option of an offer) by email, with its PDF.
 function emailOneEstimate(d){
-  const subject=`${companyName()} Estimate ${d.estimateNumber}${d.optionLabel && d.optionGroup ? ` (${d.optionLabel})` : ""} - ${d.address || d.clientName || "Project"}`;
+  const kind=d.changeOrderOf ? "Change Order" : "Estimate";
+  const subject=`${companyName()} ${kind} ${d.estimateNumber}${d.optionLabel && d.optionGroup ? ` (${d.optionLabel})` : ""} - ${d.address || d.clientName || "Project"}`;
   issueEstimateNumber(d.estimateNumber);
   const pdf={filename:estimatePdfName(d),render:()=>renderPrintView(d)};
   const viaGmail=(to=d.clientEmail,subj=subject)=>{ openMailto(to,subj,buildEmailSummary(d)); downloadPdfsForGmail([pdf]); };
   if(!canSendFromCrm()) return viaGmail();
   openSendMail({
-    title:`Send estimate ${d.estimateNumber}`,
+    title:`Send ${kind.toLowerCase()} ${d.estimateNumber}`,
     to:d.clientEmail, subject, text:buildEmailSummary(d),
     filename:estimatePdfName(d),
     render:()=>renderPrintView(d),

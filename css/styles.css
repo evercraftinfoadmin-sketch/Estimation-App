@@ -441,3 +441,15 @@ a.btn{text-decoration:none}
 #optionPickModal{z-index:115}
 .opt-pick{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
 .calv-num{align-self:flex-start}
+
+/* Change orders */
+.co-badge{display:inline-block;margin-top:3px;background:#fff7ed;color:#9a3412;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700}
+.opt-pill.co-pill{border-color:#fed7aa;background:#fff7ed;color:#9a3412}
+.category-credit{border-left:4px solid #f97316}
+.category-credit .credit-note{margin:-4px 0 8px}
+.category-credit .li-total b,.category-credit .category-total{color:#c2410c}
+.sum-contract{margin-top:10px;padding-top:8px;border-top:1px dashed #e5e7eb}
+.pm-cos{margin:6px 0;display:grid;gap:4px}
+.pm-co-row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 8px;background:#fff7ed;border-radius:6px}
+.pm-contract{margin:6px 0}
+.pv-co-summary{margin-top:10px}
