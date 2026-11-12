@@ -170,7 +170,14 @@ function prospectStatusForEstimate(est){
 // Called when a linked estimate is saved: the project takes its number and total.
 // The project's total for its estimate. Options of one offer are signed independently: when the
 // client signed several, the project's total is the sum of the signed options.
+// Accepted change orders (js/changeorders.js) are added to it.
 function projectTotalFor(est){
+  const s=contractSummary(est);
+  return s ? s.contract : baseContractTotal(est);
+}
+
+// The agreed estimate alone, without change orders.
+function baseContractTotal(est){
   if(!est.optionGroup || est.status!=="accepted") return est.customerTotal;
   const signed=estimateOptions(est).filter(o=>o.status==="accepted");
   return signed.length>1 ? round2(signed.reduce((t,o)=>t+amount(o.customerTotal),0)) : est.customerTotal;
@@ -236,6 +243,7 @@ function unlinkEstimateFromProjects(estimateId){
 
 // Estimate status "sent"/"accepted" updates the quote status of a linked prospect.
 function syncProjectFromEstimateStatus(est){
+  if(isChangeOrder(est)) return;
   const p=loadProjects().find(x=>x.id===est.crmProjectId || x.estimateId===est.id);
   if(!p || p.stage!=="prospect") return;
   if(est.status==="sent" || est.status==="accepted") updateProject(p.id,{prospectStatus:prospectStatusForEstimate(est)});
@@ -245,6 +253,15 @@ function syncProjectFromEstimateStatus(est){
 function createOrOpenCrmFromEstimate(estimateId){
   const est=getEstimate(estimateId);
   if(!est) return;
+  // A change order opens the project of its original estimate (it never becomes the project's estimate).
+  if(isChangeOrder(est)){
+    const parent=changeOrderParent(est);
+    const project=getProject(est.crmProjectId) || projectForEstimate(parent);
+    if(project){ showPage("crm"); openProjectModal(project.id); return; }
+    if(parent) return createOrOpenCrmFromEstimate(parent.id);
+    alert("This change order has no CRM project: its original estimate was deleted.");
+    return;
+  }
   const list=loadProjects();
   let project=list.find(p=>p.id===est.crmProjectId) || list.find(p=>p.estimateId===est.id);
   let created=false;
@@ -408,8 +425,9 @@ function renderCard(p){
   const btn=(action,label,cls="btn-light")=>`<button class="btn ${cls} btn-sm" data-action="${action}">${label}</button>`;
   const hasEstimate=p.estimateId && getEstimate(p.estimateId);
   const estimateLine=hasEstimate
-    ? `<button class="kcard-estimate" data-action="open-estimate">📄 ${escapeHtml(p.estimateNumber)} · <b>${money(p.estimateTotal)}</b></button>`
+    ? `<button class="kcard-estimate" data-action="open-estimate">📄 ${escapeHtml(p.estimateNumber)} · <b>${money(p.estimateTotal)}</b></button>`+changeOrdersCardLine(hasEstimate)
     : `<div class="kcard-line muted">No estimate yet</div>`;
+  const coBtn=hasEstimate ? btn("change-order","+ Change Order") : "";
   const photoBadge=`<button type="button" class="kcard-photos" data-action="photos" data-photo-badge hidden></button>`;
 
   let body="", actions="";
@@ -434,12 +452,12 @@ function renderCard(p){
       body=`<div class="kcard-line">📅 ${p.scheduledDate?escapeHtml(projectStartText(p)):`<span class="muted">Not scheduled</span>`} ${calendarBadgeHtml(p)}</div>
         <div class="kcard-line">👷 ${p.assignedTechnician?escapeHtml(p.assignedTechnician):`<span class="muted">No technician</span>`}</div>
         ${p.notes?`<div class="kcard-notes">${escapeHtml(p.notes)}</div>`:""}`;
-      actions=btn("schedule","Schedule Job")+btn("assign","Assign Technician")+btn("open","Open")
+      actions=btn("schedule","Schedule Job")+btn("assign","Assign Technician")+btn("open","Open")+coBtn
         +btn("to-started","Move to Start Project","btn-primary");
       break;
     case "started":
       body=progressBar(taskProgress(p,"started"))+renderChecklist(p,"started","task");
-      actions=btn("open","Open")+(signServiceUrl()?btn("sign-wa","✍ Work Authorization"):"")+btn("to-completed","Move to Completed","btn-primary");
+      actions=btn("open","Open")+(signServiceUrl()?btn("sign-wa","✍ Work Authorization"):"")+coBtn+btn("to-completed","Move to Completed","btn-primary");
       break;
     case "completed": {
       const pr=taskProgress(p,"completed");
@@ -544,6 +562,7 @@ function handleCrmBoard(event){
     estimate:()=>createEstimateFromProject(id),
     "open-estimate":()=>openProjectEstimate(id),
     invoice:()=>createOrOpenInvoiceForProject(id),
+    "change-order":()=>{ const p=getProject(id); if(p && p.estimateId) createChangeOrder(p.estimateId); },
     "to-prospect":()=>moveProject(id,"prospect"),
     "to-job":()=>moveProject(id,"job"),
     "to-started":()=>moveProject(id,"started"),
@@ -600,8 +619,7 @@ function openProjectModal(id, focusField, prefill){
 
   const est=p.estimateId ? getEstimate(p.estimateId) : null;
   $("pmEstimate").innerHTML=est
-    ? `<div><b>${escapeHtml(est.estimateNumber)}</b> · ${money(est.customerTotal)} · <span class="status-badge status-${est.status}">${capitalize(est.status)}</span></div>
-       <button class="btn btn-light btn-sm" data-pm-action="open-estimate">Open Estimate</button>`
+    ? projectEstimateHtml(p,est,!est.legacy)
     : `<div class="muted">No estimate linked.</div>
        ${id?`<button class="btn btn-light btn-sm" data-pm-action="create-estimate">Create Estimate</button>`:`<div class="small">Save the lead first, then create an estimate.</div>`}`;
   $("pmDelete").hidden=!id;
@@ -736,6 +754,8 @@ function handleProjectModalClick(event){
   if(!el || !EDITING_PROJECT_ID) return;
   if(el.dataset.pmAction==="open-estimate") openProjectEstimate(EDITING_PROJECT_ID);
   else if(el.dataset.pmAction==="create-estimate") createEstimateFromProject(EDITING_PROJECT_ID);
+  else if(el.dataset.pmAction==="create-co"){ const p=getProject(EDITING_PROJECT_ID); if(p && p.estimateId) createChangeOrder(p.estimateId); }
+  else if(el.dataset.pmAction==="open-co"){ closeModal("projectModal"); openEstimate(el.dataset.id); }
   else if(el.dataset.pmAction==="calendar-sync") syncProjectCalendarNow(EDITING_PROJECT_ID);
 }
 

@@ -19,7 +19,7 @@ function normalizeInvoice(i){
     description:String(it.description ?? ""),
     quantity:amount(it.quantity),
     price:amount(it.price),
-    total:round2(amount(it.total))
+    total:round2(it.category===CREDIT_CATEGORY ? -amount(Math.abs(num(it.total))) : amount(it.total))
   }));
   const payments=(Array.isArray(i.payments) ? i.payments : []).filter(p=>p).map(p=>({
     id:String(p.id || uid("pay")),
@@ -102,12 +102,13 @@ function newInvoiceRecord(data={}){
   }));
 }
 
-// The invoice copies the estimate: client, address, lines and tax.
+// The invoice copies the estimate: client, address, lines and tax, and the lines of its
+// accepted change orders (work removed is subtracted).
 function invoiceFromEstimate(est, projectId){
   return newInvoiceRecord({
     estimateId:est.id, estimateNumber:est.estimateNumber, crmProjectId:projectId || est.crmProjectId || null,
     clientName:est.clientName, clientEmail:est.clientEmail, clientPhone:est.clientPhone, address:est.address,
-    items:est.items.map(it=>({...it,id:uid("li"),categoryName:it.categoryName || categoryLabel(it.category)})),
+    items:[...est.items.map(it=>({...it,id:uid("li"),categoryName:it.categoryName || categoryLabel(it.category)})),...changeOrderInvoiceItems(est)],
     markup:0, taxRate:est.taxRate, taxMode:est.taxMode, clientMessage:est.clientMessage || ""
   });
 }

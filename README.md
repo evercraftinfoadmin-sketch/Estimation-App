@@ -21,6 +21,19 @@ Save, Print / PDF, Email Client, Reset.
 (draft, sent, accepted, rejected, completed), and Open / Edit, Duplicate, Print, Email,
 Create / Open CRM Project and Delete. Estimate numbers (EST-2026-1001, 1002, …) are never duplicated.
 
+**Change Orders**: extra work or work removed after the client agreed to an estimate. Use
+**+ Change Order** on an accepted estimate (Saved Estimates, the Estimate Builder header), on the
+CRM project window, or on a Client / Job or Start the Project card. The builder opens a change
+order for the same client, address, project and tax rate, numbered after the original
+(EST-2026-1042-CO1, -CO2, …). Add the extra work under the normal categories and the work taken out
+under **Credit (work removed)**: those lines are subtracted, so a change order can be negative. The
+side panel shows the original contract, previously approved change orders and the new contract
+total, and so do the PDF and the email. Send, email or send it for signature like an estimate; a
+signed change order is Accepted automatically. Accepted change orders are added to the CRM project's
+total (the card shows "🔁 N change orders"), and a new invoice for the job includes their lines.
+The CRM project stays linked to the original estimate. Duplicate on a change order makes the next
+change order of the same job.
+
 **Services**: the service database with search, category filter, add, edit, delete and
 enable / disable. The Estimate Builder loads a service's name and default price; changing the
 price in an estimate never changes the default. Custom services can be used once or saved to the list.
@@ -100,6 +113,7 @@ js/address.js       address verification (Google Places loader, autocomplete, st
 js/categories.js    main + custom service categories
 js/services.js      services database & Services page
 js/estimates.js     Estimate Builder, Saved Estimates, Print/PDF, Email
+js/changeorders.js  change orders: numbering, credits, contract total, CRM / invoice / signing pieces
 js/crm.js           CRM pipeline and Estimate ↔ CRM links
 js/photos.js        CRM project photos (IndexedDB, resizing, gallery)
 js/cloud.js         shared cloud data: Base44 sign-in and sync (off without an app id)

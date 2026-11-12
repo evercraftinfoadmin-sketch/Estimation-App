@@ -95,6 +95,8 @@ function signDocHtml(docTitle, values, metaRows, text){
 
 function estimateSignHtml(d, est){
   renderPrintView(d);
+  // A change order: the client approves the change and the new contract total.
+  if(d.changeOrderOf) return $("printView").innerHTML+`<section class="pv pv-sign-text">${signTextHtml(fillSignText(CHANGE_ORDER_SIGN_TEXT,changeOrderSignValues(d)))}</section>`;
   const v=signValues({estimate:{...est, customerTotal:d.grandTotal, date:d.date, estimateNumber:d.estimateNumber, address:d.address, clientName:d.clientName}});
   return $("printView").innerHTML+`<section class="pv pv-sign-text">${signTextHtml(fillSignText(SETTINGS.signTextEstimate,v))}</section>`;
 }
@@ -227,14 +229,15 @@ async function signOneEstimate(d, est){
   if(!confirmResign([{...d,id:est.id,signatures:est.signatures}])) return;
   showToast("Preparing the estimate for signature…");
   const option=est.optionGroup && d.optionLabel ? d.optionLabel : "";
-  const title=`Estimate ${d.estimateNumber}${option?` - ${option}`:""}${d.address?` - ${d.address}`:""}`;
+  const kind=est.changeOrderOf ? "Change Order" : "Estimate";
+  const title=`${kind} ${d.estimateNumber}${option?` - ${option}`:""}${d.address?` - ${d.address}`:""}`;
   const res=await createSignRequest({type:"estimate",title,html:estimateSignHtml(d,est),clientName:d.clientName,clientEmail:d.clientEmail,
     ref:{estimateId:est.id,estimateNumber:d.estimateNumber,projectId:est.crmProjectId||"",...(option?{option}:{})},estimateId:est.id,
     ...(option?{group:est.optionGroup,option}:{})});
   if(res.error){ alert(res.error); return; }
   issueEstimateNumber(d.estimateNumber);
-  sendSignLink({to:d.clientEmail,subject:`Please sign: ${companyName()} Estimate ${d.estimateNumber}`,
-    text:signEmailText(d.clientName,`estimate ${d.estimateNumber}`,res.url),title:`Send estimate ${d.estimateNumber} for signature`,
+  sendSignLink({to:d.clientEmail,subject:`Please sign: ${companyName()} ${kind} ${d.estimateNumber}`,
+    text:signEmailText(d.clientName,`${kind.toLowerCase()} ${d.estimateNumber}`,res.url),title:`Send ${kind.toLowerCase()} ${d.estimateNumber} for signature`,
     pdfName:estimatePdfName(d),render:()=>renderPrintView(d)});
   renderCrmBoard();
 }
@@ -345,7 +348,7 @@ async function refreshSignatures(force){
     const apply=list=>{ let changed=false; const out=list.map(s=>{ const i=byId.get(s.id); if(!i || s.status!=="pending") return s; changed=true; return {...s,status:i.status,signedAt:i.signedAt||"",signerName:i.signerName||"",chosenOption:i.chosenOption||""}; }); return changed ? out : null; };
     let any=false;
     loadProjects().forEach(p=>{ const n=apply(p.signatures); if(n){ updateProject(p.id,{signatures:n}); any=true; } });
-    loadEstimates().forEach(e=>{ const n=apply(e.signatures); if(n){ updateEstimate(e.id,{signatures:n,updatedAt:nowISO()}); any=true; settleOption(e,n); } });
+    loadEstimates().forEach(e=>{ const n=apply(e.signatures); if(n){ updateEstimate(e.id,{signatures:n,updatedAt:nowISO()}); any=true; settleOption(e,n); settleChangeOrder(e,n); } });
     if(any){
       const signed=[...byId.values()].filter(i=>i.status==="signed");
       if(signed.length) showToast(signed.map(i=>`✍ ${i.signerName} signed ${i.title}`).join(" · "));
