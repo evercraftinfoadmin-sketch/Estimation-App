@@ -114,13 +114,63 @@ const YURA='yura@group.calendar.google.com';
   await p.waitForFunction(()=>!$('calViewStatus').textContent.includes('Loading'));
   ok((await p.textContent('#calViewMonth'))===new Date(today+'T12:00:00Z').toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'}),'Today goes back to this month (Pacific time)');
 
-  // phone
+  ok(!(await p.isVisible('#calViewPhone')),'on a computer the phone agenda is not shown (the month grid is unchanged)');
+
+  // phone: 7 days from today, big cards, a week strip, a person filter and "Jobs only"
   await p.setViewportSize({width:390,height:844});
   await p.waitForTimeout(200);
-  ok(await p.locator(`#calViewGrid [data-day="${day(10)}"] .calv-dots .calv-dot`).count()===2 && !(await cell10.locator('.calv-chip').first().isVisible()),'on a phone the days show colored dots; the day list has the details');
-  ok(await p.isVisible('#calViewList') && await p.locator(`#calViewList [data-day="${day(20)}"] .calv-chip`).count()===10 && (await p.innerText(`#calViewList [data-day="${day(20)}"]`)).includes('Busy Client 10'),'on a phone every event is listed day by day (all 10 of the busy day, readable)');
+  ok(await p.isVisible('#calViewPhone') && !(await p.isVisible('#calViewGrid')) && !(await p.isVisible('#calViewDay')),'on a phone the 7-day agenda replaces the month grid');
+  const pdays=await p.locator('#calViewPhone .calv-pday').evaluateAll(l=>l.map(e=>e.dataset.day));
+  ok(pdays.length===7 && pdays[0]===today && (await p.innerText('#calViewPhone .calv-pday >> nth=0')).includes('Today'),'1. the phone list starts today and shows the next 7 days');
+  const show=d=>p.evaluate(d=>{ CALVIEW_PHONE.start=d; renderCalViewPhone(); },d);
+  await show(day(8));
+  const d10=p.locator(`#calViewPhone .calv-pday[data-day="${day(10)}"]`);
+  ok(await d10.locator('.calv-pcard').count()===2,'1. the week shown has every event of each day');
+  const card=d10.locator('.calv-pcard',{hasText:'Ann Lee'});
+  ok((await card.locator('.calv-ptime').innerText()).replace(/\s+/g,' ')==='10:00 AM' && (await card.locator('.calv-ptitle').innerText()).includes('ESTIMATE (Ann Lee)'),'3. a card shows the time big on the left and the client on the first line');
+  const mapsHref=await card.locator('a[data-maps]').getAttribute('href');
+  ok(mapsHref.includes('google.com/maps') && mapsHref.includes(encodeURIComponent('42 Elm St, Reseda, CA')) && (await card.locator('.calv-pmeta').innerText()).includes('Main calendar'),'3. the second line has the person (calendar) and the address as a Maps link');
+  const fs=await card.locator('.calv-ptitle').evaluate(e=>parseFloat(getComputedStyle(e).fontSize));
+  ok(fs>=16,'3. the text is large enough to read on a phone ('+fs+'px)');
+  // 4. week strip
+  const strip=await p.locator('#calViewPhone .calv-sday').evaluateAll(l=>l.map(b=>b.dataset.jump+'='+b.querySelector('.calv-sn').textContent));
+  ok(strip.length===7 && strip.includes(day(10)+'=2') && strip.includes(day(12)+'=1') && strip.includes(day(9)+'='),'4. the week strip has 7 days with the number of events on each');
+  // 3. tapping a card: a CRM project opens in the CRM, other events in Google Calendar
+  await card.locator('.calv-ptitle').click();
+  ok(await p.evaluate(()=>$('projectModal').classList.contains('open') && $('pmClientName').value==='Ann Lee'),'3. tapping a CRM visit opens its CRM project');
+  await p.evaluate(()=>document.querySelectorAll('.modal.open').forEach(m=>closeModal(m.id)));
+  await p.evaluate(()=>{ window.__opened=[]; window.open=(u)=>{ window.__opened.push(u); return null; }; });
+  await d10.locator('.calv-pcard',{hasText:'Margo'}).locator('.calv-ptitle').click();
+  ok((await p.evaluate(()=>window.__opened))[0]==='https://calendar.google.com/e/2','3. tapping another event opens it in Google Calendar');
+  // 5. person filter, remembered
+  await p.click('#calViewPhone .calv-person:has-text("Yura")');
+  ok(await d10.locator('.calv-pcard').count()===1 && (await d10.innerText()).includes('Margo') && await p.evaluate(()=>JSON.parse(localStorage.getItem(CALVIEW_PHONE_KEY)).person)===YURA,'5. tapping a person shows only their events (and is remembered)');
+  ok((await p.locator('#calViewPhone .calv-sday[data-jump="'+day(10)+'"] .calv-sn').innerText())==='1','5. the week strip counts only that person\'s events');
+  await p.click('#calViewPhone .calv-person[data-person=""]');
+  ok(await d10.locator('.calv-pcard').count()===2,'5. "All" shows everyone again');
+  // 6. jobs only: personal items without an address are hidden; CRM jobs stay
+  await p.evaluate(d=>{ CALVIEW.events.push({id:'doc',calendarId:'evercraft.pro@gmail.com',summary:'Doctor',location:'',allDay:false,start:d+'T15:00:00-08:00',end:d+'T16:00:00-08:00',link:'',crmProject:'',crmKind:'',color:'#4F57FF',calendarName:'Main calendar',days:[d]}); renderCalViewPhone(); },day(10));
+  ok(await d10.locator('.calv-pcard').count()===3,'fixture: a personal "Doctor" item on the same day');
+  await p.check('#calViewPhone [data-jobs]');
+  ok(await d10.locator('.calv-pcard').count()===2 && !(await d10.innerText()).includes('Doctor') && await p.locator(`#calViewPhone .calv-pday[data-day="${day(12)}"] .calv-pcard`).count()===1,'6. "Jobs only" hides personal items; jobs with an address and CRM jobs stay');
+  ok(await p.evaluate(()=>JSON.parse(localStorage.getItem(CALVIEW_PHONE_KEY)).jobsOnly)===true,'6. "Jobs only" is remembered');
+  await p.uncheck('#calViewPhone [data-jobs]');
+  // 1. Next week / Earlier / Today
+  await p.click('#calViewPhone [data-pmove="7"]');
+  const d20=p.locator(`#calViewPhone .calv-pday[data-day="${day(20)}"]`);
+  ok((await p.getAttribute('#calViewPhone .calv-pday >> nth=0','data-day'))===day(15) && await d20.locator('.calv-pcard').count()===10 && (await d20.innerText()).includes('Busy Client 10'),'1. "Next week ›" shows the next 7 days (all 10 jobs of the busy day)');
+  await p.click(`#calViewPhone .calv-sday[data-jump="${day(20)}"]`);
+  await p.waitForTimeout(800);
+  const top=await d20.evaluate(e=>e.getBoundingClientRect().top);
+  ok(top>=0 && top<300,'4. tapping a day in the strip scrolls to that day');
+  await p.click('#calViewPhone [data-pmove="-7"]');
+  ok((await p.getAttribute('#calViewPhone .calv-pday >> nth=0','data-day'))===day(8),'1. "‹ Earlier" goes a week back');
+  await p.click('#calViewPhone [data-pmove="0"]');
+  ok((await p.getAttribute('#calViewPhone .calv-pday >> nth=0','data-day'))===today,'1. "Today" goes back to today');
   const overflow=await p.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1);
   ok(!overflow,'no sideways scrolling on a phone');
+  await show(day(8));
+  await p.evaluate(()=>window.scrollTo(0,0));
   await p.locator('#page-calendar').screenshot({path:OUT+'/calendar-page-phone.png'});
 
   ok(errs.length===0,'no page errors '+JSON.stringify(errs));
