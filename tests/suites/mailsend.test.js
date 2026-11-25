@@ -90,6 +90,8 @@ const CONFIG={ base44AppId:TEST_APP_ID, base44AppBaseUrl:'https://preview--ci-te
   // invoices
   await p.click('#btnSaveEstimate');
   await p.click('#mainNav [data-page=estimates]');
+  // An invoice is made from a signed / accepted estimate.
+  await p.locator('#estimatesBody tr').first().locator('[data-action=status]').selectOption('accepted');
   await p.locator('#estimatesBody tr').first().locator('[data-action=invoice]').click();
   await p.click('#invoiceModal [data-inv=email]');
   await p.waitForFunction(()=>$('smFrom').textContent.includes('evercraft'));

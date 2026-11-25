@@ -104,6 +104,8 @@ const SIG_PNG='data:image/png;base64,'+Buffer.from('\x89PNG\r\n\x1a\nfake','lati
   // invoice email with the Certificate of Completion (CRM sends email itself)
   await p.evaluate(()=>{ window.EVERCRAFT_CONFIG.mailServiceUrl='https://mail.test.invalid'; });
   await card().locator('[data-action=to-completed]').click(); await p.waitForTimeout(200);
+  // An invoice is made from a signed / accepted estimate (the client agreed in person here).
+  await p.evaluate(()=>setEstimateStatus(loadEstimates()[0].id,'accepted'));
   await card().locator('[data-action=invoice]').click();
   await p.click('#invoiceModal [data-inv=email]');
   await p.waitForFunction(()=>document.getElementById('sendMailModal').classList.contains('open'));
