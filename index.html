@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.11.22a">
+<link rel="stylesheet" href="css/styles.css?v=2026.11.25a">
 </head>
 <body>
 
@@ -92,6 +92,7 @@
                 <button class="btn btn-light" id="btnPdf">Download PDF</button>
                 <button class="btn btn-light" id="btnEmail">Email Client</button>
                 <button class="btn btn-light" id="btnSign" hidden>✍ Send for Signature</button>
+                <button class="btn btn-light" id="btnInvoice" hidden>🧾 Make Invoice</button>
               </div>
               <button class="btn btn-danger-soft btn-block" id="btnReset">Reset</button>
             </div>
@@ -195,11 +196,12 @@
           <input id="invoiceSearch" type="search" placeholder="Search invoice #, client, address or estimate #" aria-label="Search invoices">
           <select id="invoiceStatusFilter" aria-label="Status filter">
             <option value="all">All invoices</option>
-            <option value="open">Not paid yet</option>
-            <option value="draft">Draft</option>
-            <option value="sent">Sent</option>
-            <option value="partial">Partially paid</option>
-            <option value="paid">Paid</option>
+            <option value="open">Not fully paid</option>
+            <option value="unpaid">Unpaid</option>
+            <option value="draft">Unpaid · Draft (not sent)</option>
+            <option value="sent">Unpaid · Sent</option>
+            <option value="partial">Partially Paid</option>
+            <option value="paid">Paid in Full</option>
             <option value="void">Void</option>
           </select>
         </div>
@@ -412,6 +414,8 @@
     <div class="btn-row end"><button type="button" class="btn btn-light btn-sm" data-cl-action="save">Save Client</button></div>
     <div class="categories-head"><h3>Properties / Addresses</h3><button type="button" class="btn btn-primary btn-sm" data-cl-action="add-address">+ Add Address</button></div>
     <div id="clProperties"></div>
+    <h3>Invoices</h3>
+    <div id="clInvoices"></div>
   </div>
 </div>
 <div id="propertyModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="propTitle">
@@ -751,6 +755,7 @@
       <div class="field"><label for="invNumber">Invoice #</label><input id="invNumber" type="text" autocomplete="off"></div>
       <div class="field"><label for="invDate">Date</label><input id="invDate" type="date"></div>
       <div class="field"><label for="invDueDate">Due date</label><input id="invDueDate" type="date"></div>
+      <div class="field span-3"><label for="invScope">Scope of work <span class="small">(on the PDF)</span></label><textarea id="invScope" rows="2" maxlength="4000" placeholder="e.g. Drywall repair and interior painting as described in the estimate."></textarea></div>
     </div>
     <h3>Services</h3>
     <div class="table-wrap"><table class="table inv-items">
@@ -760,7 +765,15 @@
     <button type="button" class="btn btn-light btn-sm" data-inv="add-line">+ Add line</button>
     <div class="inv-grid">
       <div>
-        <h3>Payments received</h3>
+        <h3>Payments</h3>
+        <div class="field inv-pay-state"><label for="invPayState">Payment status</label>
+          <select id="invPayState">
+            <option value="unpaid">Unpaid</option>
+            <option value="partial">Partially Paid</option>
+            <option value="paid">Paid in Full</option>
+          </select>
+          <div class="small" id="invPayHint" role="status"></div></div>
+        <div class="small">Payments received</div>
         <div class="table-wrap"><table class="table"><tbody id="invPayments"></tbody></table></div>
         <div class="inv-pay-form">
           <input id="invPayDate" type="date" aria-label="Payment date">
@@ -777,10 +790,13 @@
           <button type="button" class="btn btn-light btn-sm" data-inv="pay-fill" data-share="0">Full balance</button>
         </div>
         <div class="field"><label for="invMessage">Message to client <span class="small">(optional · on the PDF and in the email)</span></label><textarea id="invMessage" rows="2" maxlength="2000"></textarea></div>
+        <div class="field"><label for="invTerms">Payment terms <span class="small">(on the PDF and in the email)</span></label><textarea id="invTerms" rows="2" maxlength="2000"></textarea></div>
+        <div class="field"><label for="invNotes">Internal notes <span class="small">(only for your team, never sent)</span></label><textarea id="invNotes" rows="2" maxlength="4000"></textarea></div>
       </div>
       <div>
         <div class="sum-row"><label for="invTaxRate" class="sum-label">Sales Tax <span class="pct-input"><input id="invTaxRate" type="number" min="0" step="0.01"> %</span></label></div>
         <div id="invTotals"></div>
+        <div class="field inv-due"><label for="invAmountDue">Amount due now <span class="small">(optional, e.g. a deposit · empty = the full balance)</span></label><input id="invAmountDue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Full balance"></div>
       </div>
     </div>
     <div class="btn-row end inv-actions">
@@ -810,26 +826,26 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.11.22a"></script>
-<script src="js/docstyles.js?v=2026.11.22a"></script>
-<script src="js/core.js?v=2026.11.22a"></script>
-<script src="js/calc.js?v=2026.11.22a"></script>
-<script src="js/settings.js?v=2026.11.22a"></script>
-<script src="js/address.js?v=2026.11.22a"></script>
-<script src="js/categories.js?v=2026.11.22a"></script>
-<script src="js/services.js?v=2026.11.22a"></script>
-<script src="js/photos.js?v=2026.11.22a"></script>
-<script src="js/cloud.js?v=2026.11.22a"></script>
-<script src="js/estimates.js?v=2026.11.22a"></script>
-<script src="js/changeorders.js?v=2026.11.22a"></script>
-<script src="js/calendar.js?v=2026.11.22a"></script>
-<script src="js/crm.js?v=2026.11.22a"></script>
-<script src="js/clients.js?v=2026.11.22a"></script>
-<script src="js/calview.js?v=2026.11.22a"></script>
-<script src="js/invoices.js?v=2026.11.22a"></script>
-<script src="js/importer.js?v=2026.11.22a"></script>
-<script src="js/mail.js?v=2026.11.22a"></script>
-<script src="js/signing.js?v=2026.11.22a"></script>
-<script src="js/app.js?v=2026.11.22a"></script>
+<script src="js/config.js?v=2026.11.25a"></script>
+<script src="js/docstyles.js?v=2026.11.25a"></script>
+<script src="js/core.js?v=2026.11.25a"></script>
+<script src="js/calc.js?v=2026.11.25a"></script>
+<script src="js/settings.js?v=2026.11.25a"></script>
+<script src="js/address.js?v=2026.11.25a"></script>
+<script src="js/categories.js?v=2026.11.25a"></script>
+<script src="js/services.js?v=2026.11.25a"></script>
+<script src="js/photos.js?v=2026.11.25a"></script>
+<script src="js/cloud.js?v=2026.11.25a"></script>
+<script src="js/estimates.js?v=2026.11.25a"></script>
+<script src="js/changeorders.js?v=2026.11.25a"></script>
+<script src="js/calendar.js?v=2026.11.25a"></script>
+<script src="js/crm.js?v=2026.11.25a"></script>
+<script src="js/clients.js?v=2026.11.25a"></script>
+<script src="js/calview.js?v=2026.11.25a"></script>
+<script src="js/invoices.js?v=2026.11.25a"></script>
+<script src="js/importer.js?v=2026.11.25a"></script>
+<script src="js/mail.js?v=2026.11.25a"></script>
+<script src="js/signing.js?v=2026.11.25a"></script>
+<script src="js/app.js?v=2026.11.25a"></script>
 </body>
 </html>

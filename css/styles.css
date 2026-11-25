@@ -479,3 +479,9 @@ a.btn{text-decoration:none}
 .pm-co-row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 8px;background:#fff7ed;border-radius:6px}
 .pm-contract{margin:6px 0}
 .pv-co-summary{margin-top:10px}
+
+/* Invoices made from an estimate */
+.inv-pay-state select{max-width:240px}
+.inv-pay-state .small{margin-top:4px}
+.inv-due{margin-top:10px}
+.inv-mini td,.inv-mini th{font-size:13px}

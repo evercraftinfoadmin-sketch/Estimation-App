@@ -34,6 +34,20 @@ total (the card shows "🔁 N change orders"), and a new invoice for the job inc
 The CRM project stays linked to the original estimate. Duplicate on a change order makes the next
 change order of the same job.
 
+**Invoices**: one invoice per signed estimate (contract). On the Estimate page, **🧾 Make Invoice**
+makes an invoice from that estimate once the client signed it (or it is marked Accepted); after
+that the button is **View Invoice**. The same button is on Saved Estimates, the CRM project window
+and the job card. The invoice is a separate record: it copies the client, property address, lines,
+tax and accepted change orders, keeps a link to its estimate, CRM project, client and property, and
+editing it never changes the estimate. A client with several signed estimates gets a separate
+invoice for each, with its own payments. A second invoice from the same estimate is refused (the
+existing one opens). In the invoice: edit lines and prices, scope of work, payment terms, amount due
+now (e.g. a deposit), message to the client and internal notes (never sent). **Payment status**:
+*Unpaid* (amount paid $0), *Partially Paid* (enter the amount received; the remaining balance is
+worked out) or *Paid in Full* (balance $0); every payment is listed with its date and method. Print,
+download the PDF or email it; reopen it any time. The client window lists all the client's invoices
+(invoice #, estimate, property, total, payment status, balance).
+
 **Services**: the service database with search, category filter, add, edit, delete and
 enable / disable. The Estimate Builder loads a service's name and default price; changing the
 price in an estimate never changes the default. Custom services can be used once or saved to the list.

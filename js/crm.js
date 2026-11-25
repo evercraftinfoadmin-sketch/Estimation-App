@@ -431,8 +431,8 @@ function renderCard(p){
   const photoBadge=`<button type="button" class="kcard-photos" data-action="photos" data-photo-badge hidden></button>`;
 
   let body="", actions="";
-  const projectInvoice=invoicesForProject(p.id)[0];
-  const invoiceBtn=btn("invoice",projectInvoice ? `🧾 ${escapeHtml(projectInvoice.invoiceNumber)} · ${escapeHtml(invoicePaymentStatus(projectInvoice).label)}` : "Create Invoice");
+  const inv=projectInvoice(p);
+  const invoiceBtn=btn("invoice",inv ? `🧾 ${escapeHtml(inv.invoiceNumber)} · ${escapeHtml(invoicePaymentStatus(inv).label)}` : "Make Invoice");
   switch(p.stage){
     case "lead":
       body=`${p.clientEmail?`<div class="kcard-line">✉ ${escapeHtml(p.clientEmail)}</div>`:""}
@@ -618,10 +618,13 @@ function openProjectModal(id, focusField, prefill){
   $("pmCompletedTasks").innerHTML=renderChecklist(p,"completed","pm-task");
 
   const est=p.estimateId ? getEstimate(p.estimateId) : null;
-  $("pmEstimate").innerHTML=est
+  const pInvoices=id ? invoicesForProject(p.id) : [];
+  $("pmEstimate").innerHTML=(est
     ? projectEstimateHtml(p,est,!est.legacy)
+      +(!invoiceForEstimate(est.id) && !est.legacy ? `<div class="btn-row"><button class="btn btn-light btn-sm" data-pm-action="make-invoice">🧾 Make Invoice</button></div>` : "")
     : `<div class="muted">No estimate linked.</div>
-       ${id?`<button class="btn btn-light btn-sm" data-pm-action="create-estimate">Create Estimate</button>`:`<div class="small">Save the lead first, then create an estimate.</div>`}`;
+       ${id?`<button class="btn btn-light btn-sm" data-pm-action="create-estimate">Create Estimate</button>`:`<div class="small">Save the lead first, then create an estimate.</div>`}`)
+    +(pInvoices.length ? `<div class="pm-invoices"><div class="small"><b>Invoices</b></div>${invoiceRowsHtml(pInvoices,"data-pm-invoice")}</div>` : "");
   $("pmDelete").hidden=!id;
   preparePmClient(p,id ? null : prefill);
   setPhotoGalleryOwner($("pmPhotos"),"project",id ? p.id : "","Save the lead first, then add photos.");
@@ -750,11 +753,14 @@ function saveProjectForm(){
 }
 
 function handleProjectModalClick(event){
+  const invBtn=event.target.closest("[data-pm-invoice]");
+  if(invBtn){ closeModal("projectModal"); openInvoiceEditor(invBtn.dataset.pmInvoice); return; }
   const el=event.target.closest("[data-pm-action]");
   if(!el || !EDITING_PROJECT_ID) return;
   if(el.dataset.pmAction==="open-estimate") openProjectEstimate(EDITING_PROJECT_ID);
   else if(el.dataset.pmAction==="create-estimate") createEstimateFromProject(EDITING_PROJECT_ID);
   else if(el.dataset.pmAction==="create-co"){ const p=getProject(EDITING_PROJECT_ID); if(p && p.estimateId) createChangeOrder(p.estimateId); }
+  else if(el.dataset.pmAction==="make-invoice"){ const p=getProject(EDITING_PROJECT_ID); if(p && p.estimateId){ closeModal("projectModal"); if(!makeInvoiceForEstimate(p.estimateId)) openProjectModal(p.id); } }
   else if(el.dataset.pmAction==="open-co"){ closeModal("projectModal"); openEstimate(el.dataset.id); }
   else if(el.dataset.pmAction==="calendar-sync") syncProjectCalendarNow(EDITING_PROJECT_ID);
 }

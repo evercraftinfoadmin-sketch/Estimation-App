@@ -244,6 +244,13 @@ function updateBuilderMeta(){
   const count=saved ? estimateOptions(saved).length : 1;
   $("btnAddOption").hidden=count>=MAX_OPTIONS || co;
   $("btnSaveEstimate").textContent=co ? "Save Change Order" : "Save Estimate";
+  // Make Invoice / View Invoice: one invoice per signed estimate (change orders go on it).
+  const invBtn=$("btnInvoice");
+  const inv=saved && !co && !saved.legacy ? invoiceForEstimate(saved.id) : null;
+  invBtn.hidden=!saved || co || saved.legacy;
+  invBtn.textContent=inv ? `🧾 View Invoice ${inv.invoiceNumber}` : "🧾 Make Invoice";
+  invBtn.title=inv ? `Open invoice ${inv.invoiceNumber} (${invoicePaymentStatus(inv).label})`
+    : saved && estimateIsAgreed(saved) ? "Make an invoice from this signed estimate" : "Available once the client signs this estimate (or it is marked Accepted)";
   $("btnRemoveOption").hidden=count<2;
   if(count>=2) $("btnRemoveOption").textContent=`🗑 Remove ${saved.optionLabel || "this option"} (${saved.estimateNumber})`;
   $("btnAddOption").textContent=count<2 ? "+ Add Option B (give the client a choice)" : `+ Add Option ${"ABCDE"[count]}`;
@@ -900,7 +907,7 @@ function renderSavedEstimates(){
           <button class="btn btn-light btn-sm" data-action="pdf">PDF</button>
           <button class="btn btn-light btn-sm" data-action="email">Email</button>
           <button class="btn btn-light btn-sm" data-action="crm">${hasProject?"Open CRM Project":"Create CRM Project"}</button>
-          ${e.changeOrderOf ? "" : `<button class="btn btn-light btn-sm" data-action="invoice">${invoicesForEstimate(e.id).length?"Open Invoice":"Create Invoice"}</button>`}
+          ${e.changeOrderOf ? "" : `<button class="btn btn-light btn-sm" data-action="invoice">${invoiceForEstimate(e.id)?"View Invoice":"Make Invoice"}</button>`}
           ${!e.changeOrderOf && !e.legacy && ["accepted","completed"].includes(e.status) ? `<button class="btn btn-light btn-sm" data-action="change-order">+ Change Order</button>` : ""}
           <button class="btn btn-danger btn-sm" data-action="delete">Delete</button>
         </div>

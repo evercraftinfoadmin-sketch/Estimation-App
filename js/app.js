@@ -62,6 +62,15 @@ function wireEvents(){
   $("btnSign").hidden=!signServiceUrl();
   $("btnSign").addEventListener("click",sendEstimateForSignature);
   $("btnEmail").addEventListener("click",emailEstimate);
+  $("btnInvoice").addEventListener("click",()=>{
+    if(!BUILDER.id) return;
+    // The invoice copies the saved estimate, so unsaved changes are saved first.
+    if(hasUnsavedChanges()){
+      if(!confirm("The invoice is made from the saved estimate. Save your changes first?")) return;
+      if(!saveEstimate()) return;
+    }
+    makeInvoiceForEstimate(BUILDER.id);
+  });
   $("btnReset").addEventListener("click",resetBuilder);
   $("pmPhotos").addEventListener("photos-changed",()=>fillCrmPhotoCounts());
   $("customServiceForm").addEventListener("submit",e=>{ e.preventDefault(); submitCustomService(); });
