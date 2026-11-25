@@ -399,11 +399,7 @@ a.btn{text-decoration:none}
 .calv-chips{display:flex;flex-direction:column;gap:2px}
 .calv-chip{display:block;width:100%;text-align:left;border:0;border-left:3px solid var(--cal);background:color-mix(in srgb,var(--cal) 14%,#fff);color:var(--text);border-radius:4px;padding:2px 4px;font:inherit;font-size:11px;line-height:1.3;white-space:normal;overflow-wrap:anywhere;cursor:pointer}
 .calv-count{display:inline-block;min-width:16px;padding:0 5px;border-radius:999px;background:#e5e7eb;color:#374151;font-size:10px;font-weight:700;text-align:center}
-.calv-list{display:none}
-.calv-lday{border-left:3px solid var(--line);padding:6px 0 6px 10px;margin-bottom:6px}
-.calv-lday.calv-today{border-left-color:var(--primary)}
-.calv-lhead{font-weight:700;font-size:13px;margin-bottom:4px}
-.calv-lday .calv-chip{font-size:13px;padding:4px 6px}
+
 .calv-time{font-weight:700}
 .calv-dots{display:none;gap:3px;flex-wrap:wrap}
 .calv-day h2{margin-top:0}
@@ -412,10 +408,11 @@ a.btn{text-decoration:none}
 .calv-item-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .calv-item-title{font-weight:700;overflow-wrap:anywhere}
 @media (max-width:700px){
+  /* Phones: the 7-day agenda replaces the month grid, the calendar boxes and the day details. */
+  .calv-grid,.calv-legend,.calv-bar,.calv-day{display:none !important}
   .calv-cell{min-height:52px}
   .calv-grid .calv-chips{display:none}
   .calv-dots{display:flex}
-  .calv-list{display:block;margin-top:12px}
   .calv-item{flex-direction:column;gap:2px}
 }
 #confirmModal{z-index:120}
@@ -441,6 +438,35 @@ a.btn{text-decoration:none}
 #optionPickModal{z-index:115}
 .opt-pick{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
 .calv-num{align-self:flex-start}
+
+/* Calendar on phones (js/calview.js renderCalViewPhone) */
+.calv-phone{display:none}
+.calv-people{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
+.calv-person{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font:inherit;font-size:14px;font-weight:600;color:var(--text)}
+.calv-person.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.calv-person .calv-dot{background:var(--cal,#9ca3af)}
+.calv-pnav{display:flex;gap:6px;margin-bottom:8px}
+.calv-pnav .btn{flex:1}
+.calv-jobs{margin:0 0 10px;font-size:14px}
+.calv-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:12px;position:sticky;top:0;z-index:2;background:var(--card,#fff);padding:4px 0}
+.calv-sday{border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 0;display:flex;flex-direction:column;align-items:center;font:inherit;color:var(--text);min-width:0}
+.calv-stoday{border-color:var(--primary);background:var(--primary-soft)}
+.calv-swd{font-size:11px;color:var(--muted);font-weight:700}
+.calv-snum{font-size:17px;font-weight:800;line-height:1.2}
+.calv-sn{font-size:11px;font-weight:700;color:var(--primary-text);min-height:14px}
+.calv-pday{margin-bottom:16px;scroll-margin-top:70px}
+.calv-phead{font-size:16px;font-weight:800;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.calv-ptoday{background:var(--primary);color:#fff;border-radius:999px;font-size:12px;padding:1px 8px}
+.calv-pcard{display:flex;gap:12px;border:1px solid var(--line);border-left:5px solid var(--cal);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#fff;cursor:pointer}
+.calv-ptime{flex:none;width:58px;font-size:18px;font-weight:800;line-height:1.1}
+.calv-ptime span{display:block;font-size:12px;font-weight:700;color:var(--muted)}
+.calv-pbody{flex:1;min-width:0}
+.calv-ptitle{font-size:16px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+.calv-pmeta{font-size:13px;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.calv-pmeta .calv-dot{background:var(--cal)}
+.calv-pmeta a{color:var(--primary-text)}
+.calv-pnone{margin:0 0 4px;font-size:14px}
+@media (max-width:700px){ .calv-phone{display:block} }
 
 /* Change orders */
 .co-badge{display:inline-block;margin-top:3px;background:#fff7ed;color:#9a3412;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700}
