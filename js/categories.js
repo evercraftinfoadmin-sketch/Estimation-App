@@ -58,6 +58,7 @@ function getCustomCategory(id){
 
 // Current name of a category; `fallback` is used when a custom category was deleted.
 function categoryLabel(key, fallback){
+  if(key===CREDIT_CATEGORY) return "Credit (work removed)";
   const main=MAIN_CATEGORIES.find(c=>c.key===key);
   if(main) return main.label;
   const custom=getCustomCategory(key);

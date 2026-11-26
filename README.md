@@ -21,6 +21,33 @@ Save, Print / PDF, Email Client, Reset.
 (draft, sent, accepted, rejected, completed), and Open / Edit, Duplicate, Print, Email,
 Create / Open CRM Project and Delete. Estimate numbers (EST-2026-1001, 1002, …) are never duplicated.
 
+**Change Orders**: extra work or work removed after the client agreed to an estimate. Use
+**+ Change Order** on an accepted estimate (Saved Estimates, the Estimate Builder header), on the
+CRM project window, or on a Client / Job or Start the Project card. The builder opens a change
+order for the same client, address, project and tax rate, numbered after the original
+(EST-2026-1042-CO1, -CO2, …). Add the extra work under the normal categories and the work taken out
+under **Credit (work removed)**: those lines are subtracted, so a change order can be negative. The
+side panel shows the original contract, previously approved change orders and the new contract
+total, and so do the PDF and the email. Send, email or send it for signature like an estimate; a
+signed change order is Accepted automatically. Accepted change orders are added to the CRM project's
+total (the card shows "🔁 N change orders"), and a new invoice for the job includes their lines.
+The CRM project stays linked to the original estimate. Duplicate on a change order makes the next
+change order of the same job.
+
+**Invoices**: one invoice per signed estimate (contract). On the Estimate page, **🧾 Make Invoice**
+makes an invoice from that estimate once the client signed it (or it is marked Accepted); after
+that the button is **View Invoice**. The same button is on Saved Estimates, the CRM project window
+and the job card. The invoice is a separate record: it copies the client, property address, lines,
+tax and accepted change orders, keeps a link to its estimate, CRM project, client and property, and
+editing it never changes the estimate. A client with several signed estimates gets a separate
+invoice for each, with its own payments. A second invoice from the same estimate is refused (the
+existing one opens). In the invoice: edit lines and prices, scope of work, payment terms, amount due
+now (e.g. a deposit), message to the client and internal notes (never sent). **Payment status**:
+*Unpaid* (amount paid $0), *Partially Paid* (enter the amount received; the remaining balance is
+worked out) or *Paid in Full* (balance $0); every payment is listed with its date and method. Print,
+download the PDF or email it; reopen it any time. The client window lists all the client's invoices
+(invoice #, estimate, property, total, payment status, balance).
+
 **Services**: the service database with search, category filter, add, edit, delete and
 enable / disable. The Estimate Builder loads a service's name and default price; changing the
 price in an estimate never changes the default. Custom services can be used once or saved to the list.
@@ -100,6 +127,7 @@ js/address.js       address verification (Google Places loader, autocomplete, st
 js/categories.js    main + custom service categories
 js/services.js      services database & Services page
 js/estimates.js     Estimate Builder, Saved Estimates, Print/PDF, Email
+js/changeorders.js  change orders: numbering, credits, contract total, CRM / invoice / signing pieces
 js/crm.js           CRM pipeline and Estimate ↔ CRM links
 js/photos.js        CRM project photos (IndexedDB, resizing, gallery)
 js/cloud.js         shared cloud data: Base44 sign-in and sync (off without an app id)

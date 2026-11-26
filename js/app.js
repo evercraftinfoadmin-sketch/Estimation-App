@@ -43,6 +43,11 @@ function wireEvents(){
     if(!btn) return;
     if(btn.dataset.action==="open-crm" && BUILDER.crmProjectId){ showPage("crm"); openProjectModal(BUILDER.crmProjectId); }
     if(btn.dataset.action==="add-option") addEstimateOption();
+    if(btn.dataset.action==="create-co" && BUILDER.id){
+      if(hasUnsavedChanges() && !confirm("Save this estimate first, then start the change order?")) return;
+      if(hasUnsavedChanges() && !saveEstimate()) return;
+      createChangeOrder(BUILDER.id);
+    }
     if(btn.dataset.action==="remove-option" && BUILDER.id) deleteEstimate(BUILDER.id);
     if(btn.dataset.action==="open-option" && btn.dataset.id!==BUILDER.id) openEstimate(btn.dataset.id);
     if(btn.dataset.action==="create-crm" && BUILDER.id){
@@ -57,6 +62,15 @@ function wireEvents(){
   $("btnSign").hidden=!signServiceUrl();
   $("btnSign").addEventListener("click",sendEstimateForSignature);
   $("btnEmail").addEventListener("click",emailEstimate);
+  $("btnInvoice").addEventListener("click",()=>{
+    if(!BUILDER.id) return;
+    // The invoice copies the saved estimate, so unsaved changes are saved first.
+    if(hasUnsavedChanges()){
+      if(!confirm("The invoice is made from the saved estimate. Save your changes first?")) return;
+      if(!saveEstimate()) return;
+    }
+    makeInvoiceForEstimate(BUILDER.id);
+  });
   $("btnReset").addEventListener("click",resetBuilder);
   $("pmPhotos").addEventListener("photos-changed",()=>fillCrmPhotoCounts());
   $("customServiceForm").addEventListener("submit",e=>{ e.preventDefault(); submitCustomService(); });

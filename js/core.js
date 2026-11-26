@@ -106,7 +106,13 @@ function escapeHtml(s){
 }
 
 function money(n){
-  return "$"+num(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const v=round2(n);
+  return (v<0 ? "-$" : "$")+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+// A money amount that may be negative (a change order that removes work): -MAX_AMOUNT … MAX_AMOUNT.
+function signedAmount(value){
+  return Math.min(MAX_AMOUNT, Math.max(-MAX_AMOUNT, num(value)));
 }
 
 function formatQty(n){

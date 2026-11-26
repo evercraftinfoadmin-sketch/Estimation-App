@@ -20,12 +20,15 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   const est=await p.evaluate(()=>loadEstimates()[0]);
   ok(est.customerTotal===3000 && est.markup===0 && est.markupAmount===0,'estimate saved: total $3,000 (no markup)');
 
-  // Saved Estimates → Create Invoice
+  // Saved Estimates → Make Invoice (only from a signed / accepted estimate)
   await p.click('#mainNav [data-page=invoices]');
   ok(await p.isVisible('#page-invoices') && (await p.innerText('#invoicesEmpty')).includes('No invoices yet'),'Invoices page exists and starts empty');
   await p.click('#mainNav [data-page=estimates]');
   const invBtn=p.locator('#estimatesBody tr',{hasText:est.estimateNumber}).locator('[data-action=invoice]');
-  ok((await invBtn.textContent())==='Create Invoice','saved estimate offers Create Invoice');
+  ok((await invBtn.textContent())==='Make Invoice','saved estimate offers Make Invoice');
+  await invBtn.click();
+  ok(dialogs.at(-1).includes('is not signed yet') && !(await p.isVisible('#invoiceModal')),'a draft (unsigned) estimate cannot be invoiced yet');
+  await p.locator('#estimatesBody tr',{hasText:est.estimateNumber}).locator('[data-action=status]').selectOption('accepted');
   await invBtn.click();
   ok(await p.isVisible('#invoiceModal'),'invoice editor opens');
   ok(await p.inputValue('#invNumber')===`INV-${year}-1001` && await p.inputValue('#invClientName')==='Ann Lee' && await p.inputValue('#invAddress')==='1 Main St','invoice # INV-YEAR-1001, client and address copied');
@@ -45,7 +48,7 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   await p.click('[data-inv=pay-fill][data-share="10"]');
   ok(await p.inputValue('#invPayAmount')==='320','Deposit 10% fills $320');
   await p.selectOption('#invPayMethod','Zelle'); await p.click('[data-inv=add-payment]');
-  ok(await p.textContent('#invBalance')==='$2,880.00' && await p.textContent('#invStatus')==='Partially paid','after the deposit: balance $2,880, Partially paid');
+  ok(await p.textContent('#invBalance')==='$2,880.00' && await p.textContent('#invStatus')==='Partially Paid','after the deposit: balance $2,880, Partially paid');
   await p.click('#invoiceForm button[type=submit]');
   ok(!(await p.isVisible('#invoiceModal')),'Save Invoice closes the editor');
   let list=await invoices();
@@ -54,15 +57,15 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   // Invoices page row; reopen via saved estimate shows the same invoice
   await p.click('#mainNav [data-page=invoices]');
   const row=p.locator('#invoicesBody tr',{hasText:`INV-${year}-1001`});
-  ok(await row.count()===1 && (await row.innerText()).includes('Partially paid') && (await p.innerText('#invoicesSummary')).includes('$2,880.00'),'Invoices list: row with status and outstanding $2,880');
+  ok(await row.count()===1 && (await row.innerText()).includes('Partially Paid') && (await p.innerText('#invoicesSummary')).includes('$2,880.00'),'Invoices list: row with status and outstanding $2,880');
   await p.click('#mainNav [data-page=estimates]');
-  ok((await invBtn.textContent())==='Open Invoice','saved estimate now offers Open Invoice');
+  ok((await invBtn.textContent())==='View Invoice','saved estimate now offers View Invoice');
   await invBtn.click();
-  ok(await p.inputValue('#invNumber')===`INV-${year}-1001`,'Open Invoice opens the existing invoice (no duplicate)');
+  ok(await p.inputValue('#invNumber')===`INV-${year}-1001`,'View Invoice opens the existing invoice (no duplicate)');
   await p.click('[data-inv=pay-fill][data-share="0"]');
   ok(await p.inputValue('#invPayAmount')==='2880','Full balance fills $2,880');
   await p.click('[data-inv=add-payment]');
-  ok(await p.textContent('#invBalance')==='$0.00' && await p.textContent('#invStatus')==='Paid','fully paid: balance $0, Paid');
+  ok(await p.textContent('#invBalance')==='$0.00' && await p.textContent('#invStatus')==='Paid in Full','fully paid: balance $0, Paid in Full');
 
   // print and email
   const n0=await p.evaluate(()=>window.__prints);
@@ -82,7 +85,7 @@ let pass=0,fail=0; const ok=(c,m)=>{c?pass++:fail++;console.log((c?'PASS ':'FAIL
   await p.click('#mainNav [data-page=crm]'); await p.click('#btnNewLead'); await p.fill('#pmClientName','Bob Job');
   await p.selectOption('#pmStage','completed'); await p.click('#projectForm button[type=submit]'); await p.waitForTimeout(200);
   const card=p.locator('.kcard',{hasText:'Bob Job'});
-  ok((await card.locator('[data-action=invoice]').textContent())==='Create Invoice','completed job card shows Create Invoice');
+  ok((await card.locator('[data-action=invoice]').textContent())==='Make Invoice','completed job card shows Make Invoice');
   await card.locator('[data-action=invoice]').click();
   ok(await p.inputValue('#invNumber')===`INV-${year}-1002` && await p.inputValue('#invClientName')==='Bob Job' && await p.locator('#invItems tr[data-id]').count()===0,'job without estimate: invoice INV-YEAR-1002 with client, no lines');
   await p.click('[data-inv=add-line]');

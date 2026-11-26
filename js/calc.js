@@ -3,7 +3,7 @@
 /* The single calculation engine. Every screen, saved record, print and email
    uses computeEstimateTotals(); nothing else does estimate math.
 
-   line total   = quantity × price
+   line total   = quantity × price (negative for a credit line of a change order)
    subtotal     = sum of all category totals (Drywall, Stucco, Painting + custom categories)
    taxAmount    = subtotal × taxRate / 100
    grandTotal   = subtotal + taxAmount
@@ -11,6 +11,9 @@
    There is no markup: the service prices are the prices. Records keep markup = 0 and
    markupAmount = 0 so older saved data and the cloud tables stay compatible; an older record
    that had a markup is recalculated without it when it is opened and saved again. */
+// Change orders: lines in this category are work removed from the job; they are subtracted.
+const CREDIT_CATEGORY = "credit";
+
 function computeEstimateTotals({items, taxRate}){
   const categoryTotals={};
   MAIN_CATEGORY_KEYS.forEach(k=>{ categoryTotals[k]=0; });
@@ -20,7 +23,7 @@ function computeEstimateTotals({items, taxRate}){
     .map(it=>{
       const quantity=amount(it.quantity);
       const price=amount(it.price);
-      const total=round2(quantity*price);
+      const total=it.category===CREDIT_CATEGORY ? 0-round2(quantity*price) : round2(quantity*price);
       categoryTotals[it.category]=round2((categoryTotals[it.category]||0)+total);
       return {...it,quantity,price,total};
     });

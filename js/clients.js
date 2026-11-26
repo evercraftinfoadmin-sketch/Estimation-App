@@ -396,6 +396,9 @@ function renderClientProperties(){
   };
   const active=all.filter(r=>!r.archived), archived=all.filter(r=>r.archived);
   const noAddr=projects.filter(p=>!p.propertyId || !all.some(r=>r.id===p.propertyId));
+  const invoices=clientInvoices(id);
+  $("clInvoices").innerHTML=invoices.length ? invoiceRowsHtml(invoices,"data-cl-invoice")
+    : `<p class="small muted">No invoices yet. Open a signed estimate of this client and press Make Invoice.</p>`;
   $("clProperties").innerHTML=(active.map(card).join("") || `<p class="muted">No addresses yet.</p>`)
     +(noAddr.length ? `<div class="cl-prop cl-prop-review"><div class="small"><b>Projects without a property address</b> (need an address)</div><ul class="cl-projects">${noAddr.map(projectRowHtml).join("")}</ul></div>` : "")
     +(archived.length ? `<details class="cl-archived"><summary>${archived.length} archived address${archived.length===1?"":"es"}</summary>${archived.map((r,i)=>card(r,active.length+i)).join("")}</details>` : "");
@@ -663,6 +666,8 @@ function wireClientEvents(){
     if(row) openClientProfile(row.dataset.client);
   });
   $("clientModal").addEventListener("click",e=>{
+    const ci=e.target.closest("[data-cl-invoice]");
+    if(ci){ closeModal("clientModal"); openInvoiceEditor(ci.dataset.clInvoice); return; }
     const pj=e.target.closest("[data-cl-project]");
     if(pj){ closeModal("clientModal"); showPage("crm"); openProjectModal(pj.dataset.clProject); return; }
     const act=e.target.closest("[data-cl-action]");
