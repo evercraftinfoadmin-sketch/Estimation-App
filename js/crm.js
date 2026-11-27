@@ -130,8 +130,12 @@ function loadProjects(){
 }
 
 function saveProjects(list){
+  const before=readStore(STORAGE_KEYS.crm,[]);
   const ok=writeStore(STORAGE_KEYS.crm,list);
-  if(ok) scheduleCalendarScan(); // the Google Calendar follows the CRM
+  if(ok){
+    recordListChanges("projects",before,list); // the lead's activity history (js/activity.js)
+    scheduleCalendarScan(); // the Google Calendar follows the CRM
+  }
   return ok;
 }
 
@@ -537,6 +541,7 @@ function renderCrmBoard(){
       </div>`;
   }).join("");
   fillCrmPhotoCounts();
+  renderLeadPage(); // a lead opened by its link shows the change too
 }
 
 function handleCrmBoard(event){
@@ -628,6 +633,7 @@ function openProjectModal(id, focusField, prefill){
   $("pmDelete").hidden=!id;
   preparePmClient(p,id ? null : prefill);
   setPhotoGalleryOwner($("pmPhotos"),"project",id ? p.id : "","Save the lead first, then add photos.");
+  renderProjectHistory(id ? p.id : "");
 
   openModal("projectModal");
   (focusField ? $(focusField) : $("pmClientName")).focus();

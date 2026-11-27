@@ -46,7 +46,9 @@ function serve(email, entity, op, args){
     case 'filter': {
       if(!isMember(u)) return []; // RLS: rows are invisible
       const [q,sort,limit=50,skip=0]=args;
-      return clone(t.filter(r=>match(r,q)).slice(skip,skip+limit));
+      const rows=t.filter(r=>match(r,q));
+      if(sort==='-created_date') rows.sort((a,b)=>String(b.created_date).localeCompare(String(a.created_date))); // newest first, as Base44
+      return clone(rows.slice(skip,skip+limit));
     }
     case 'get': { if(!isMember(u)) throw err(404); const r=t.find(x=>x.id===args[0]); if(!r) throw err(404); return clone(r); }
     case 'create': {
@@ -530,6 +532,33 @@ const remote=(e,lid)=>table(e).find(r=>r.legacy_id===lid);
     await ADM.setInputFiles('#migrationFile',{name:'x.json',mimeType:'application/json',buffer:Buffer.from('{"nope":1}')});
     await ADM.waitForTimeout(300);
     ok((await ADM.textContent('#migrationStatus')).includes('not a backup file'),'M: a wrong file is refused');
+  }
+
+  // 15. lead activity history: its own append-only table, shared by everyone
+  {
+    await sync(A); await sync(B);
+    await A.evaluate(()=>{ const l=loadProjects(); l.push(newProjectRecord({id:'x',clientName:'TEST History Lead',stage:'lead'})); saveProjects(l); });
+    const hid=await A.evaluate(()=>loadProjects().find(p=>p.clientName==='TEST History Lead').id);
+    await sync(A);
+    const rec=table('Activity').find(r=>r.projectId===hid);
+    ok(rec && rec.title==='Lead created' && rec.actor==='a@test' && rec.legacy_id && rec.version===1,'15: a history event is saved to the shared Activity table, with who did it');
+    await sync(B);
+    ok(await B.evaluate(id=>activityForProject(id).some(a=>a.title==='Lead created' && a.actor==='a@test'),hid),'15: another employee sees the history of the lead');
+    await B.evaluate(id=>updateProject(id,{assignedTechnician:'Yura'}),hid);
+    await sync(B); await sync(A);
+    const tA=await A.evaluate(id=>activityForProject(id).map(a=>a.title+' / '+a.actor),hid);
+    ok(tA.length===2 && tA.includes('Assigned to Yura / b@test') && tA.includes('Lead created / a@test'),'15: changes made by others appear in the history, with who made them');
+    // the same signature noticed on two computers before either synced: recorded once
+    const ev={id:'act-sig-'+'d'.repeat(64)+'-signed',projectId:hid,kind:'signed',title:'Estimate signed by the client',actor:'Client: X',at:'2026-11-20T10:00:00.000Z'};
+    await A.evaluate(e=>logActivities([e]),ev); await B.evaluate(e=>logActivities([e]),ev);
+    await sync(A); await sync(B); await sync(A);
+    const nA=await A.evaluate(id=>activityForProject(id).filter(a=>a.kind==='signed').length,hid), nB=await B.evaluate(id=>activityForProject(id).filter(a=>a.kind==='signed').length,hid);
+    ok(nA===1 && nB===1,'15: an event noticed by two computers shows once on each');
+    const f0=calls.filter(c=>c.email==='a@test' && c.entity==='Activity').length;
+    await sync(A);
+    const f=calls.filter(c=>c.email==='a@test' && c.entity==='Activity').slice(f0);
+    ok(f.length===1 && f[0].op==='filter','15: a check with nothing new costs one request ('+f.map(c=>c.op).join(',')+')');
+    ok(table('Activity').every(r=>!('deletedAt' in r) || !r.deletedAt) && calls.filter(c=>c.entity==='Activity' && c.op==='update').length===0,'15: history events are never changed');
   }
 
   // 14. app still works with cloud on

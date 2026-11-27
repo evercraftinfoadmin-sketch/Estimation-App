@@ -5,13 +5,18 @@
 const PAGES = ["builder","estimates","services","crm","clients","calendar","invoices","signatures","settings"];
 
 function showPage(name){
-  if(!PAGES.includes(name)) name="builder";
+  // "lead=<id>": one lead card on its own (a shared lead link, js/activity.js).
+  const leadId=leadIdFromHash(name);
+  const hash=leadId ? "lead="+encodeURIComponent(leadId) : name;
+  if(leadId) name="lead";
+  else if(!PAGES.includes(name)) name="builder";
   PAGES.forEach(p=>{ $(`page-${p}`).hidden=p!==name; });
+  $("page-lead").hidden=name!=="lead";
   document.querySelectorAll("#mainNav [data-page]").forEach(btn=>{
     btn.classList.toggle("active",btn.dataset.page===name);
     btn.setAttribute("aria-current",btn.dataset.page===name ? "page" : "false");
   });
-  if(location.hash!=="#"+name) history.replaceState(null,"","#"+name);
+  if(location.hash!=="#"+hash) history.replaceState(null,"","#"+hash);
 
   if(name==="estimates") renderSavedEstimates();
   else if(name==="services") renderServicesPage();
@@ -22,6 +27,7 @@ function showPage(name){
   else if(name==="signatures") renderSignaturesPage();
   else if(name==="settings") loadSettingsForm();
   else if(name==="builder") updateBuilderMeta();
+  else if(name==="lead"){ showLeadPage(leadId); refreshSignatures(); }
   window.scrollTo(0,0);
 }
 
@@ -153,6 +159,7 @@ function init(){
   wireCalendarEvents();
   wireCalendarPage();
   wireSignEvents();
+  wireActivityEvents();
   wireCloudEvents();
   newEstimate();
   showPage(location.hash.slice(1) || "builder");

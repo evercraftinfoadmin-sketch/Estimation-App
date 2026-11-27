@@ -80,7 +80,12 @@ function loadInvoices(){
   const list=readStore(STORAGE_KEYS.invoices,[]);
   return Array.isArray(list) ? list.filter(i=>i && i.id).map(normalizeInvoice) : [];
 }
-function saveInvoices(list){ return writeStore(STORAGE_KEYS.invoices,list); }
+function saveInvoices(list){
+  const before=readStore(STORAGE_KEYS.invoices,[]);
+  const ok=writeStore(STORAGE_KEYS.invoices,list);
+  if(ok) recordListChanges("invoices",before,list); // the lead's activity history (js/activity.js)
+  return ok;
+}
 function getInvoice(id){ return loadInvoices().find(i=>i.id===id) || null; }
 
 // Totals come from the same engine as estimates; payments give Paid and Balance due.
@@ -635,6 +640,7 @@ function emailInvoice(inv){
     filename:invoicePdfName(inv),
     render:()=>renderInvoicePrint(inv),
     sign,
+    activity:{projectId:activityProjectFor(inv,loadProjects()),what:`Invoice ${inv.invoiceNumber}`},
     fallback:({to,subject:subj,extraText})=>viaGmail(to,subj,extraText||""),
     onSent:()=>{ markInvoiceSent(); if(sign) renderCrmBoard(); }
   });

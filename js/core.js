@@ -11,7 +11,9 @@ const STORAGE_BASE_KEYS = {
   invoices: "constructionEstimatorInvoices",
   // Clients and their properties (js/clients.js)
   clients: "evercraftClients",
-  properties: "evercraftProperties"
+  properties: "evercraftProperties",
+  // Lead activity history (js/activity.js): append-only events
+  activity: "evercraftActivity"
 };
 
 // With shared cloud data, each Base44 app (test / production) keeps its own copy of the data

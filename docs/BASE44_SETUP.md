@@ -153,3 +153,13 @@ Access depends on the **`crm_role`** field of each Base44 user:
 4. Put the production app id and URL in the deployed `js/config.js`.
 5. Upload the real data from one browser with **Upload local data** (a backup is downloaded first).
 6. Check the counts.
+
+## Activity table (lead history)
+
+The lead history (js/activity.js) is shared through its own table, **Activity**
+(`docs/base44-activity-entity.json`). Events are only ever added: members can create and read
+them; only owners/admins can change or (soft) delete them.
+
+Until the table exists in an app, the CRM keeps working and the history stays on each device
+(the sync shows "Activity: … is the table set up in Base44?"). After the table is created, each
+device uploads the events it recorded since it first synced the history.

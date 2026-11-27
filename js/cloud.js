@@ -60,6 +60,11 @@ const CLOUD_SETTINGS_FIELDS = ["companyName","companyEmail","companyPhone","comp
 // Settings kept in the CompanySettings record's "extra" field (no table change needed).
 const CLOUD_SETTINGS_EXTRA = ["signTextEstimate","signTextWork","signTextCompletion",
   "calendarEnabled","calendarSince","calendarMain","calendarTeam","calendarOnCancel"];
+// Lead activity history (js/activity.js): append-only, synced by cloudSyncActivity (not a
+// CLOUD_LISTS list: events are never edited, so only new ones are read and written).
+const ACTIVITY_ENTITY = "Activity";
+const ACTIVITY_FIELDS = ["projectId","kind","title","details","actor","at","createdAt"];
+const ACTIVITY_PAGE = 100;
 // Fields Base44 adds to every record.
 const CLOUD_SYSTEM_FIELDS = new Set(["id","legacy_id","version","extra","deletedAt","created_date","updated_date",
   "created_by_id","created_by","is_sample","app_id","entity_name"]);
@@ -450,6 +455,52 @@ async function cloudSyncList(def, meta, opts){
   return {changed, conflicts, unmigrated:Object.keys(unmigrated).length};
 }
 
+// The activity history: events are only ever added. Reads the newest events first and stops at
+// the first page with nothing new (one request on a normal check); uploads events made here.
+// Events recorded before this browser first synced the history are old local data: they are
+// uploaded only with "Upload local data", like the leads they belong to.
+async function cloudSyncActivity(meta, opts){
+  const api=CLOUD.client.entities[ACTIVITY_ENTITY];
+  const st=meta.activity=meta.activity || {since:"", up:{}};
+  if(!st.since) st.since=nowISO();
+  const local=readStore(STORAGE_KEYS.activity,[]);
+  const have=new Set((Array.isArray(local) ? local : []).filter(a=>a && a.id).map(a=>String(a.id)));
+  const added=[], removed=new Set();
+  for(let skip=0; skip<100000; skip+=ACTIVITY_PAGE){
+    const page=await api.filter({}, "-created_date", ACTIVITY_PAGE, skip);
+    if(!Array.isArray(page)) break;
+    let fresh=0;
+    for(const r of page){
+      if(!r || !r.legacy_id) continue;
+      const lid=String(r.legacy_id);
+      if(r.deletedAt){ if(have.has(lid) && st.up[lid]){ removed.add(lid); delete st.up[lid]; } continue; } // removed by an admin
+      if(st.up[lid] && have.has(lid)) continue;
+      st.up[lid]=1;
+      if(have.has(lid)) continue;
+      have.add(lid);
+      added.push(cloudToLocal(r,ACTIVITY_FIELDS));
+      fresh++;
+    }
+    if(!fresh || page.length<ACTIVITY_PAGE) break;
+  }
+  for(const a of Array.isArray(local) ? local : []){
+    if(!a || !a.id || st.up[a.id] || removed.has(String(a.id))) continue;
+    if(String(a.createdAt || "")<st.since && !(opts && opts.uploadLocal)) continue;
+    let created;
+    try{ created=await api.create({...cloudToRemote(a,ACTIVITY_FIELDS), version:1}); }
+    catch(err){ if(cloudFatalError(err)) throw err; cloudRecordFailure(ACTIVITY_ENTITY,a.id,cloudErrorMessage(err)); continue; }
+    if(created && created.id) st.up[a.id]=1;
+  }
+  if((!added.length && !removed.size) || CLOUD.suspended) return false;
+  // Events recorded here while this ran are kept.
+  const now=readStore(STORAGE_KEYS.activity,[]);
+  const list=(Array.isArray(now) ? now : []).filter(a=>a && !removed.has(String(a.id)));
+  const ids=new Set(list.map(a=>String(a.id)));
+  for(const a of added) if(!ids.has(a.id)){ ids.add(a.id); list.push(a); }
+  cloudWriteLocal(STORAGE_KEYS.activity,list);
+  return true;
+}
+
 async function cloudSyncSettings(meta){
   const api=CLOUD.client.entities.CompanySettings;
   const rows=(await api.filter({legacy_id:"company"})).filter(r=>!r.deletedAt);
@@ -536,6 +587,14 @@ async function cloudSyncOnce(){
       unmigrated+=res.unmigrated;
       pendingBy[def.entity]=res.unmigrated;
     }
+    // The leads' activity history. A table not set up in Base44 yet does not stop the sync:
+    // the history then stays in this browser until it is.
+    try{
+      if(await cloudSyncActivity(meta,opts)) changed=true;
+    }catch(err){
+      if(cloudFatalError(err)) throw err;
+      cloudRecordFailure(ACTIVITY_ENTITY,"",`${ACTIVITY_ENTITY}: ${cloudErrorMessage(err)} (is the table set up in Base44?)`);
+    }
     // Settings and the estimate counter: on the first sync, after a local change to settings or
     // estimates, and every few minutes.
     if(!meta.initialized || CLOUD.settingsDirty || Date.now()-(CLOUD.settingsSyncedAt || 0)>CLOUD_SETTINGS_EVERY_MS){
@@ -608,12 +667,14 @@ function refreshVisibleData(){
   else if(page==="crm") renderCrmBoard();
   else if(page==="invoices") renderInvoicesPage();
   else if(page==="builder") updateBuilderMeta();
+  else if(leadIdFromHash(page)) renderLeadPage();
 }
 
 function setCloudState(state, message=""){
   CLOUD.state=state;
   CLOUD.message=message;
   renderCloudStatus();
+  if(typeof renderLeadPage==="function") renderLeadPage(); // a lead link waits for the sign-in
 }
 
 function renderCloudStatus(){
@@ -915,14 +976,14 @@ async function startCloudSession(){
   CLOUD.role=["owner","admin","member"].includes(role) ? role : "";
   let returnPage="";
   try{ returnPage=sessionStorage.getItem(CLOUD_RETURN_PAGE_KEY) || ""; sessionStorage.removeItem(CLOUD_RETURN_PAGE_KEY); }catch(e){}
-  if(returnPage && PAGES.includes(returnPage)) showPage(returnPage);
+  if(returnPage && (PAGES.includes(returnPage) || leadIdFromHash(returnPage))) showPage(returnPage);
   if(!CLOUD.role){ setCloudState("no_access"); return; }
   if(!$("page-settings").hidden) renderTeamCard();
   if(CLOUD.started) return cloudSync();
   CLOUD.started=true;
 
   // Every save in the app schedules an upload of the changed lists.
-  const syncedKeys=new Set([...CLOUD_LISTS.map(d=>d.key),STORAGE_KEYS.settings]);
+  const syncedKeys=new Set([...CLOUD_LISTS.map(d=>d.key),STORAGE_KEYS.settings,STORAGE_KEYS.activity]);
   const appWriteStore=writeStore;
   cloudWriteLocal=(key,value)=>CLOUD.suspended ? false : appWriteStore(key,value);
   writeStore=function(key,value){
@@ -940,7 +1001,7 @@ async function startCloudSession(){
   window.addEventListener("online",()=>scheduleCloudSync(200));
   // Realtime: a change by someone else triggers a sync right away (polling stays as the safety net).
   cloudUseToken(cloudStoredToken());
-  for(const name of [...CLOUD_LISTS.map(d=>d.entity),"CompanySettings"]){
+  for(const name of [...CLOUD_LISTS.map(d=>d.entity),ACTIVITY_ENTITY,"CompanySettings"]){
     try{
       const api=CLOUD.client.entities[name];
       if(api && typeof api.subscribe==="function") CLOUD.unsubscribers.push(api.subscribe(()=>{ if(name==="CompanySettings") CLOUD.settingsDirty=true; scheduleCloudSync(1000); }));

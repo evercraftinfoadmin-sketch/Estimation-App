@@ -151,10 +151,10 @@ function signLinkLine(docLabel, url){
 }
 
 // Emails a signing link: Send window when the CRM sends email itself, otherwise Gmail / the mail app.
-function sendSignLink({to, subject, text, title, pdfName, render}){
+function sendSignLink({to, subject, text, title, pdfName, render, activity}){
   const viaGmail=(t=to,s=subject)=>{ openMailto(t,s,text); downloadPdfsForGmail([{filename:pdfName,render}]); };
   if(canSendFromCrm()){
-    openSendMail({title, to, subject, text, filename:pdfName, render, fallback:({to:t,subject:s})=>viaGmail(t,s)});
+    openSendMail({title, to, subject, text, filename:pdfName, render, activity, fallback:({to:t,subject:s})=>viaGmail(t,s)});
   }else{
     viaGmail();
   }
@@ -195,7 +195,8 @@ async function sendOptionsForSignature(ds){
   const viaGmail=(t=first.clientEmail,s=subject)=>{ openMailto(t,s,text); downloadPdfsForGmail(files); };
   if(canSendFromCrm()){
     openSendMail({title:`Send ${ds.length} options for signature`, to:first.clientEmail, subject, text,
-      attachments:files, fallback:({to:t,subject:s})=>viaGmail(t,s)});
+      attachments:files, activity:{projectId:activityProjectFor(first,loadProjects()),what:`Estimate options ${ds.map(d=>d.optionLabel).join(", ")} for signature`},
+      fallback:({to:t,subject:s})=>viaGmail(t,s)});
   }else{
     viaGmail();
   }
@@ -238,7 +239,8 @@ async function signOneEstimate(d, est){
   issueEstimateNumber(d.estimateNumber);
   sendSignLink({to:d.clientEmail,subject:`Please sign: ${companyName()} ${kind} ${d.estimateNumber}`,
     text:signEmailText(d.clientName,`${kind.toLowerCase()} ${d.estimateNumber}`,res.url),title:`Send ${kind.toLowerCase()} ${d.estimateNumber} for signature`,
-    pdfName:estimatePdfName(d),render:()=>renderPrintView(d)});
+    pdfName:estimatePdfName(d),render:()=>renderPrintView(d),
+    activity:{projectId:activityProjectFor(est,loadProjects()),what:`${estimateDocLabel(est)} signing link`}});
   renderCrmBoard();
 }
 
@@ -258,7 +260,7 @@ async function sendProjectDocument(projectId, type){
   if(res.error){ alert(res.error); return; }
   sendSignLink({to:email,subject:`Please sign: ${SIGN_TYPES[type].label} - ${companyName()}`,
     text:signEmailText(p.clientName,SIGN_TYPES[type].label,res.url),title:`Send ${SIGN_TYPES[type].label} for signature`,
-    pdfName:"",render:null});
+    pdfName:"",render:null,activity:{projectId:p.id,what:`${signDocLabel(type)} signing link`}});
   renderCrmBoard();
 }
 
