@@ -152,6 +152,13 @@ async function downloadPdfsForGmail(files){
   showToast(list.length>1 ? `${list.length} PDFs saved: attach them to the email in Gmail.` : `${list[0].filename} saved: attach it to the email in Gmail.`);
 }
 
+// The lead's history: "Estimate EST-… emailed to …" (mail.activity: {projectId, what}).
+function logMailActivity(mail, to, note){
+  const a=mail && mail.activity;
+  if(!a || !a.projectId || typeof logActivity!=="function") return;
+  logActivity(a.projectId,"email",`${a.what} emailed to the client`,[to && `To ${to}`,note].filter(Boolean).join(" · "));
+}
+
 function openSendMail(mail){
   SEND_MAIL=mail;
   $("smTitle").textContent=mail.title || "Send email";
@@ -223,6 +230,7 @@ async function submitSendMail(event){
     closeModal("sendMailModal");
     SEND_MAIL=null;
     showToast(`Sent to ${res.to || to} from ${res.from || "the company Gmail"}.`);
+    logMailActivity(mail,res.to || to,"");
     if(mail.onSent) mail.onSent();
   }catch(e){
     setSendStatus("The email was not sent: the mail service could not be reached. Check the internet connection, or use \"Open in Gmail instead\".",true);
@@ -240,6 +248,7 @@ function wireMailEvents(){
     if(signText===null) return;
     closeModal("sendMailModal");
     SEND_MAIL=null;
+    logMailActivity(mail,$("smTo").value.trim(),"Opened in Gmail to send from there (sending is not confirmed by the CRM)");
     if(mail.fallback) mail.fallback({to:$("smTo").value.trim(),subject:$("smSubject").value.trim(),extraText:signText});
   });
 }

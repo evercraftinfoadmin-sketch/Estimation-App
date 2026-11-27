@@ -562,7 +562,10 @@ function loadEstimates(){
 }
 
 function saveEstimates(list){
-  return writeStore(STORAGE_KEYS.estimates,list.map(({legacy,...e})=>e));
+  const before=readStore(STORAGE_KEYS.estimates,[]);
+  const ok=writeStore(STORAGE_KEYS.estimates,list.map(({legacy,...e})=>e));
+  if(ok) recordListChanges("estimates",before,list); // the lead's activity history (js/activity.js)
+  return ok;
 }
 
 function getEstimate(id){
@@ -1164,6 +1167,7 @@ function emailEstimateOptions(ds){
     title:`Send ${ds.length} options (${ds.map(d=>d.estimateNumber).join(", ")})`,
     to:first.clientEmail, subject, text:buildOptionsEmailSummary(ds),
     attachments:files,
+    activity:{projectId:activityProjectFor(first,loadProjects()),what:`Estimate options ${ds.map(d=>d.optionLabel || d.estimateNumber).join(", ")} (${first.estimateNumber})`},
     fallback:({to,subject:subj})=>viaGmail(to,subj)
   });
 }
@@ -1200,6 +1204,7 @@ function emailOneEstimate(d){
     to:d.clientEmail, subject, text:buildEmailSummary(d),
     filename:estimatePdfName(d),
     render:()=>renderPrintView(d),
+    activity:{projectId:activityProjectFor(d,loadProjects()),what:estimateDocLabel(d)},
     fallback:({to,subject:subj})=>viaGmail(to,subj)
   });
 }

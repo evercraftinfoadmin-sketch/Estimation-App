@@ -1,0 +1,26 @@
+{
+ "name": "Activity",
+ "type": "object",
+ "description": "Lead activity history (js/activity.js): one record per event on a CRM lead (created, status, customer details, notes, assigned employee, estimates, signatures, invoices, payments). Append-only: the app only creates records, never changes them. legacy_id = app id (act-xxxx, or act-sig-<signature>-signed / act-pay-<payment> for events several devices can notice).",
+ "properties": {
+  "legacy_id": {"type": "string", "description": "App id of the event (unique)"},
+  "projectId": {"type": "string", "description": "CrmProject.legacy_id of the lead"},
+  "kind": {"type": "string", "description": "created, deleted, customer, status, notes, assigned, schedule, estimate, email, signature_sent, signed, signature_withdrawn, invoice, payment, paid, task, followup, other"},
+  "title": {"type": "string"},
+  "details": {"type": "string"},
+  "actor": {"type": "string", "description": "Who did it: the employee's name or email, or 'Client: <name>' for a signature"},
+  "at": {"type": "string", "description": "When it happened (ISO)"},
+  "createdAt": {"type": "string", "description": "When it was recorded (ISO)"},
+  "version": {"type": "integer", "default": 1},
+  "extra": {"type": "object", "additionalProperties": true},
+  "deletedAt": {"type": "string", "description": "Soft delete timestamp (ISO). Admins only.",
+   "rls": {"write": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}]}}}
+ },
+ "required": ["legacy_id", "projectId"],
+ "rls": {
+  "read": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}, {"user_condition": {"data.crm_role": "member"}}]},
+  "create": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}, {"user_condition": {"data.crm_role": "member"}}]},
+  "update": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}]},
+  "delete": {"$or": [{"user_condition": {"data.crm_role": "owner"}}, {"user_condition": {"data.crm_role": "admin"}}]}
+ }
+}

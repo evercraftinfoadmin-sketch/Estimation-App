@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimate Builder + CRM</title>
 <!-- Bump ?v= on every release so browsers/CDNs never mix old scripts with a new page. -->
-<link rel="stylesheet" href="css/styles.css?v=2026.11.25a">
+<link rel="stylesheet" href="css/styles.css?v=2026.11.27a">
 </head>
 <body>
 
@@ -226,6 +226,11 @@
         <div class="toolbar"><input id="clientSearch" type="search" placeholder="Search name, phone, email or address" aria-label="Search clients"></div>
         <div class="table-wrap"><table class="table"><thead><tr><th>Client</th><th>Contact</th><th class="num">Properties</th><th class="num">Projects</th></tr></thead><tbody id="clientsBody"></tbody></table></div>
       </section>
+    </section>
+
+    <!-- One lead on its own: opened by a shared lead link (#lead=<id>, js/activity.js) -->
+    <section id="page-lead" class="page" hidden>
+      <div id="leadView" class="lead-view"></div>
     </section>
 
     <section id="page-calendar" class="page" hidden>
@@ -557,6 +562,11 @@
 <div id="projectModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
   <form class="modal-box" id="projectForm">
     <div class="modal-head"><h2 id="projectModalTitle">CRM Project</h2><button type="button" class="btn-icon" data-close="projectModal" aria-label="Close">✕</button></div>
+    <div class="btn-row pm-share" id="pmShare" hidden>
+      <button type="button" class="btn btn-light btn-sm" data-pm-share>📤 Share Lead</button>
+      <button type="button" class="btn btn-light btn-sm" data-pm-copy>🔗 Copy Link</button>
+      <span class="small">Opens only this lead. Only people with access to the CRM can open it.</span>
+    </div>
 
     <div class="pm-grid">
       <section>
@@ -663,6 +673,12 @@
     <h3>Photos</h3>
     <p class="small" style="margin-top:-4px">Job photos, before / after, reports. Saved right away.</p>
     <div class="photo-gallery" id="pmPhotos"></div>
+
+    <section id="pmHistorySection" class="pm-history" hidden>
+      <h3>History</h3>
+      <p class="small" style="margin-top:-4px">Everything that happened with this lead, newest first. Recorded automatically; it cannot be edited.</p>
+      <div id="pmHistory"></div>
+    </section>
 
     <div class="btn-row between">
       <button type="button" class="btn btn-danger" id="pmDelete">Delete</button>
@@ -826,26 +842,27 @@
 
 <div id="printView" class="print-view"></div>
 
-<script src="js/config.js?v=2026.11.25a"></script>
-<script src="js/docstyles.js?v=2026.11.25a"></script>
-<script src="js/core.js?v=2026.11.25a"></script>
-<script src="js/calc.js?v=2026.11.25a"></script>
-<script src="js/settings.js?v=2026.11.25a"></script>
-<script src="js/address.js?v=2026.11.25a"></script>
-<script src="js/categories.js?v=2026.11.25a"></script>
-<script src="js/services.js?v=2026.11.25a"></script>
-<script src="js/photos.js?v=2026.11.25a"></script>
-<script src="js/cloud.js?v=2026.11.25a"></script>
-<script src="js/estimates.js?v=2026.11.25a"></script>
-<script src="js/changeorders.js?v=2026.11.25a"></script>
-<script src="js/calendar.js?v=2026.11.25a"></script>
-<script src="js/crm.js?v=2026.11.25a"></script>
-<script src="js/clients.js?v=2026.11.25a"></script>
-<script src="js/calview.js?v=2026.11.25a"></script>
-<script src="js/invoices.js?v=2026.11.25a"></script>
-<script src="js/importer.js?v=2026.11.25a"></script>
-<script src="js/mail.js?v=2026.11.25a"></script>
-<script src="js/signing.js?v=2026.11.25a"></script>
-<script src="js/app.js?v=2026.11.25a"></script>
+<script src="js/config.js?v=2026.11.27a"></script>
+<script src="js/docstyles.js?v=2026.11.27a"></script>
+<script src="js/core.js?v=2026.11.27a"></script>
+<script src="js/calc.js?v=2026.11.27a"></script>
+<script src="js/settings.js?v=2026.11.27a"></script>
+<script src="js/address.js?v=2026.11.27a"></script>
+<script src="js/categories.js?v=2026.11.27a"></script>
+<script src="js/services.js?v=2026.11.27a"></script>
+<script src="js/photos.js?v=2026.11.27a"></script>
+<script src="js/cloud.js?v=2026.11.27a"></script>
+<script src="js/estimates.js?v=2026.11.27a"></script>
+<script src="js/changeorders.js?v=2026.11.27a"></script>
+<script src="js/calendar.js?v=2026.11.27a"></script>
+<script src="js/crm.js?v=2026.11.27a"></script>
+<script src="js/clients.js?v=2026.11.27a"></script>
+<script src="js/calview.js?v=2026.11.27a"></script>
+<script src="js/invoices.js?v=2026.11.27a"></script>
+<script src="js/importer.js?v=2026.11.27a"></script>
+<script src="js/mail.js?v=2026.11.27a"></script>
+<script src="js/signing.js?v=2026.11.27a"></script>
+<script src="js/activity.js?v=2026.11.27a"></script>
+<script src="js/app.js?v=2026.11.27a"></script>
 </body>
 </html>
